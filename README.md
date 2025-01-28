@@ -1,6 +1,6 @@
-# mq_pay
+# MQ Pay
 
-A new Flutter project.
+MQ Pay is a mobile application that allows users to pay motard by scanning the whole momo USSD code. The application is built using Flutter and shared preference as local storage. The application is designed to be used by both customers and motard. The application is still under development and the current version is 1.0.0.
 
 ## Getting Started
 
