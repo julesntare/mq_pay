@@ -1,0 +1,15 @@
+{
+  "@@locale": "sw",
+  "title": "Programu ya USSD",
+  "amount": "Kiasi",
+  "enterAmount": "Weka kiasi",
+  "mobileNumber": "Nambari ya Simu",
+  "momoCode": "Msimbo wa Momo",
+  "generate": "Tengeneza",
+  "scanNow": "Scan Sasa",
+  "reset": "Weka upya",
+  "settings": "Mipangilio",
+  "save": "Hifadhi",
+  "selectLanguage": "Chagua Lugha",
+  "invalidAmount": "Tafadhali weka kiasi halali."
+}

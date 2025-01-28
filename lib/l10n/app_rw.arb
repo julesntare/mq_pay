@@ -1,0 +1,15 @@
+{
+  "@@locale": "rw",
+  "title": "App ya USSD",
+  "amount": "Amafaranga",
+  "enterAmount": "Andika amafaranga",
+  "mobileNumber": "Numero ya Telefone",
+  "momoCode": "Kode ya Momo",
+  "generate": "Kora",
+  "scanNow": "Sikana None",
+  "reset": "Subiramo",
+  "settings": "Igenamiterere",
+  "save": "Bika",
+  "selectLanguage": "Hitamwo Ururimi",
+  "invalidAmount": "Nyamuneka andika amafaranga yemewe."
+}

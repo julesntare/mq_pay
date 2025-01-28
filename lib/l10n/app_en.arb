@@ -1,0 +1,15 @@
+{
+  "@@locale": "en",
+  "title": "USSD App",
+  "amount": "Amount",
+  "enterAmount": "Enter amount",
+  "mobileNumber": "Mobile Number",
+  "momoCode": "Momo Code",
+  "generate": "Generate",
+  "scanNow": "Scan Now",
+  "reset": "Reset",
+  "settings": "Settings",
+  "save": "Save",
+  "selectLanguage": "Select Language",
+  "invalidAmount": "Please enter a valid amount."
+}
