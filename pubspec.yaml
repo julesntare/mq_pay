@@ -39,15 +39,16 @@ dependencies:
   qr_flutter: ^4.1.0
   barcode_scan2: ^4.4.0
   shared_preferences: ^2.4.0
-  flutter_localizations: # Included in the Flutter SDK
-    sdk: flutter
-  intl: ^0.19.0
   provider: ^6.1.2
+  flutter_localizations:
+    sdk: flutter
+  intl: any
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_launcher_icons: ^0.14.3
+  intl_utils: ^2.8.9
 
 flutter_launcher_icons:
   android: "launcher_icon"
@@ -71,6 +72,14 @@ flutter:
   # the material Icons class.
   uses-material-design: true
   generate: true
+
+flutter_intl:
+  enabled: true # Required. Must be set to true to activate the package. Default: false
+  class_name: S # Optional. Sets the name for the generated localization class. Default: S
+  main_locale: en # Optional. Sets the main locale used for generating localization files. Provided value should consist of language code and optional script and country codes separated with underscore (e.g. 'en', 'en_GB', 'zh_Hans', 'zh_Hans_CN'). Default: en
+  arb_dir: lib/l10n # Optional. Sets the directory of your ARB resource files. Provided value should be a valid path on your system. Default: lib/l10n
+  output_dir: lib/generated # Optional. Sets the directory of generated localization files. Provided value should be a valid path on your system. Default: lib/generated
+  use_deferred_loading: false
 
   # To add assets to your application, add an assets section, like this:
   # assets:

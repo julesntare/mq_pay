@@ -1,6 +1,7 @@
 {
   "@@locale": "sw",
-  "title": "Programu ya USSD",
+  "welcomeHere": "Karibu hapa",
+  "shortDesc": "Fanya malipo yako kuwa laini na haraka!",
   "amount": "Kiasi",
   "enterAmount": "Weka kiasi",
   "mobileNumber": "Nambari ya Simu",
@@ -11,5 +12,6 @@
   "settings": "Mipangilio",
   "save": "Hifadhi",
   "selectLanguage": "Chagua Lugha",
-  "invalidAmount": "Tafadhali weka kiasi halali."
+  "invalidAmount": "Tafadhali weka kiasi halali.",
+  "launchError": "Haiwezekani kuzindua msimbo wa USSD"
 }

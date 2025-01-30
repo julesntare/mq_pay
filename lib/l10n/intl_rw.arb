@@ -1,6 +1,7 @@
 {
   "@@locale": "rw",
-  "title": "App ya USSD",
+  "welcomeHere": "Murakaza neza hano",
+  "shortDesc": "Kora ubwishyu bwawe neza kandi vuba!",
   "amount": "Amafaranga",
   "enterAmount": "Andika amafaranga",
   "mobileNumber": "Numero ya Telefone",
@@ -11,5 +12,6 @@
   "settings": "Igenamiterere",
   "save": "Bika",
   "selectLanguage": "Hitamwo Ururimi",
-  "invalidAmount": "Nyamuneka andika amafaranga yemewe."
+  "invalidAmount": "Nyamuneka andika amafaranga yemewe.",
+  "launchError": "Ntibyakunze gufungura kode ya USSD"
 }

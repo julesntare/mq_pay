@@ -1,6 +1,7 @@
 {
   "@@locale": "en",
-  "title": "USSD App",
+  "welcomeHere": "Welcome here",
+  "shortDesc": "Make your payments smooth & fast!",
   "amount": "Amount",
   "enterAmount": "Enter amount",
   "mobileNumber": "Mobile Number",
@@ -11,5 +12,6 @@
   "settings": "Settings",
   "save": "Save",
   "selectLanguage": "Select Language",
-  "invalidAmount": "Please enter a valid amount."
+  "invalidAmount": "Please enter a valid amount.",
+  "launchError": "Unable to launch USSD code"
 }

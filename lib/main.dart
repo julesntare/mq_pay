@@ -4,16 +4,14 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:barcode_scan2/barcode_scan2.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
-import 'l10n/l10n.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'generated/l10n.dart';
 
 class LocaleProvider extends ChangeNotifier {
   Locale? _locale;
   Locale? get locale => _locale;
 
   void setLocale(Locale locale) async {
-    if (!L10n.supportedLocales.contains(locale)) return;
-
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('language', locale.languageCode);
 
@@ -23,7 +21,7 @@ class LocaleProvider extends ChangeNotifier {
 
   Future<void> loadLocale() async {
     final prefs = await SharedPreferences.getInstance();
-    final languageCode = prefs.getString('language') ?? 'rw';
+    final languageCode = prefs.getString('language') ?? 'en';
     _locale = Locale(languageCode);
     notifyListeners();
   }
@@ -37,34 +35,31 @@ void main() async {
   runApp(
     ChangeNotifierProvider(
       create: (_) => localeProvider,
-      child: const UssdApp(),
+      child: const MQPayApp(),
     ),
   );
 }
 
-class UssdApp extends StatelessWidget {
-  const UssdApp({super.key});
+class MQPayApp extends StatelessWidget {
+  const MQPayApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      locale: Provider.of<LocaleProvider>(context).locale,
       localizationsDelegates: const [
-        ...L10n.localizationsDelegates,
+        S.delegate,
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      supportedLocales: L10n.supportedLocales,
-      localeResolutionCallback: (locale, supportedLocales) {
-        // Use device locale if supported, otherwise fallback to English
-        for (var supportedLocale in supportedLocales) {
-          if (supportedLocale.languageCode == locale?.languageCode) {
-            return supportedLocale;
-          }
-        }
-        return const Locale('en');
-      },
+      supportedLocales: [
+        const Locale('en'),
+        const Locale('rw'),
+        const Locale('fr'),
+        const Locale('sw'),
+      ],
       home: UssdScreen(),
     );
   }
@@ -88,6 +83,7 @@ class _UssdScreenState extends State<UssdScreen> {
   String mobileNumber = '';
   String momoCode = '';
   String scannedData = '';
+  String? selectedLanguage = 'en';
 
   @override
   void initState() {
@@ -109,7 +105,7 @@ class _UssdScreenState extends State<UssdScreen> {
         int.tryParse(amount) == null ||
         int.parse(amount) <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.loc.invalidAmount)),
+        SnackBar(content: Text(S.of(context).invalidAmount)),
       );
       return;
     }
@@ -158,7 +154,7 @@ class _UssdScreenState extends State<UssdScreen> {
       await launch(ussdUrl);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Unable to launch USSD code: $ussdCode')),
+        SnackBar(content: Text('${S.of(context).launchError}: $ussdCode')),
       );
     }
   }
@@ -170,42 +166,45 @@ class _UssdScreenState extends State<UssdScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(context.loc.settings),
+        title: Text(S.of(context).settings),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: mobileController,
               keyboardType: TextInputType.number,
-              decoration: InputDecoration(labelText: context.loc.mobileNumber),
+              decoration:
+                  InputDecoration(labelText: S.of(context).mobileNumber),
             ),
             TextField(
               controller: momoCodeController,
               keyboardType: TextInputType.number,
-              decoration: InputDecoration(labelText: context.loc.momoCode),
+              decoration: InputDecoration(labelText: S.of(context).momoCode),
             ),
             const SizedBox(height: 20),
-            DropdownButton<Locale>(
+            DropdownButton<String>(
               isExpanded: true,
-              value: Provider.of<LocaleProvider>(context).locale,
-              items: L10n.supportedLocales.map((Locale locale) {
-                final flag = _getFlag(locale.languageCode);
-                return DropdownMenuItem<Locale>(
+              value: selectedLanguage,
+              items: ['en', 'rw', 'fr', 'sw'].map((String locale) {
+                final flag = _getFlag(locale);
+                return DropdownMenuItem<String>(
                   value: locale,
                   child: Row(
                     children: [
                       Text(flag),
                       const SizedBox(width: 10),
-                      Text(_getLanguageName(locale.languageCode)),
+                      Text(_getLanguageName(locale)),
                     ],
                   ),
                 );
               }).toList(),
-              onChanged: (Locale? locale) {
-                if (locale != null) {
-                  Provider.of<LocaleProvider>(context, listen: false)
-                      .setLocale(locale);
-                }
+              onChanged: (String? newValue) {
+                setState(() {
+                  selectedLanguage = newValue;
+                });
+                Locale locale = Locale(newValue!);
+                Provider.of<LocaleProvider>(context, listen: false)
+                    .setLocale(locale);
               },
             ),
           ],
@@ -235,7 +234,7 @@ class _UssdScreenState extends State<UssdScreen> {
               });
               Navigator.pop(context);
             },
-            child: Text(context.loc.save),
+            child: Text(S.of(context).save),
           ),
         ],
       ),
@@ -275,6 +274,8 @@ class _UssdScreenState extends State<UssdScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('MQ Pay'),
+        // localizationsDelegates: AppLocalizations.localizationsDelegates,
+        // supportedLocales: AppLocalizations.supportedLocales,
         centerTitle: true,
         actions: [
           IconButton(
@@ -283,87 +284,100 @@ class _UssdScreenState extends State<UssdScreen> {
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text('Welcome Here', style: TextStyle(fontSize: 24)),
-            SizedBox(height: 8),
-            Text('Make your payments quick & smoothly!',
-                style: TextStyle(fontSize: 16)),
-            SizedBox(height: 16),
-            TextField(
-              controller: amountController,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                labelText: context.loc.amount,
-                hintText: context.loc.enterAmount,
-                border: OutlineInputBorder(),
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(S.of(context).welcomeHere, style: TextStyle(fontSize: 24)),
+              SizedBox(height: 8),
+              Text(S.of(context).shortDesc, style: TextStyle(fontSize: 16)),
+              SizedBox(height: 16),
+              TextField(
+                controller: amountController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: S.of(context).amount,
+                  hintText: S.of(context).enterAmount,
+                  border: OutlineInputBorder(),
+                  suffixIcon: amountController.text.isNotEmpty
+                      ? IconButton(
+                          icon: Icon(Icons.clear_rounded),
+                          onPressed: () {
+                            amountController.clear();
+                            setState(() {});
+                          },
+                        )
+                      : null,
+                ),
+                onChanged: (value) {
+                  setState(() {});
+                },
               ),
-              onChanged: (value) {
-                setState(() {});
-              },
-            ),
-            const SizedBox(height: 16),
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ElevatedButton(
-                  onPressed:
-                      mobileNumber.isEmpty || amountController.text.isEmpty
-                          ? null
-                          : () => _generateQrCode('Mobile Number'),
-                  child: Text(context.loc.mobileNumber),
-                ),
-                ElevatedButton(
-                  onPressed: momoCode.isEmpty || amountController.text.isEmpty
-                      ? null
-                      : () => _generateQrCode('Momo Code'),
-                  child: Text(context.loc.momoCode),
-                ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  ElevatedButton(
+                    onPressed:
+                        mobileNumber.isEmpty || amountController.text.isEmpty
+                            ? null
+                            : () => _generateQrCode('Mobile Number'),
+                    child: Text(S.of(context).mobileNumber),
+                  ),
+                  ElevatedButton(
+                    onPressed: momoCode.isEmpty || amountController.text.isEmpty
+                        ? null
+                        : () => _generateQrCode('Momo Code'),
+                    child: Text(S.of(context).momoCode),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              if (!showQrCode && generatedUssdCode == null) ...[
                 ElevatedButton(
                   onPressed: _scanQrCode,
-                  child: Text(context.loc.scanNow),
+                  child: Text(S.of(context).scanNow),
                 ),
               ],
-            ),
-            const SizedBox(height: 16),
-            if (showQrCode && generatedUssdCode != null) ...[
-              Text(
-                '${context.loc.generate} QR Code:',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              Center(
-                child: QrImageView(
-                  data: generatedUssdCode!,
-                  version: QrVersions.auto,
-                  size: 200.0,
+              const SizedBox(height: 16),
+              if (showQrCode && generatedUssdCode != null) ...[
+                Text(
+                  '${S.of(context).generate} QR Code:',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Center(
-                child: SelectableText(
-                  generatedUssdCode!,
-                  style: const TextStyle(fontSize: 16),
+                const SizedBox(height: 8),
+                Center(
+                  child: QrImageView(
+                    data: generatedUssdCode!,
+                    version: QrVersions.auto,
+                    size: 200.0,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 15),
-              Center(
-                child: ElevatedButton(
-                  onPressed: () {
-                    setState(() {
-                      generatedUssdCode = null;
-                      showQrCode = false;
-                      amountController.clear();
-                    });
-                  },
-                  child: Text(context.loc.reset),
+                const SizedBox(height: 8),
+                Center(
+                  child: SelectableText(
+                    generatedUssdCode!,
+                    style: const TextStyle(fontSize: 16),
+                  ),
                 ),
-              ),
+                const SizedBox(height: 15),
+                Center(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      setState(() {
+                        generatedUssdCode = null;
+                        showQrCode = false;
+                        amountController.clear();
+                      });
+                    },
+                    child: Text(S.of(context).reset),
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
