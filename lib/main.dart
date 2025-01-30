@@ -271,113 +271,146 @@ class _UssdScreenState extends State<UssdScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('MQ Pay'),
-        // localizationsDelegates: AppLocalizations.localizationsDelegates,
-        // supportedLocales: AppLocalizations.supportedLocales,
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: _openSettings,
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(S.of(context).welcomeHere, style: TextStyle(fontSize: 24)),
-              SizedBox(height: 8),
-              Text(S.of(context).shortDesc, style: TextStyle(fontSize: 16)),
-              SizedBox(height: 16),
-              TextField(
-                controller: amountController,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText: S.of(context).amount,
-                  hintText: S.of(context).enterAmount,
-                  border: OutlineInputBorder(),
-                  suffixIcon: amountController.text.isNotEmpty
-                      ? IconButton(
-                          icon: Icon(Icons.clear_rounded),
-                          onPressed: () {
-                            amountController.clear();
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('MQ Pay'),
+          // localizationsDelegates: AppLocalizations.localizationsDelegates,
+          // supportedLocales: AppLocalizations.supportedLocales,
+          centerTitle: true,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.settings),
+              onPressed: _openSettings,
+            ),
+          ],
+        ),
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(S.of(context).welcomeHere, style: TextStyle(fontSize: 24)),
+            SizedBox(height: 8),
+            Text(S.of(context).shortDesc, style: TextStyle(fontSize: 16)),
+            SizedBox(height: 16),
+            TabBar(
+              labelColor: Colors.blue,
+              unselectedLabelColor: Colors.grey,
+              tabs: [
+                Tab(text: S.of(context).viaScan),
+                Tab(text: S.of(context).viaContact),
+              ],
+            ),
+            Expanded(
+              child: TabBarView(
+                children: [
+                  SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 24),
+                        TextField(
+                          controller: amountController,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            labelText: S.of(context).amount,
+                            hintText: S.of(context).enterAmount,
+                            border: OutlineInputBorder(),
+                            suffixIcon: amountController.text.isNotEmpty
+                                ? IconButton(
+                                    icon: Icon(Icons.clear_rounded),
+                                    onPressed: () {
+                                      amountController.clear();
+                                      setState(() {});
+                                    },
+                                  )
+                                : null,
+                          ),
+                          onChanged: (value) {
                             setState(() {});
                           },
-                        )
-                      : null,
-                ),
-                onChanged: (value) {
-                  setState(() {});
-                },
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  ElevatedButton(
-                    onPressed:
-                        mobileNumber.isEmpty || amountController.text.isEmpty
-                            ? null
-                            : () => _generateQrCode('Mobile Number'),
-                    child: Text(S.of(context).mobileNumber),
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            ElevatedButton(
+                              onPressed: mobileNumber.isEmpty ||
+                                      amountController.text.isEmpty
+                                  ? null
+                                  : () => _generateQrCode('Mobile Number'),
+                              child: Text(S.of(context).mobileNumber),
+                            ),
+                            ElevatedButton(
+                              onPressed: momoCode.isEmpty ||
+                                      amountController.text.isEmpty
+                                  ? null
+                                  : () => _generateQrCode('Momo Code'),
+                              child: Text(S.of(context).momoCode),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        if (!showQrCode && generatedUssdCode == null) ...[
+                          ElevatedButton(
+                            onPressed: _scanQrCode,
+                            child: Text(S.of(context).scanNow),
+                          ),
+                        ],
+                        const SizedBox(height: 16),
+                        if (showQrCode && generatedUssdCode != null) ...[
+                          Text(
+                            '${S.of(context).generate} QR Code:',
+                            style: TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 8),
+                          Center(
+                            child: QrImageView(
+                              data: generatedUssdCode!,
+                              version: QrVersions.auto,
+                              size: 200.0,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Center(
+                            child: SelectableText(
+                              generatedUssdCode!,
+                              style: const TextStyle(fontSize: 16),
+                            ),
+                          ),
+                          const SizedBox(height: 15),
+                          Center(
+                            child: ElevatedButton(
+                              onPressed: () {
+                                setState(() {
+                                  generatedUssdCode = null;
+                                  showQrCode = false;
+                                  amountController.clear();
+                                });
+                              },
+                              child: Text(S.of(context).reset),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
-                  ElevatedButton(
-                    onPressed: momoCode.isEmpty || amountController.text.isEmpty
-                        ? null
-                        : () => _generateQrCode('Momo Code'),
-                    child: Text(S.of(context).momoCode),
+                  Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          S.of(context).welcomeHere,
+                          style: TextStyle(fontSize: 16),
+                        )
+                      ],
+                    ),
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
-              if (!showQrCode && generatedUssdCode == null) ...[
-                ElevatedButton(
-                  onPressed: _scanQrCode,
-                  child: Text(S.of(context).scanNow),
-                ),
-              ],
-              const SizedBox(height: 16),
-              if (showQrCode && generatedUssdCode != null) ...[
-                Text(
-                  '${S.of(context).generate} QR Code:',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                Center(
-                  child: QrImageView(
-                    data: generatedUssdCode!,
-                    version: QrVersions.auto,
-                    size: 200.0,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Center(
-                  child: SelectableText(
-                    generatedUssdCode!,
-                    style: const TextStyle(fontSize: 16),
-                  ),
-                ),
-                const SizedBox(height: 15),
-                Center(
-                  child: ElevatedButton(
-                    onPressed: () {
-                      setState(() {
-                        generatedUssdCode = null;
-                        showQrCode = false;
-                        amountController.clear();
-                      });
-                    },
-                    child: Text(S.of(context).reset),
-                  ),
-                ),
-              ],
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

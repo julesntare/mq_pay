@@ -159,6 +159,16 @@ class S {
       args: [],
     );
   }
+
+  /// `via Scan`
+  String get viaScan {
+    return Intl.message('via Scan', name: 'viaScan', desc: '', args: []);
+  }
+
+  /// `via Contacts`
+  String get viaContact {
+    return Intl.message('via Contacts', name: 'viaContact', desc: '', args: []);
+  }
 }
 
 class AppLocalizationDelegate extends LocalizationsDelegate<S> {

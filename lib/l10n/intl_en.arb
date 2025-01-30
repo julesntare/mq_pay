@@ -13,5 +13,7 @@
   "save": "Save",
   "selectLanguage": "Select Language",
   "invalidAmount": "Please enter a valid amount.",
-  "launchError": "Unable to launch USSD code"
+  "launchError": "Unable to launch USSD code",
+  "viaScan": "via Scan",
+  "viaContact": "via Contacts"
 }

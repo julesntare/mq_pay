@@ -41,6 +41,8 @@ class MessageLookup extends MessageLookupByLibrary {
     "shortDesc": MessageLookupByLibrary.simpleMessage(
       "Kora ubwishyu bwawe neza kandi vuba!",
     ),
+    "viaContact": MessageLookupByLibrary.simpleMessage("Binyuze ku makontaki"),
+    "viaScan": MessageLookupByLibrary.simpleMessage("Binyuze Scan"),
     "welcomeHere": MessageLookupByLibrary.simpleMessage("Murakaza neza hano"),
   };
 }

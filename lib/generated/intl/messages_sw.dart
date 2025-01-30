@@ -41,6 +41,8 @@ class MessageLookup extends MessageLookupByLibrary {
     "shortDesc": MessageLookupByLibrary.simpleMessage(
       "Fanya malipo yako kuwa laini na haraka!",
     ),
+    "viaContact": MessageLookupByLibrary.simpleMessage("kupitia Mawasiliano"),
+    "viaScan": MessageLookupByLibrary.simpleMessage("kupitia Scan"),
     "welcomeHere": MessageLookupByLibrary.simpleMessage("Karibu hapa"),
   };
 }

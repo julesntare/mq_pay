@@ -41,6 +41,8 @@ class MessageLookup extends MessageLookupByLibrary {
     "shortDesc": MessageLookupByLibrary.simpleMessage(
       "Rendez vos paiements faciles et rapides!",
     ),
+    "viaContact": MessageLookupByLibrary.simpleMessage("via Contacts"),
+    "viaScan": MessageLookupByLibrary.simpleMessage("via Scan"),
     "welcomeHere": MessageLookupByLibrary.simpleMessage("Bienvenue ici"),
   };
 }

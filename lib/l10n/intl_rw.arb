@@ -13,5 +13,7 @@
   "save": "Bika",
   "selectLanguage": "Hitamwo Ururimi",
   "invalidAmount": "Nyamuneka andika amafaranga yemewe.",
-  "launchError": "Ntibyakunze gufungura kode ya USSD"
+  "launchError": "Ntibyakunze gufungura kode ya USSD",
+  "viaScan": "Binyuze Scan",
+  "viaContact": "Binyuze ku makontaki"
 }

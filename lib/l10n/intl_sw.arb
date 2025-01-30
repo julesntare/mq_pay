@@ -13,5 +13,7 @@
   "save": "Hifadhi",
   "selectLanguage": "Chagua Lugha",
   "invalidAmount": "Tafadhali weka kiasi halali.",
-  "launchError": "Haiwezekani kuzindua msimbo wa USSD"
+  "launchError": "Haiwezekani kuzindua msimbo wa USSD",
+  "viaScan": "kupitia Scan",
+  "viaContact": "kupitia Mawasiliano"
 }
