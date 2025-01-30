@@ -55,5 +55,8 @@
 
 		<key>NSPhotoLibraryUsageDescription</key>
 		<string>This app needs photos access to get QR code from photo library</string>
+
+		<key>NSContactsUsageDescription</key>
+		<string>This app requires contacts access to function properly.</string>
 	</dict>
 </plist>

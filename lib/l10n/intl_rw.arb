@@ -15,5 +15,7 @@
   "invalidAmount": "Nyamuneka andika amafaranga yemewe.",
   "launchError": "Ntibyakunze gufungura kode ya USSD",
   "viaScan": "Binyuze Scan",
-  "viaContact": "Binyuze ku makontaki"
+  "viaContact": "Binyuze ku makontaki",
+  "loadFromContacts": "Reba muri numero zawe",
+  "proceed": "Komeza"
 }

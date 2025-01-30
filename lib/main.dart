@@ -6,6 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'generated/l10n.dart';
+import 'package:flutter_native_contact_picker/flutter_native_contact_picker.dart';
+import 'package:flutter_native_contact_picker/model/contact.dart';
 
 class LocaleProvider extends ChangeNotifier {
   Locale? _locale;
@@ -75,7 +77,12 @@ class UssdScreen extends StatefulWidget {
 class _UssdScreenState extends State<UssdScreen> {
   final TextEditingController amountController = TextEditingController();
   final TextEditingController mobileController = TextEditingController();
+  final TextEditingController manualMobileController = TextEditingController();
   final TextEditingController momoCodeController = TextEditingController();
+  final FlutterNativeContactPicker _contactPicker =
+      FlutterNativeContactPicker();
+  String? selectedNumber;
+  String? selectedName;
 
   String? generatedUssdCode;
   bool showQrCode = false;
@@ -276,8 +283,6 @@ class _UssdScreenState extends State<UssdScreen> {
       child: Scaffold(
         appBar: AppBar(
           title: const Text('MQ Pay'),
-          // localizationsDelegates: AppLocalizations.localizationsDelegates,
-          // supportedLocales: AppLocalizations.supportedLocales,
           centerTitle: true,
           actions: [
             IconButton(
@@ -289,10 +294,18 @@ class _UssdScreenState extends State<UssdScreen> {
         body: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(S.of(context).welcomeHere, style: TextStyle(fontSize: 24)),
-            SizedBox(height: 8),
-            Text(S.of(context).shortDesc, style: TextStyle(fontSize: 16)),
-            SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(S.of(context).welcomeHere,
+                      style: TextStyle(fontSize: 24)),
+                  SizedBox(height: 8),
+                  Text(S.of(context).shortDesc, style: TextStyle(fontSize: 16)),
+                ],
+              ),
+            ),
             TabBar(
               labelColor: Colors.blue,
               unselectedLabelColor: Colors.grey,
@@ -396,13 +409,57 @@ class _UssdScreenState extends State<UssdScreen> {
                       ],
                     ),
                   ),
-                  Center(
+                  Padding(
+                    padding: const EdgeInsets.all(16),
                     child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(
-                          S.of(context).welcomeHere,
-                          style: TextStyle(fontSize: 16),
+                        Align(
+                          alignment: Alignment.topRight,
+                          child: ElevatedButton(
+                            onPressed: () async {
+                              Contact? contact =
+                                  await _contactPicker.selectContact();
+                              if (contact != null) {
+                                setState(() {
+                                  List<String>? phoneNumbers =
+                                      contact.phoneNumbers;
+                                  selectedNumber = phoneNumbers?.first;
+                                  manualMobileController.text = selectedNumber!;
+                                });
+                              }
+                            },
+                            child: Text(S.of(context).loadFromContacts),
+                          ),
+                        ),
+                        TextField(
+                          controller: manualMobileController,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            labelText: S.of(context).mobileNumber,
+                            hintText: S.of(context).mobileNumber,
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        TextField(
+                          controller: amountController,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            labelText: S.of(context).amount,
+                            hintText: S.of(context).enterAmount,
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        ElevatedButton(
+                          onPressed: manualMobileController.text.isEmpty ||
+                                  amountController.text.isEmpty
+                              ? null
+                              : () {
+                                  _launchUSSD(
+                                      "*182*1*1*${manualMobileController.text}*${amountController.text}#");
+                                },
+                          child: Text(S.of(context).proceed),
                         )
                       ],
                     ),

@@ -43,6 +43,7 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   intl: any
+  flutter_native_contact_picker: ^0.0.10
 
 dev_dependencies:
   flutter_test:

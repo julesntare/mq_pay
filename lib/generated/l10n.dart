@@ -169,6 +169,21 @@ class S {
   String get viaContact {
     return Intl.message('via Contacts', name: 'viaContact', desc: '', args: []);
   }
+
+  /// `Load from Contacts`
+  String get loadFromContacts {
+    return Intl.message(
+      'Load from Contacts',
+      name: 'loadFromContacts',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Proceed`
+  String get proceed {
+    return Intl.message('Proceed', name: 'proceed', desc: '', args: []);
+  }
 }
 
 class AppLocalizationDelegate extends LocalizationsDelegate<S> {

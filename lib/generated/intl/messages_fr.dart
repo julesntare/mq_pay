@@ -31,8 +31,12 @@ class MessageLookup extends MessageLookupByLibrary {
     "launchError": MessageLookupByLibrary.simpleMessage(
       "Impossible de lancer le code USSD",
     ),
+    "loadFromContacts": MessageLookupByLibrary.simpleMessage(
+      "Charger à partir des contacts",
+    ),
     "mobileNumber": MessageLookupByLibrary.simpleMessage("Numéro de mobile"),
     "momoCode": MessageLookupByLibrary.simpleMessage("Code Momo"),
+    "proceed": MessageLookupByLibrary.simpleMessage("Procéder"),
     "reset": MessageLookupByLibrary.simpleMessage("Réinitialiser"),
     "save": MessageLookupByLibrary.simpleMessage("Enregistrer"),
     "scanNow": MessageLookupByLibrary.simpleMessage("Scanner maintenant"),

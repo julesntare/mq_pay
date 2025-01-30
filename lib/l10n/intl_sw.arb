@@ -15,5 +15,7 @@
   "invalidAmount": "Tafadhali weka kiasi halali.",
   "launchError": "Haiwezekani kuzindua msimbo wa USSD",
   "viaScan": "kupitia Scan",
-  "viaContact": "kupitia Mawasiliano"
+  "viaContact": "kupitia Mawasiliano",
+  "loadFromContacts": "Pakia kutoka kwa Mawasiliano",
+  "proceed": "Endelea"
 }

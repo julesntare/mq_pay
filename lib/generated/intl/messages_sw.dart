@@ -31,8 +31,12 @@ class MessageLookup extends MessageLookupByLibrary {
     "launchError": MessageLookupByLibrary.simpleMessage(
       "Haiwezekani kuzindua msimbo wa USSD",
     ),
+    "loadFromContacts": MessageLookupByLibrary.simpleMessage(
+      "Pakia kutoka kwa Mawasiliano",
+    ),
     "mobileNumber": MessageLookupByLibrary.simpleMessage("Nambari ya Simu"),
     "momoCode": MessageLookupByLibrary.simpleMessage("Msimbo wa Momo"),
+    "proceed": MessageLookupByLibrary.simpleMessage("Endelea"),
     "reset": MessageLookupByLibrary.simpleMessage("Weka upya"),
     "save": MessageLookupByLibrary.simpleMessage("Hifadhi"),
     "scanNow": MessageLookupByLibrary.simpleMessage("Scan Sasa"),

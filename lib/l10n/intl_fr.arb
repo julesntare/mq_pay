@@ -15,5 +15,7 @@
   "invalidAmount": "Veuillez entrer un montant valide.",
   "launchError": "Impossible de lancer le code USSD",
   "viaScan": "via Scan",
-  "viaContact": "via Contacts"
+  "viaContact": "via Contacts",
+  "loadFromContacts": "Charger à partir des contacts",
+  "proceed": "Procéder"
 }
