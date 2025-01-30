@@ -192,7 +192,7 @@ class _UssdScreenState extends State<UssdScreen> {
             DropdownButton<String>(
               isExpanded: true,
               value: selectedLanguage,
-              items: ['en', 'rw', 'fr', 'sw'].map((String locale) {
+              items: ['en', 'fr', 'sw'].map((String locale) {
                 final flag = _getFlag(locale);
                 return DropdownMenuItem<String>(
                   value: locale,
