@@ -1,54 +1,39 @@
 import 'package:flutter/material.dart';
-import 'package:qr_flutter/qr_flutter.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:barcode_scan2/barcode_scan2.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'screens/home.dart';
+import 'screens/settings.dart';
+import 'screens/several_codes.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'generated/l10n.dart';
-import 'package:flutter_native_contact_picker/flutter_native_contact_picker.dart';
-import 'package:flutter_native_contact_picker/model/contact.dart';
-
-class LocaleProvider extends ChangeNotifier {
-  Locale? _locale;
-  Locale? get locale => _locale;
-
-  void setLocale(Locale locale) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('language', locale.languageCode);
-
-    _locale = locale;
-    notifyListeners();
-  }
-
-  Future<void> loadLocale() async {
-    final prefs = await SharedPreferences.getInstance();
-    final languageCode = prefs.getString('language') ?? 'en';
-    _locale = Locale(languageCode);
-    notifyListeners();
-  }
-}
+import 'helpers/localProvider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final localeProvider = LocaleProvider();
+  final prefs = await SharedPreferences.getInstance();
+
   await localeProvider.loadLocale();
 
   runApp(
     ChangeNotifierProvider(
       create: (_) => localeProvider,
-      child: const MQPayApp(),
+      child: MyApp(pref: prefs),
     ),
   );
 }
 
-class MQPayApp extends StatelessWidget {
-  const MQPayApp({super.key});
+class MyApp extends StatelessWidget {
+  final SharedPreferences pref;
+
+  const MyApp({super.key, required this.pref});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      title: 'MQ Pay',
       debugShowCheckedModeBanner: false,
+      home: MainWrapper(pref: pref),
       locale: Provider.of<LocaleProvider>(context).locale,
       localizationsDelegates: const [
         S.delegate,
@@ -56,426 +41,93 @@ class MQPayApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      supportedLocales: [
-        const Locale('en'),
-        const Locale('rw'),
-        const Locale('fr'),
-        const Locale('sw'),
+      supportedLocales: const [
+        Locale('en'),
+        Locale('fr'),
+        Locale('sw'),
       ],
-      home: UssdScreen(),
     );
   }
 }
 
-class UssdScreen extends StatefulWidget {
-  const UssdScreen({super.key});
+class MainWrapper extends StatefulWidget {
+  final SharedPreferences pref;
+
+  const MainWrapper({super.key, required this.pref});
 
   @override
-  _UssdScreenState createState() => _UssdScreenState();
+  State<MainWrapper> createState() => _MainWrapperState();
 }
 
-class _UssdScreenState extends State<UssdScreen> {
-  final TextEditingController amountController = TextEditingController();
-  final TextEditingController mobileController = TextEditingController();
-  final TextEditingController manualMobileController = TextEditingController();
-  final TextEditingController momoCodeController = TextEditingController();
-  final FlutterNativeContactPicker _contactPicker =
-      FlutterNativeContactPicker();
-  String? selectedNumber;
-  String? selectedName;
+class _MainWrapperState extends State<MainWrapper> {
+  int _selectedIndex = 0;
+  late String mobileNumber;
+  late String momoCode;
+  late String? selectedLanguage;
 
-  String? generatedUssdCode;
-  bool showQrCode = false;
-
-  String mobileNumber = '';
-  String momoCode = '';
-  String scannedData = '';
-  String? selectedLanguage = 'en';
+  late List<Widget> _pages;
 
   @override
   void initState() {
     super.initState();
-    _loadSavedPreferences();
+    mobileNumber = widget.pref.getString('mobileNumber') ?? '';
+    momoCode = widget.pref.getString('momoCode') ?? '';
+    selectedLanguage = widget.pref.getString('selectedLanguage') ?? 'en';
+
+    _pages = <Widget>[
+      const Home(),
+      SettingsPage(
+          initialMobile: mobileNumber,
+          initialMomoCode: momoCode,
+          selectedLanguage: selectedLanguage!),
+      const CodesPage(),
+    ];
   }
 
-  Future<void> _loadSavedPreferences() async {
-    final prefs = await SharedPreferences.getInstance();
+  void _onItemTapped(int index) {
     setState(() {
-      mobileNumber = prefs.getString('mobileNumber') ?? '';
-      momoCode = prefs.getString('momoCode') ?? '';
+      _selectedIndex = index;
     });
-  }
-
-  void _generateQrCode(String type) {
-    final amount = amountController.text.trim();
-    if (amount.isEmpty ||
-        int.tryParse(amount) == null ||
-        int.parse(amount) <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(S.of(context).invalidAmount)),
-      );
-      return;
-    }
-
-    String ussdCode;
-    if (type == 'Mobile Number') {
-      ussdCode = '*182*1*1*$mobileNumber*$amount#';
-    } else if (type == 'Momo Code') {
-      ussdCode = '*182*8*1*$momoCode*$amount#';
-    } else {
-      return;
-    }
-
-    setState(() {
-      generatedUssdCode = ussdCode;
-      showQrCode = true;
-    });
-  }
-
-  Future<void> _scanQrCode() async {
-    try {
-      var result = await BarcodeScanner.scan();
-
-      if (result.type == ResultType.Cancelled) {
-        return;
-      }
-
-      setState(() {
-        scannedData = result.rawContent;
-        generatedUssdCode = null;
-        showQrCode = false;
-        amountController.clear();
-        _launchUSSD(scannedData);
-      });
-    } catch (e) {
-      setState(() {
-        scannedData = 'Error: $e';
-      });
-    }
-  }
-
-  void _launchUSSD(String ussdCode) async {
-    final formattedCode = ussdCode.replaceAll('#', Uri.encodeComponent('#'));
-    final ussdUrl = 'tel:$formattedCode';
-    if (await canLaunch(ussdUrl)) {
-      await launch(ussdUrl);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${S.of(context).launchError}: $ussdCode')),
-      );
-    }
-  }
-
-  void _openSettings() {
-    mobileController.text = mobileNumber;
-    momoCodeController.text = momoCode;
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(S.of(context).settings),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: mobileController,
-              keyboardType: TextInputType.number,
-              decoration:
-                  InputDecoration(labelText: S.of(context).mobileNumber),
-            ),
-            TextField(
-              controller: momoCodeController,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(labelText: S.of(context).momoCode),
-            ),
-            const SizedBox(height: 20),
-            DropdownButton<String>(
-              isExpanded: true,
-              value: selectedLanguage,
-              items: ['en', 'fr', 'sw'].map((String locale) {
-                final flag = _getFlag(locale);
-                return DropdownMenuItem<String>(
-                  value: locale,
-                  child: Row(
-                    children: [
-                      Text(flag),
-                      const SizedBox(width: 10),
-                      Text(_getLanguageName(locale)),
-                    ],
-                  ),
-                );
-              }).toList(),
-              onChanged: (String? newValue) {
-                setState(() {
-                  selectedLanguage = newValue;
-                });
-                Locale locale = Locale(newValue!);
-                Provider.of<LocaleProvider>(context, listen: false)
-                    .setLocale(locale);
-              },
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              final newMobile = mobileController.text.trim();
-              final newMomo = momoCodeController.text.trim();
-              final prefs = await SharedPreferences.getInstance();
-
-              if (newMobile.isEmpty) {
-                await prefs.remove('mobileNumber');
-              } else {
-                await prefs.setString('mobileNumber', newMobile);
-              }
-
-              if (newMomo.isEmpty) {
-                await prefs.remove('momoCode');
-              } else {
-                await prefs.setString('momoCode', newMomo);
-              }
-
-              setState(() {
-                mobileNumber = newMobile;
-                momoCode = newMomo;
-              });
-              Navigator.pop(context);
-            },
-            child: Text(S.of(context).save),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _getFlag(String languageCode) {
-    switch (languageCode) {
-      case 'rw':
-        return '🇷🇼';
-      case 'fr':
-        return '🇫🇷';
-      case 'sw':
-        return '🇹🇿';
-      default:
-        return '🇺🇸';
-    }
-  }
-
-  String _getLanguageName(String languageCode) {
-    switch (languageCode) {
-      case 'rw':
-        return 'Kinyarwanda';
-      case 'en':
-        return 'English';
-      case 'fr':
-        return 'Français';
-      case 'sw':
-        return 'Kiswahili';
-      default:
-        return 'English';
-    }
+    Navigator.pop(context); // Close the drawer
   }
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('MQ Pay'),
-          centerTitle: true,
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.settings),
-              onPressed: _openSettings,
-            ),
-          ],
-        ),
-        body: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(['Home', 'Settings', 'Several Codes'][_selectedIndex]),
+      ),
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
           children: [
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(S.of(context).welcomeHere,
-                      style: TextStyle(fontSize: 24)),
-                  SizedBox(height: 8),
-                  Text(S.of(context).shortDesc, style: TextStyle(fontSize: 16)),
-                ],
-              ),
+            const DrawerHeader(
+              decoration: BoxDecoration(color: Colors.blue),
+              child: Text('MQ Pay',
+                  style: TextStyle(color: Colors.white, fontSize: 24)),
             ),
-            TabBar(
-              labelColor: Colors.blue,
-              unselectedLabelColor: Colors.grey,
-              tabs: [
-                Tab(text: S.of(context).viaScan),
-                Tab(text: S.of(context).viaContact),
-              ],
+            ListTile(
+              leading: const Icon(Icons.home),
+              title: const Text('Home'),
+              selected: _selectedIndex == 0,
+              onTap: () => _onItemTapped(0),
             ),
-            Expanded(
-              child: TabBarView(
-                children: [
-                  SingleChildScrollView(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        const SizedBox(height: 24),
-                        TextField(
-                          controller: amountController,
-                          keyboardType: TextInputType.number,
-                          decoration: InputDecoration(
-                            labelText: S.of(context).amount,
-                            hintText: S.of(context).enterAmount,
-                            border: OutlineInputBorder(),
-                            suffixIcon: amountController.text.isNotEmpty
-                                ? IconButton(
-                                    icon: Icon(Icons.clear_rounded),
-                                    onPressed: () {
-                                      amountController.clear();
-                                      setState(() {});
-                                    },
-                                  )
-                                : null,
-                          ),
-                          onChanged: (value) {
-                            setState(() {});
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            ElevatedButton(
-                              onPressed: mobileNumber.isEmpty ||
-                                      amountController.text.isEmpty
-                                  ? null
-                                  : () => _generateQrCode('Mobile Number'),
-                              child: Text(S.of(context).mobileNumber),
-                            ),
-                            ElevatedButton(
-                              onPressed: momoCode.isEmpty ||
-                                      amountController.text.isEmpty
-                                  ? null
-                                  : () => _generateQrCode('Momo Code'),
-                              child: Text(S.of(context).momoCode),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        if (!showQrCode && generatedUssdCode == null) ...[
-                          ElevatedButton(
-                            onPressed: _scanQrCode,
-                            child: Text(S.of(context).scanNow),
-                          ),
-                        ],
-                        const SizedBox(height: 16),
-                        if (showQrCode && generatedUssdCode != null) ...[
-                          Text(
-                            '${S.of(context).generate} QR Code:',
-                            style: TextStyle(
-                                fontSize: 16, fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 8),
-                          Center(
-                            child: QrImageView(
-                              data: generatedUssdCode!,
-                              version: QrVersions.auto,
-                              size: 200.0,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Center(
-                            child: SelectableText(
-                              generatedUssdCode!,
-                              style: const TextStyle(fontSize: 16),
-                            ),
-                          ),
-                          const SizedBox(height: 15),
-                          Center(
-                            child: ElevatedButton(
-                              onPressed: () {
-                                setState(() {
-                                  generatedUssdCode = null;
-                                  showQrCode = false;
-                                  amountController.clear();
-                                });
-                              },
-                              child: Text(S.of(context).reset),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        Align(
-                          alignment: Alignment.topRight,
-                          child: ElevatedButton(
-                            onPressed: () async {
-                              Contact? contact =
-                                  await _contactPicker.selectContact();
-                              if (contact != null) {
-                                setState(() {
-                                  List<String>? phoneNumbers =
-                                      contact.phoneNumbers;
-                                  selectedNumber = phoneNumbers?.first;
-                                  manualMobileController.text = selectedNumber!;
-                                });
-                              }
-                            },
-                            child: Text(S.of(context).loadFromContacts),
-                          ),
-                        ),
-                        TextField(
-                          controller: manualMobileController,
-                          keyboardType: TextInputType.number,
-                          decoration: InputDecoration(
-                            labelText: S.of(context).mobileNumber,
-                            hintText: S.of(context).mobileNumber,
-                            border: OutlineInputBorder(),
-                          ),
-                          onChanged: (value) {
-                            setState(() {});
-                          },
-                        ),
-                        const SizedBox(height: 24),
-                        TextField(
-                          controller: amountController,
-                          keyboardType: TextInputType.number,
-                          decoration: InputDecoration(
-                            labelText: S.of(context).amount,
-                            hintText: S.of(context).enterAmount,
-                            border: OutlineInputBorder(),
-                          ),
-                          onChanged: (value) {
-                            setState(() {});
-                          },
-                        ),
-                        const SizedBox(height: 10),
-                        ElevatedButton(
-                          onPressed: manualMobileController.text.isEmpty ||
-                                  amountController.text.isEmpty
-                              ? null
-                              : () {
-                                  _launchUSSD(
-                                      "*182*${RegExp(r'^(?:\+2507|2507|07|7)[0-9]{8}$').hasMatch(manualMobileController.text) ? '1' : '8'}*1*${manualMobileController.text}*${amountController.text}#");
-                                },
-                          child: Text(S.of(context).proceed),
-                        )
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+            ListTile(
+              leading: const Icon(Icons.code),
+              title: const Text('Several Codes'),
+              selected: _selectedIndex == 2,
+              onTap: () => _onItemTapped(2),
+            ),
+            ListTile(
+              leading: const Icon(Icons.settings),
+              title: const Text('Settings'),
+              selected: _selectedIndex == 1,
+              onTap: () => _onItemTapped(1),
             ),
           ],
         ),
       ),
+      body: _pages[_selectedIndex],
     );
   }
 }
