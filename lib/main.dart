@@ -439,6 +439,9 @@ class _UssdScreenState extends State<UssdScreen> {
                             hintText: S.of(context).mobileNumber,
                             border: OutlineInputBorder(),
                           ),
+                          onChanged: (value) {
+                            setState(() {});
+                          },
                         ),
                         const SizedBox(height: 24),
                         TextField(
@@ -449,11 +452,16 @@ class _UssdScreenState extends State<UssdScreen> {
                             hintText: S.of(context).enterAmount,
                             border: OutlineInputBorder(),
                           ),
+                          onChanged: (value) {
+                            setState(() {});
+                          },
                         ),
                         const SizedBox(height: 10),
                         ElevatedButton(
                           onPressed: manualMobileController.text.isEmpty ||
-                                  amountController.text.isEmpty
+                                  amountController.text.isEmpty ||
+                                  !RegExp(r'^(?:\+2507|2507|07|7)[0-9]{8}$')
+                                      .hasMatch(manualMobileController.text)
                               ? null
                               : () {
                                   _launchUSSD(
