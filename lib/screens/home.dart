@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:barcode_scan2/barcode_scan2.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../generated/l10n.dart';
 import 'package:flutter_native_contact_picker/flutter_native_contact_picker.dart';
 import 'package:flutter_native_contact_picker/model/contact.dart';
+import '../helpers/launcher.dart';
 
 class Home extends StatefulWidget {
   const Home({super.key});
@@ -85,24 +85,12 @@ class _HomeState extends State<Home> {
         generatedUssdCode = null;
         showQrCode = false;
         amountController.clear();
-        _launchUSSD(scannedData);
+        launchUSSD(scannedData, context);
       });
     } catch (e) {
       setState(() {
         scannedData = 'Error: $e';
       });
-    }
-  }
-
-  void _launchUSSD(String ussdCode) async {
-    final formattedCode = ussdCode.replaceAll('#', Uri.encodeComponent('#'));
-    final ussdUrl = 'tel:$formattedCode';
-    if (await canLaunch(ussdUrl)) {
-      await launch(ussdUrl);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${S.of(context).launchError}: $ussdCode')),
-      );
     }
   }
 
@@ -282,8 +270,9 @@ class _HomeState extends State<Home> {
                                   amountController.text.isEmpty
                               ? null
                               : () {
-                                  _launchUSSD(
-                                      "*182*${RegExp(r'^(?:\+2507|2507|07|7)[0-9]{8}$').hasMatch(manualMobileController.text) ? '1' : '8'}*1*${manualMobileController.text}*${amountController.text}#");
+                                  launchUSSD(
+                                      "*182*${RegExp(r'^(?:\+2507|2507|07|7)[0-9]{8}$').hasMatch(manualMobileController.text) ? '1' : '8'}*1*${manualMobileController.text}*${amountController.text}#",
+                                      context);
                                 },
                           child: Text(S.of(context).proceed),
                         )
