@@ -459,13 +459,11 @@ class _UssdScreenState extends State<UssdScreen> {
                         const SizedBox(height: 10),
                         ElevatedButton(
                           onPressed: manualMobileController.text.isEmpty ||
-                                  amountController.text.isEmpty ||
-                                  !RegExp(r'^(?:\+2507|2507|07|7)[0-9]{8}$')
-                                      .hasMatch(manualMobileController.text)
+                                  amountController.text.isEmpty
                               ? null
                               : () {
                                   _launchUSSD(
-                                      "*182*1*1*${manualMobileController.text}*${amountController.text}#");
+                                      "*182*${RegExp(r'^(?:\+2507|2507|07|7)[0-9]{8}$').hasMatch(manualMobileController.text) ? '1' : '8'}*1*${manualMobileController.text}*${amountController.text}#");
                                 },
                           child: Text(S.of(context).proceed),
                         )
