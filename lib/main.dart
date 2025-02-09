@@ -1,17 +1,25 @@
 import 'package:flutter/material.dart';
 import 'screens/home.dart';
-import 'screens/settings.dart';
 import 'screens/several_codes.dart';
+import 'screens/store_registration.dart';
+import 'screens/nearest_stores.dart';
+import 'screens/settings.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'generated/l10n.dart';
 import 'helpers/localProvider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'firebase_options.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final localeProvider = LocaleProvider();
   final prefs = await SharedPreferences.getInstance();
+
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
 
   await localeProvider.loadLocale();
 
@@ -76,11 +84,13 @@ class _MainWrapperState extends State<MainWrapper> {
 
     _pages = <Widget>[
       const Home(),
+      CodesPage(),
+      StoreRegistrationPage(),
+      NearestStoresPage(),
       SettingsPage(
           initialMobile: mobileNumber,
           initialMomoCode: momoCode,
           selectedLanguage: selectedLanguage!),
-      CodesPage(),
     ];
   }
 
@@ -95,7 +105,13 @@ class _MainWrapperState extends State<MainWrapper> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(['Home', 'Settings', 'Several Codes'][_selectedIndex]),
+        title: Text([
+          'Home',
+          'Several Codes',
+          'Reg Stores',
+          'Stores',
+          'Settings'
+        ][_selectedIndex]),
       ),
       drawer: Drawer(
         child: ListView(
@@ -115,14 +131,26 @@ class _MainWrapperState extends State<MainWrapper> {
             ListTile(
               leading: const Icon(Icons.code),
               title: const Text('Several Codes'),
+              selected: _selectedIndex == 1,
+              onTap: () => _onItemTapped(1),
+            ),
+            ListTile(
+              leading: const Icon(Icons.code),
+              title: const Text('Reg Stores'),
               selected: _selectedIndex == 2,
               onTap: () => _onItemTapped(2),
             ),
             ListTile(
+              leading: const Icon(Icons.code),
+              title: const Text('Stores'),
+              selected: _selectedIndex == 3,
+              onTap: () => _onItemTapped(3),
+            ),
+            ListTile(
               leading: const Icon(Icons.settings),
               title: const Text('Settings'),
-              selected: _selectedIndex == 1,
-              onTap: () => _onItemTapped(1),
+              selected: _selectedIndex == 4,
+              onTap: () => _onItemTapped(4),
             ),
           ],
         ),

@@ -43,6 +43,10 @@ dependencies:
     sdk: flutter
   intl: any
   flutter_native_contact_picker: ^0.0.10
+  cloud_firestore: ^5.6.2
+  geolocator: ^13.0.2
+  firebase_core: ^3.10.1
+  flutter_direct_caller_plugin: ^0.0.3
 
 dev_dependencies:
   flutter_test:

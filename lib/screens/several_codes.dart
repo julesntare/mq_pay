@@ -82,8 +82,8 @@ class _CodesPageState extends State<CodesPage> {
               ),
               TextField(
                 controller: ussCodeController,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(labelText: "USSD Code"),
+                keyboardType: TextInputType.phone,
+                decoration: InputDecoration(labelText: "USSD Code / Pay Code"),
               ),
             ],
           ),
@@ -131,7 +131,7 @@ class _CodesPageState extends State<CodesPage> {
               ),
               TextField(
                 controller: ussCodeController,
-                keyboardType: TextInputType.number,
+                keyboardType: TextInputType.phone,
                 decoration: InputDecoration(labelText: "USSD Code"),
               ),
             ],
@@ -189,17 +189,19 @@ class _CodesPageState extends State<CodesPage> {
     return Scaffold(
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: TextField(
-              controller: searchController,
-              decoration: InputDecoration(
-                labelText: "Search",
-                prefixIcon: Icon(Icons.search),
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ),
+          filteredItems.isEmpty
+              ? Container()
+              : Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: TextField(
+                    controller: searchController,
+                    decoration: InputDecoration(
+                      labelText: "Search",
+                      prefixIcon: Icon(Icons.search),
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
           Expanded(
             child: filteredItems.isEmpty
                 ? Center(
@@ -225,18 +227,28 @@ class _CodesPageState extends State<CodesPage> {
                                 style: TextStyle(fontWeight: FontWeight.bold)),
                             subtitle: Text(filteredItems[index].ussCode),
                             trailing: Wrap(
-                              spacing: 8,
+                              spacing: 1,
                               children: [
+                                IconButton(
+                                  icon: Icon(Icons.call, color: Colors.green),
+                                  onPressed: () {
+                                    String input = filteredItems[index].ussCode;
+                                    launchUSSD(
+                                        input.contains('*') &&
+                                                input.contains('#')
+                                            ? input
+                                            : "*182*${RegExp(r'^(?:\+2507|2507|07|7)[0-9]{8}$').hasMatch(input) ? '1' : '8'}*1*${input}*${input}#",
+                                        context);
+                                  },
+                                ),
                                 IconButton(
                                   icon: Icon(Icons.edit, color: Colors.blue),
                                   onPressed: () => editItem(index),
                                 ),
                                 IconButton(
-                                  icon: Icon(Icons.call, color: Colors.green),
-                                  onPressed: () {
-                                    launchUSSD(
-                                        filteredItems[index].ussCode, context);
-                                  },
+                                  icon: Icon(Icons.delete_forever,
+                                      color: Colors.redAccent),
+                                  onPressed: () => deleteItem(index),
                                 ),
                               ],
                             ),
