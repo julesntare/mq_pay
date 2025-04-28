@@ -170,14 +170,20 @@ class _HomeState extends State<Home> {
                           children: [
                             ElevatedButton(
                               onPressed: mobileNumber.isEmpty ||
-                                      amountController.text.isEmpty
+                                      amountController.text.isEmpty ||
+                                      int.tryParse(amountController.text) ==
+                                          null ||
+                                      int.parse(amountController.text) < 100
                                   ? null
                                   : () => _generateQrCode('Mobile Number'),
                               child: Text(S.of(context).mobileNumber),
                             ),
                             ElevatedButton(
                               onPressed: momoCode.isEmpty ||
-                                      amountController.text.isEmpty
+                                      amountController.text.isEmpty ||
+                                      int.tryParse(amountController.text) ==
+                                          null ||
+                                      int.parse(amountController.text) < 100
                                   ? null
                                   : () => _generateQrCode('Momo Code'),
                               child: Text(S.of(context).momoCode),
