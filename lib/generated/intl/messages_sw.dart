@@ -28,6 +28,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "invalidAmount": MessageLookupByLibrary.simpleMessage(
       "Tafadhali weka kiasi halali.",
     ),
+    "invalidUssdCode": MessageLookupByLibrary.simpleMessage(
+      "Msimbo wa USSD si sahihi",
+    ),
     "launchError": MessageLookupByLibrary.simpleMessage(
       "Haiwezekani kuzindua msimbo wa USSD",
     ),

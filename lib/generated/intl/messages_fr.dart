@@ -28,6 +28,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "invalidAmount": MessageLookupByLibrary.simpleMessage(
       "Veuillez entrer un montant valide.",
     ),
+    "invalidUssdCode": MessageLookupByLibrary.simpleMessage(
+      "Code USSD invalide",
+    ),
     "launchError": MessageLookupByLibrary.simpleMessage(
       "Impossible de lancer le code USSD",
     ),

@@ -28,6 +28,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "invalidAmount": MessageLookupByLibrary.simpleMessage(
       "Nyamuneka andika amafaranga yemewe.",
     ),
+    "invalidUssdCode": MessageLookupByLibrary.simpleMessage(
+      "Kode ya USSD ntabwo ariyo",
+    ),
     "launchError": MessageLookupByLibrary.simpleMessage(
       "Ntibyakunze gufungura kode ya USSD",
     ),

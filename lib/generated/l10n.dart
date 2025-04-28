@@ -184,6 +184,16 @@ class S {
   String get proceed {
     return Intl.message('Proceed', name: 'proceed', desc: '', args: []);
   }
+
+  /// `Invalid USSD code`
+  String get invalidUssdCode {
+    return Intl.message(
+      'Invalid USSD code',
+      name: 'invalidUssdCode',
+      desc: '',
+      args: [],
+    );
+  }
 }
 
 class AppLocalizationDelegate extends LocalizationsDelegate<S> {

@@ -17,5 +17,6 @@
   "viaScan": "kupitia Scan",
   "viaContact": "kupitia Mawasiliano",
   "loadFromContacts": "Pakia kutoka kwa Mawasiliano",
-  "proceed": "Endelea"
+  "proceed": "Endelea",
+  "invalidUssdCode": "Msimbo wa USSD si sahihi"
 }

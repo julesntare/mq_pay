@@ -82,11 +82,24 @@ class _HomeState extends State<Home> {
 
       setState(() {
         scannedData = result.rawContent;
+      });
+
+      // Validate if the scanned data is a USSD-like text
+      final ussdPattern = RegExp(r'^\*[\d*#]+#$');
+      if (!ussdPattern.hasMatch(scannedData)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(S.of(context).invalidUssdCode)),
+        );
+        return;
+      }
+
+      setState(() {
         generatedUssdCode = null;
         showQrCode = false;
         amountController.clear();
-        launchUSSD(scannedData, context);
       });
+
+      launchUSSD(scannedData, context);
     } catch (e) {
       setState(() {
         scannedData = 'Error: $e';

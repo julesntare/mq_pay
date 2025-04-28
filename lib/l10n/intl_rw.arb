@@ -17,5 +17,6 @@
   "viaScan": "Binyuze Scan",
   "viaContact": "Binyuze ku makontaki",
   "loadFromContacts": "Reba muri numero zawe",
-  "proceed": "Komeza"
+  "proceed": "Komeza",
+  "invalidUssdCode": "Kode ya USSD ntabwo ariyo"
 }

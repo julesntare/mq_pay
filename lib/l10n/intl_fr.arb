@@ -17,5 +17,6 @@
   "viaScan": "via Scan",
   "viaContact": "via Contacts",
   "loadFromContacts": "Charger à partir des contacts",
-  "proceed": "Procéder"
+  "proceed": "Procéder",
+  "invalidUssdCode": "Code USSD invalide"
 }
