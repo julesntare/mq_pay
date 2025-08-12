@@ -99,7 +99,7 @@ class _NearestStoresPageState extends State<NearestStoresPage> {
                       launchUSSD(
                           input.contains('*') && input.contains('#')
                               ? input
-                              : "*182*${RegExp(r'^(?:\+2507|2507|07|7)[0-9]{8}$').hasMatch(input) ? '1' : '8'}*1*${input}*${input}#",
+                              : "*182*${RegExp(r'^(?:\+2507|2507|07|7)[0-9]{8}$').hasMatch(input) ? '1' : '8'}*1*${input}#",
                           context);
                     },
                     child: Text("Pay Now"),
