@@ -105,6 +105,35 @@ class _HomeState extends State<Home> {
     return false;
   }
 
+  String _getServiceType(String phoneNumber) {
+    // Remove all non-digit characters
+    String cleaned = phoneNumber.replaceAll(RegExp(r'[^0-9]'), '');
+
+    // Normalize to 10-digit format starting with 07
+    if (cleaned.startsWith('25078') ||
+        cleaned.startsWith('25079') ||
+        cleaned.startsWith('25072') ||
+        cleaned.startsWith('25073')) {
+      cleaned = '0' + cleaned.substring(3);
+    } else if (cleaned.startsWith('2507')) {
+      cleaned = '0' + cleaned.substring(3);
+    } else if (cleaned.startsWith('78') ||
+        cleaned.startsWith('79') ||
+        cleaned.startsWith('72') ||
+        cleaned.startsWith('73')) {
+      cleaned = '0' + cleaned;
+    }
+
+    // Return service type based on prefix
+    if (cleaned.startsWith('072') || cleaned.startsWith('073')) {
+      return '2'; // Airtel
+    } else if (cleaned.startsWith('078') || cleaned.startsWith('079')) {
+      return '1'; // MTN
+    }
+
+    return '1'; // Default to MTN
+  }
+
   @override
   void dispose() {
     amountFocusNode.dispose();
@@ -132,7 +161,8 @@ class _HomeState extends State<Home> {
 
     String ussdCode;
     if (type == 'Mobile Number') {
-      ussdCode = '*182*1*1*$mobileNumber*$amount#';
+      String serviceType = _getServiceType(mobileNumber);
+      ussdCode = '*182*1*$serviceType*$mobileNumber*$amount#';
     } else if (type == 'Momo Code') {
       ussdCode = '*182*8*1*$momoCode*$amount#';
     } else {
@@ -395,8 +425,10 @@ class _HomeState extends State<Home> {
                                   amountController.text.isEmpty
                               ? null
                               : () {
+                                  String serviceType = _getServiceType(
+                                      manualMobileController.text);
                                   launchUSSD(
-                                      "*182*${RegExp(r'^(?:\+2507|2507|07|7)[0-9]{8}$').hasMatch(manualMobileController.text) ? '1' : '8'}*1*${manualMobileController.text}*${amountController.text}#",
+                                      "*182*1*$serviceType*${manualMobileController.text}*${amountController.text}#",
                                       context);
                                 },
                           child: Text(S.of(context).proceed),
