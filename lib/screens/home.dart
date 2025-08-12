@@ -21,6 +21,7 @@ class _HomeState extends State<Home> {
   final TextEditingController momoCodeController = TextEditingController();
   final FlutterNativeContactPicker _contactPicker =
       FlutterNativeContactPicker();
+  final FocusNode amountFocusNode = FocusNode();
   String? selectedNumber;
   String? selectedName;
 
@@ -36,6 +37,78 @@ class _HomeState extends State<Home> {
   void initState() {
     super.initState();
     _loadSavedPreferences();
+  }
+
+  String _formatPhoneNumber(String phoneNumber) {
+    // Remove all non-digit characters
+    String cleaned = phoneNumber.replaceAll(RegExp(r'[^0-9]'), '');
+
+    // Handle different formats
+    if (cleaned.startsWith('25078') ||
+        cleaned.startsWith('25079') ||
+        cleaned.startsWith('25072') ||
+        cleaned.startsWith('25073')) {
+      // Format: 25078xxxxxxx -> 078xxxxxxx
+      cleaned = '0' + cleaned.substring(3);
+    } else if (cleaned.startsWith('2507')) {
+      // Format: 2507xxxxxxxx -> 07xxxxxxxx
+      cleaned = '0' + cleaned.substring(3);
+    } else if (cleaned.startsWith('78') ||
+        cleaned.startsWith('79') ||
+        cleaned.startsWith('72') ||
+        cleaned.startsWith('73')) {
+      // Format: 78xxxxxxx -> 078xxxxxxx
+      cleaned = '0' + cleaned;
+    } else if (cleaned.startsWith('8') ||
+        cleaned.startsWith('9') ||
+        cleaned.startsWith('2') ||
+        cleaned.startsWith('3')) {
+      // Format: 8xxxxxxxx -> 078xxxxxxx
+      cleaned = '07' + cleaned;
+    }
+
+    // Ensure it's exactly 10 digits and starts with 07(8|9|2|3)
+    if (cleaned.length == 10 &&
+        (cleaned.startsWith('078') ||
+            cleaned.startsWith('079') ||
+            cleaned.startsWith('072') ||
+            cleaned.startsWith('073'))) {
+      return cleaned;
+    }
+
+    // If we can't format it properly, return empty string to indicate invalid
+    return '';
+  }
+
+  bool _isValidPhoneNumber(String phoneNumber) {
+    // Remove all non-digit characters
+    String cleaned = phoneNumber.replaceAll(RegExp(r'[^0-9]'), '');
+
+    // Check if it starts with valid prefixes and has correct length
+    if (cleaned.startsWith('25078') ||
+        cleaned.startsWith('25079') ||
+        cleaned.startsWith('25072') ||
+        cleaned.startsWith('25073')) {
+      return cleaned.length == 12; // +25078xxxxxxx
+    } else if (cleaned.startsWith('078') ||
+        cleaned.startsWith('079') ||
+        cleaned.startsWith('072') ||
+        cleaned.startsWith('073')) {
+      return cleaned.length == 10; // 078xxxxxxx
+    } else if (cleaned.startsWith('78') ||
+        cleaned.startsWith('79') ||
+        cleaned.startsWith('72') ||
+        cleaned.startsWith('73')) {
+      return cleaned.length == 9; // 78xxxxxxx
+    }
+
+    return false;
+  }
+
+  @override
+  void dispose() {
+    amountFocusNode.dispose();
+    super.dispose();
   }
 
   Future<void> _loadSavedPreferences() async {
@@ -247,12 +320,44 @@ class _HomeState extends State<Home> {
                               Contact? contact =
                                   await _contactPicker.selectContact();
                               if (contact != null) {
-                                setState(() {
-                                  List<String>? phoneNumbers =
-                                      contact.phoneNumbers;
-                                  selectedNumber = phoneNumbers?.first;
-                                  manualMobileController.text = selectedNumber!;
-                                });
+                                List<String>? phoneNumbers =
+                                    contact.phoneNumbers;
+                                selectedNumber = phoneNumbers?.first;
+                                if (selectedNumber != null) {
+                                  if (_isValidPhoneNumber(selectedNumber!)) {
+                                    String formattedNumber =
+                                        _formatPhoneNumber(selectedNumber!);
+                                    setState(() {
+                                      manualMobileController.text =
+                                          formattedNumber;
+                                    });
+                                    // Focus on amount field after successful contact load
+                                    Future.delayed(Duration(milliseconds: 100),
+                                        () {
+                                      amountFocusNode.requestFocus();
+                                    });
+                                  } else {
+                                    // Show error alert for invalid number
+                                    showDialog(
+                                      context: context,
+                                      builder: (BuildContext context) {
+                                        return AlertDialog(
+                                          title: Text('Invalid Phone Number'),
+                                          content: Text(
+                                              'The selected contact has an invalid phone number format. Please select a contact with a valid Rwanda phone number (+25078/9/2/3xxxxxxx, 078/9/2/3xxxxxxx, or 78/9/2/3xxxxxxx).'),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () {
+                                                Navigator.of(context).pop();
+                                              },
+                                              child: Text('OK'),
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    );
+                                  }
+                                }
                               }
                             },
                             child: Text(S.of(context).loadFromContacts),
@@ -273,6 +378,7 @@ class _HomeState extends State<Home> {
                         const SizedBox(height: 24),
                         TextField(
                           controller: amountController,
+                          focusNode: amountFocusNode,
                           keyboardType: TextInputType.number,
                           decoration: InputDecoration(
                             labelText: S.of(context).amount,
