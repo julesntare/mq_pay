@@ -6,6 +6,7 @@ import '../generated/l10n.dart';
 import 'package:flutter_native_contact_picker/flutter_native_contact_picker.dart';
 import 'package:flutter_native_contact_picker/model/contact.dart';
 import '../helpers/launcher.dart';
+import '../helpers/app_theme.dart';
 
 class Home extends StatefulWidget {
   const Home({super.key});
@@ -212,235 +213,580 @@ class _HomeState extends State<Home> {
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        body: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(S.of(context).welcomeHere,
-                      style: TextStyle(fontSize: 24)),
-                  SizedBox(height: 8),
-                  Text(S.of(context).shortDesc, style: TextStyle(fontSize: 16)),
-                ],
-              ),
-            ),
-            TabBar(
-              labelColor: Colors.blue,
-              unselectedLabelColor: Colors.grey,
-              tabs: [
-                Tab(text: S.of(context).viaScan),
-                Tab(text: S.of(context).viaContact),
+    final theme = Theme.of(context);
+
+    return Scaffold(
+      backgroundColor: theme.colorScheme.background,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Welcome Section
+                _buildWelcomeSection(context, theme),
+                const SizedBox(height: 30),
+
+                // Quick Actions
+                _buildQuickActions(context, theme),
+                const SizedBox(height: 30),
+
+                // Payment Options
+                _buildPaymentOptions(context, theme),
+                const SizedBox(height: 30),
+
+                // Recent Activity or QR Display
+                if (showQrCode && generatedUssdCode != null)
+                  _buildQrCodeSection(context, theme)
+                else
+                  _buildRecentActivity(context, theme),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWelcomeSection(BuildContext context, ThemeData theme) {
+    return GradientCard(
+      gradient: AppTheme.primaryGradient,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      S.of(context).welcomeHere,
+                      style: theme.textTheme.headlineMedium?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      S.of(context).shortDesc,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Icon(
+                  Icons.account_balance_wallet_rounded,
+                  color: Colors.white,
+                  size: 32,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickActions(BuildContext context, ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Quick Actions',
+          style: theme.textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
             Expanded(
-              child: TabBarView(
-                children: [
-                  SingleChildScrollView(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        const SizedBox(height: 24),
-                        TextField(
-                          controller: amountController,
-                          keyboardType: TextInputType.number,
-                          decoration: InputDecoration(
-                            labelText: S.of(context).amount,
-                            hintText: S.of(context).enterAmount,
-                            border: OutlineInputBorder(),
-                            suffixIcon: amountController.text.isNotEmpty
-                                ? IconButton(
-                                    icon: Icon(Icons.clear_rounded),
-                                    onPressed: () {
-                                      amountController.clear();
-                                      setState(() {});
-                                    },
-                                  )
-                                : null,
-                          ),
-                          onChanged: (value) {
-                            setState(() {});
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            ElevatedButton(
-                              onPressed: mobileNumber.isEmpty ||
-                                      amountController.text.isEmpty ||
-                                      int.tryParse(amountController.text) ==
-                                          null ||
-                                      int.parse(amountController.text) < 100
-                                  ? null
-                                  : () => _generateQrCode('Mobile Number'),
-                              child: Text(S.of(context).mobileNumber),
-                            ),
-                            ElevatedButton(
-                              onPressed: momoCode.isEmpty ||
-                                      amountController.text.isEmpty ||
-                                      int.tryParse(amountController.text) ==
-                                          null ||
-                                      int.parse(amountController.text) < 100
-                                  ? null
-                                  : () => _generateQrCode('Momo Code'),
-                              child: Text(S.of(context).momoCode),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        if (!showQrCode && generatedUssdCode == null) ...[
-                          ElevatedButton(
-                            onPressed: _scanQrCode,
-                            child: Text(S.of(context).scanNow),
-                          ),
-                        ],
-                        const SizedBox(height: 16),
-                        if (showQrCode && generatedUssdCode != null) ...[
-                          Text(
-                            '${S.of(context).generate} QR Code:',
-                            style: TextStyle(
-                                fontSize: 16, fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 8),
-                          Center(
-                            child: QrImageView(
-                              data: generatedUssdCode!,
-                              version: QrVersions.auto,
-                              size: 200.0,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Center(
-                            child: SelectableText(
-                              generatedUssdCode!,
-                              style: const TextStyle(fontSize: 16),
-                            ),
-                          ),
-                          const SizedBox(height: 15),
-                          Center(
-                            child: ElevatedButton(
-                              onPressed: () {
-                                setState(() {
-                                  generatedUssdCode = null;
-                                  showQrCode = false;
-                                  amountController.clear();
-                                });
-                              },
-                              child: Text(S.of(context).reset),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        Align(
-                          alignment: Alignment.topRight,
-                          child: ElevatedButton(
-                            onPressed: () async {
-                              Contact? contact =
-                                  await _contactPicker.selectContact();
-                              if (contact != null) {
-                                List<String>? phoneNumbers =
-                                    contact.phoneNumbers;
-                                selectedNumber = phoneNumbers?.first;
-                                if (selectedNumber != null) {
-                                  if (_isValidPhoneNumber(selectedNumber!)) {
-                                    String formattedNumber =
-                                        _formatPhoneNumber(selectedNumber!);
-                                    setState(() {
-                                      manualMobileController.text =
-                                          formattedNumber;
-                                    });
-                                    // Focus on amount field after successful contact load
-                                    Future.delayed(Duration(milliseconds: 100),
-                                        () {
-                                      amountFocusNode.requestFocus();
-                                    });
-                                  } else {
-                                    // Show error alert for invalid number
-                                    showDialog(
-                                      context: context,
-                                      builder: (BuildContext context) {
-                                        return AlertDialog(
-                                          title: Text('Invalid Phone Number'),
-                                          content: Text(
-                                              'The selected contact has an invalid phone number format. Please select a contact with a valid Rwanda phone number (+25078/9/2/3xxxxxxx, 078/9/2/3xxxxxxx, or 78/9/2/3xxxxxxx).'),
-                                          actions: [
-                                            TextButton(
-                                              onPressed: () {
-                                                Navigator.of(context).pop();
-                                              },
-                                              child: Text('OK'),
-                                            ),
-                                          ],
-                                        );
-                                      },
-                                    );
-                                  }
-                                }
-                              }
-                            },
-                            child: Text(S.of(context).loadFromContacts),
-                          ),
-                        ),
-                        TextField(
-                          controller: manualMobileController,
-                          keyboardType: TextInputType.number,
-                          decoration: InputDecoration(
-                            labelText: S.of(context).mobileNumber,
-                            hintText: S.of(context).mobileNumber,
-                            border: OutlineInputBorder(),
-                          ),
-                          onChanged: (value) {
-                            setState(() {});
-                          },
-                        ),
-                        const SizedBox(height: 24),
-                        TextField(
-                          controller: amountController,
-                          focusNode: amountFocusNode,
-                          keyboardType: TextInputType.number,
-                          decoration: InputDecoration(
-                            labelText: S.of(context).amount,
-                            hintText: S.of(context).enterAmount,
-                            border: OutlineInputBorder(),
-                          ),
-                          onChanged: (value) {
-                            setState(() {});
-                          },
-                        ),
-                        const SizedBox(height: 10),
-                        ElevatedButton(
-                          onPressed: manualMobileController.text.isEmpty ||
-                                  amountController.text.isEmpty
-                              ? null
-                              : () {
-                                  String serviceType = _getServiceType(
-                                      manualMobileController.text);
-                                  launchUSSD(
-                                      "*182*1*$serviceType*${manualMobileController.text}*${amountController.text}#",
-                                      context);
-                                },
-                          child: Text(S.of(context).proceed),
-                        )
-                      ],
-                    ),
-                  ),
-                ],
+              child: _buildActionCard(
+                context: context,
+                theme: theme,
+                icon: Icons.qr_code_scanner_rounded,
+                title: S.of(context).scanNow,
+                subtitle: 'Scan QR codes',
+                onTap: _scanQrCode,
+                gradient: AppTheme.secondaryGradient,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _buildActionCard(
+                context: context,
+                theme: theme,
+                icon: Icons.contacts_rounded,
+                title: 'Contact',
+                subtitle: 'Select contact',
+                onTap: _loadContact,
+                gradient: LinearGradient(
+                  colors: [
+                    AppTheme.warningColor,
+                    AppTheme.warningColor.withOpacity(0.8),
+                  ],
+                ),
               ),
             ),
           ],
         ),
+      ],
+    );
+  }
+
+  Widget _buildActionCard({
+    required BuildContext context,
+    required ThemeData theme,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+    required Gradient gradient,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: gradient,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: gradient.colors.first.withOpacity(0.3),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Icon(
+              icon,
+              color: Colors.white,
+              size: 32,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: Colors.white70,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPaymentOptions(BuildContext context, ThemeData theme) {
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.payment_rounded,
+                  color: theme.colorScheme.primary,
+                  size: 28,
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'Payment Details',
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            // Amount Input
+            TextField(
+              controller: amountController,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                labelText: S.of(context).amount,
+                hintText: S.of(context).enterAmount,
+                prefixIcon: const Icon(Icons.attach_money_rounded),
+                suffixIcon: amountController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear_rounded),
+                        onPressed: () {
+                          amountController.clear();
+                          setState(() {});
+                        },
+                      )
+                    : null,
+              ),
+              onChanged: (value) => setState(() {}),
+            ),
+            const SizedBox(height: 20),
+
+            // Mobile Number Input (if manual entry)
+            if (manualMobileController.text.isNotEmpty) ...[
+              TextField(
+                controller: manualMobileController,
+                keyboardType: TextInputType.phone,
+                decoration: InputDecoration(
+                  labelText: S.of(context).mobileNumber,
+                  hintText: 'Enter mobile number',
+                  prefixIcon: const Icon(Icons.phone_rounded),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.clear_rounded),
+                    onPressed: () {
+                      manualMobileController.clear();
+                      setState(() {});
+                    },
+                  ),
+                ),
+                onChanged: (value) => setState(() {}),
+              ),
+              const SizedBox(height: 20),
+            ],
+
+            // Payment Buttons
+            Row(
+              children: [
+                if (mobileNumber.isNotEmpty) ...[
+                  Expanded(
+                    child: _buildPaymentButton(
+                      context: context,
+                      theme: theme,
+                      title: S.of(context).mobileNumber,
+                      icon: Icons.phone_rounded,
+                      isEnabled: _isValidAmount(),
+                      onPressed: () => _generateQrCode('Mobile Number'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                ],
+                if (momoCode.isNotEmpty) ...[
+                  Expanded(
+                    child: _buildPaymentButton(
+                      context: context,
+                      theme: theme,
+                      title: S.of(context).momoCode,
+                      icon: Icons.qr_code_rounded,
+                      isEnabled: _isValidAmount(),
+                      onPressed: () => _generateQrCode('Momo Code'),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+
+            // Manual Payment Button
+            if (manualMobileController.text.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: _buildPaymentButton(
+                  context: context,
+                  theme: theme,
+                  title: S.of(context).proceed,
+                  icon: Icons.send_rounded,
+                  isEnabled: manualMobileController.text.isNotEmpty &&
+                      _isValidAmount(),
+                  onPressed: () {
+                    String serviceType =
+                        _getServiceType(manualMobileController.text);
+                    launchUSSD(
+                      "*182*1*$serviceType*${manualMobileController.text}*${amountController.text}#",
+                      context,
+                    );
+                  },
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPaymentButton({
+    required BuildContext context,
+    required ThemeData theme,
+    required String title,
+    required IconData icon,
+    required bool isEnabled,
+    required VoidCallback onPressed,
+  }) {
+    return ElevatedButton.icon(
+      onPressed: isEnabled ? onPressed : null,
+      icon: Icon(icon),
+      label: Text(title),
+      style: ElevatedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQrCodeSection(BuildContext context, ThemeData theme) {
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.qr_code_rounded,
+                  color: theme.colorScheme.primary,
+                  size: 28,
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  '${S.of(context).generate} QR Code',
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: theme.colorScheme.primary.withOpacity(0.2),
+                ),
+              ),
+              child: QrImageView(
+                data: generatedUssdCode!,
+                version: QrVersions.auto,
+                size: 200.0,
+                foregroundColor: theme.colorScheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primaryContainer.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: SelectableText(
+                generatedUssdCode!,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontFamily: 'monospace',
+                  fontWeight: FontWeight.w500,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  setState(() {
+                    generatedUssdCode = null;
+                    showQrCode = false;
+                    amountController.clear();
+                  });
+                },
+                icon: const Icon(Icons.refresh_rounded),
+                label: Text(S.of(context).reset),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRecentActivity(BuildContext context, ThemeData theme) {
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.history_rounded,
+                  color: theme.colorScheme.primary,
+                  size: 28,
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'Quick Tips',
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _buildTipItem(
+              context: context,
+              theme: theme,
+              icon: Icons.security_rounded,
+              title: 'Secure Payments',
+              subtitle: 'All transactions are encrypted and secure',
+            ),
+            const SizedBox(height: 12),
+            _buildTipItem(
+              context: context,
+              theme: theme,
+              icon: Icons.speed_rounded,
+              title: 'Instant Transfer',
+              subtitle: 'Payments are processed in real-time',
+            ),
+            const SizedBox(height: 12),
+            _buildTipItem(
+              context: context,
+              theme: theme,
+              icon: Icons.support_agent_rounded,
+              title: '24/7 Support',
+              subtitle: 'Get help whenever you need it',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTipItem({
+    required BuildContext context,
+    required ThemeData theme,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+  }) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.primary.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            icon,
+            color: theme.colorScheme.primary,
+            size: 20,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Text(
+                subtitle,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurface.withOpacity(0.7),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  bool _isValidAmount() {
+    if (amountController.text.isEmpty) return false;
+    final amount = int.tryParse(amountController.text);
+    return amount != null && amount >= 100;
+  }
+
+  Future<void> _loadContact() async {
+    try {
+      Contact? contact = await _contactPicker.selectContact();
+      if (contact != null) {
+        List<String>? phoneNumbers = contact.phoneNumbers;
+        selectedNumber = phoneNumbers?.first;
+        if (selectedNumber != null) {
+          if (_isValidPhoneNumber(selectedNumber!)) {
+            String formattedNumber = _formatPhoneNumber(selectedNumber!);
+            setState(() {
+              manualMobileController.text = formattedNumber;
+            });
+            Future.delayed(const Duration(milliseconds: 100), () {
+              amountFocusNode.requestFocus();
+            });
+          } else {
+            _showErrorDialog(
+              context: context,
+              title: 'Invalid Phone Number',
+              message:
+                  'The selected contact has an invalid phone number format. Please select a contact with a valid Rwanda phone number.',
+            );
+          }
+        }
+      }
+    } catch (e) {
+      _showErrorDialog(
+        context: context,
+        title: 'Error',
+        message: 'Failed to load contact: $e',
+      );
+    }
+  }
+
+  void _showErrorDialog({
+    required BuildContext context,
+    required String title,
+    required String message,
+  }) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
       ),
     );
   }
