@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'screens/home.dart';
 import 'screens/several_codes.dart';
 import 'screens/store_registration.dart';
-import 'screens/nearest_stores.dart';
+import 'screens/simple_nearest_stores.dart';
 import 'screens/settings.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -86,7 +86,7 @@ class _MainWrapperState extends State<MainWrapper> {
       const Home(),
       CodesPage(),
       StoreRegistrationPage(),
-      NearestStoresPage(),
+      SimpleNearestStoresPage(),
       SettingsPage(
           initialMobile: mobileNumber,
           initialMomoCode: momoCode,
