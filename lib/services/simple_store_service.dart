@@ -274,7 +274,7 @@ class SimpleStoreService {
   Future<bool> deleteStore(String storeId) async {
     try {
       print('Deleting store: $storeId');
-      
+
       // Check connectivity before attempting Firestore operation
       final connectivityResult = await Connectivity().checkConnectivity();
       if (connectivityResult != ConnectivityResult.none) {
@@ -334,13 +334,16 @@ class SimpleStoreService {
   Future<bool> addStore(Store store) async {
     try {
       print('Adding store: ${store.name} (ID: ${store.id})');
-      
+
       // Check connectivity before attempting Firestore operation
       final connectivityResult = await Connectivity().checkConnectivity();
       if (connectivityResult != ConnectivityResult.none) {
         try {
           final firestore = FirebaseFirestore.instance;
-          await firestore.collection('stores').doc(store.id).set(store.toJson());
+          await firestore
+              .collection('stores')
+              .doc(store.id)
+              .set(store.toJson());
           print('✅ Store added to Firestore successfully: ${store.id}');
         } catch (e) {
           print('❌ Failed to add store to Firestore: $e');
@@ -375,14 +378,18 @@ class SimpleStoreService {
   Future<bool> updateStore(Store updatedStore) async {
     try {
       print('Updating store: ${updatedStore.name} (ID: ${updatedStore.id})');
-      
+
       // Check connectivity before attempting Firestore operation
       final connectivityResult = await Connectivity().checkConnectivity();
       if (connectivityResult != ConnectivityResult.none) {
         try {
           final firestore = FirebaseFirestore.instance;
-          await firestore.collection('stores').doc(updatedStore.id).update(updatedStore.toJson());
-          print('✅ Store updated in Firestore successfully: ${updatedStore.id}');
+          await firestore
+              .collection('stores')
+              .doc(updatedStore.id)
+              .update(updatedStore.toJson());
+          print(
+              '✅ Store updated in Firestore successfully: ${updatedStore.id}');
         } catch (e) {
           print('❌ Failed to update store in Firestore: $e');
           // Continue with local storage even if Firestore fails
