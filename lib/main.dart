@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'screens/home.dart';
 import 'screens/several_codes.dart';
-import 'screens/store_registration.dart';
 import 'screens/simple_nearest_stores.dart';
 import 'screens/settings.dart';
 import 'package:provider/provider.dart';
@@ -98,7 +97,6 @@ class _MainWrapperState extends State<MainWrapper> {
     _pages = <Widget>[
       const Home(),
       CodesPage(),
-      StoreRegistrationPage(),
       SimpleNearestStoresPage(),
       SettingsPage(
           initialMobile: mobileNumber,
@@ -122,13 +120,7 @@ class _MainWrapperState extends State<MainWrapper> {
       backgroundColor: theme.colorScheme.background,
       appBar: AppBar(
         title: Text(
-          [
-            'Home',
-            'QR Codes',
-            'Register Store',
-            'Nearby Stores',
-            'Settings'
-          ][_selectedIndex],
+          ['Home', 'QR Codes', 'Nearby Stores', 'Settings'][_selectedIndex],
           style: theme.textTheme.headlineMedium?.copyWith(
             fontWeight: FontWeight.w700,
           ),
@@ -259,7 +251,7 @@ class _MainWrapperState extends State<MainWrapper> {
             Expanded(
               child: Padding(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 child: Column(
                   children: [
                     _buildDrawerItem(
@@ -269,7 +261,7 @@ class _MainWrapperState extends State<MainWrapper> {
                       index: 0,
                       theme: theme,
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 4),
                     _buildDrawerItem(
                       context: context,
                       icon: Icons.qr_code_rounded,
@@ -277,25 +269,17 @@ class _MainWrapperState extends State<MainWrapper> {
                       index: 1,
                       theme: theme,
                     ),
-                    const SizedBox(height: 8),
-                    _buildDrawerItem(
-                      context: context,
-                      icon: Icons.store_rounded,
-                      title: 'Register Store',
-                      index: 2,
-                      theme: theme,
-                    ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 4),
                     _buildDrawerItem(
                       context: context,
                       icon: Icons.location_on_rounded,
                       title: 'Nearby Stores',
-                      index: 3,
+                      index: 2,
                       theme: theme,
                     ),
                     const Spacer(),
                     const Divider(),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 4),
 
                     // Theme Toggle
                     Consumer<ThemeProvider>(
@@ -329,13 +313,13 @@ class _MainWrapperState extends State<MainWrapper> {
                         );
                       },
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 4),
 
                     _buildDrawerItem(
                       context: context,
                       icon: Icons.settings_rounded,
                       title: 'Settings',
-                      index: 4,
+                      index: 3,
                       theme: theme,
                     ),
                   ],

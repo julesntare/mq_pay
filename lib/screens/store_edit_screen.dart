@@ -17,14 +17,42 @@ class _StoreEditScreenState extends State<StoreEditScreen> {
 
   late TextEditingController _nameController;
   late TextEditingController _paymentCodeController;
-  late TextEditingController _paymentTypeController;
   late TextEditingController _latitudeController;
   late TextEditingController _longitudeController;
   late TextEditingController _addressController;
   late TextEditingController _descriptionController;
-  late TextEditingController _categoriesController;
 
   bool _isLoading = false;
+
+  // Dropdown values
+  String? _selectedPaymentType;
+  List<String> _selectedCategories = [];
+
+  // Dropdown options
+  final List<String> _paymentTypes = [
+    'MTN MoMo',
+    'Airtel Money',
+    'Bank Transfer',
+    'Credit Card',
+  ];
+
+  final List<String> _categories = [
+    'Grocery',
+    'Electronics',
+    'Clothing',
+    'Restaurant',
+    'Pharmacy',
+    'Hardware',
+    'Beauty & Health',
+    'Automotive',
+    'Sports & Recreation',
+    'Books & Education',
+    'Home & Garden',
+    'Technology',
+    'Services',
+    'Entertainment',
+    'Other',
+  ];
 
   @override
   void initState() {
@@ -32,8 +60,8 @@ class _StoreEditScreenState extends State<StoreEditScreen> {
     _nameController = TextEditingController(text: widget.store.name);
     _paymentCodeController =
         TextEditingController(text: widget.store.paymentCode);
-    _paymentTypeController =
-        TextEditingController(text: widget.store.paymentType);
+    _selectedPaymentType =
+        widget.store.paymentType.isNotEmpty ? widget.store.paymentType : null;
     _latitudeController =
         TextEditingController(text: widget.store.latitude.toString());
     _longitudeController =
@@ -42,21 +70,48 @@ class _StoreEditScreenState extends State<StoreEditScreen> {
         TextEditingController(text: widget.store.address ?? '');
     _descriptionController =
         TextEditingController(text: widget.store.description ?? '');
-    _categoriesController =
-        TextEditingController(text: widget.store.categories?.join(', ') ?? '');
+    _selectedCategories = widget.store.categories ?? [];
   }
 
   @override
   void dispose() {
     _nameController.dispose();
     _paymentCodeController.dispose();
-    _paymentTypeController.dispose();
     _latitudeController.dispose();
     _longitudeController.dispose();
     _addressController.dispose();
     _descriptionController.dispose();
-    _categoriesController.dispose();
     super.dispose();
+  }
+
+  Map<String, String> _getPaymentCodeLabels() {
+    switch (_selectedPaymentType) {
+      case 'MTN MoMo':
+        return {
+          'label': 'MTN MoMo Number *',
+          'hint': 'Enter MTN mobile number (e.g., 07(8/9)XXXXXXX)',
+        };
+      case 'Airtel Money':
+        return {
+          'label': 'Airtel Money Number *',
+          'hint': 'Enter Airtel mobile number (e.g., 07(2/3)XXXXXXX)',
+        };
+      case 'Bank Transfer':
+        return {
+          'label': 'Bank Account Number *',
+          'hint': 'Enter bank account number',
+        };
+      case 'Credit Card':
+        return {
+          'label': 'Payment Reference *',
+          'hint': 'Enter payment reference or contact',
+        };
+      default:
+        return {
+          'label': 'Payment Code *',
+          'hint': 'Phone number or payment identifier',
+        };
+    }
   }
 
   Future<void> _saveStore() async {
@@ -67,21 +122,15 @@ class _StoreEditScreenState extends State<StoreEditScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // Parse categories
-      List<String>? categories;
-      if (_categoriesController.text.trim().isNotEmpty) {
-        categories = _categoriesController.text
-            .split(',')
-            .map((e) => e.trim())
-            .where((e) => e.isNotEmpty)
-            .toList();
-      }
+      // Use selected categories directly
+      List<String>? categories =
+          _selectedCategories.isNotEmpty ? _selectedCategories : null;
 
       // Create updated store
       final updatedStore = widget.store.copyWith(
         name: _nameController.text.trim(),
         paymentCode: _paymentCodeController.text.trim(),
-        paymentType: _paymentTypeController.text.trim(),
+        paymentType: _selectedPaymentType ?? '',
         latitude: double.parse(_latitudeController.text.trim()),
         longitude: double.parse(_longitudeController.text.trim()),
         address: _addressController.text.trim().isEmpty
@@ -155,6 +204,46 @@ class _StoreEditScreenState extends State<StoreEditScreen> {
         child: ListView(
           padding: EdgeInsets.all(16.0),
           children: [
+            // Help text
+            Container(
+              padding: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue[200]!),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.info, color: Colors.blue[600], size: 18),
+                      SizedBox(width: 8),
+                      Text(
+                        'Tips:',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue[800],
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    '• Fields marked with * are required\n'
+                    '• Use GPS coordinates for accurate location\n'
+                    '• Categories help users find your store in search',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.blue[700],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            SizedBox(height: 12),
+
             // Store Name
             TextFormField(
               controller: _nameController,
@@ -172,17 +261,28 @@ class _StoreEditScreenState extends State<StoreEditScreen> {
             ),
             SizedBox(height: 16),
 
-            // Payment Type
-            TextFormField(
-              controller: _paymentTypeController,
+            // Payment Type Dropdown
+            DropdownButtonFormField<String>(
+              value: _selectedPaymentType,
               decoration: InputDecoration(
                 labelText: 'Payment Type *',
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.payment),
-                hintText: 'e.g., MTN MoMo, Airtel Money, Bank',
+                hintText: 'Select payment type',
               ),
+              items: _paymentTypes.map((type) {
+                return DropdownMenuItem<String>(
+                  value: type,
+                  child: Text(type),
+                );
+              }).toList(),
+              onChanged: (value) {
+                setState(() {
+                  _selectedPaymentType = value;
+                });
+              },
               validator: (value) {
-                if (value == null || value.trim().isEmpty) {
+                if (value == null || value.isEmpty) {
                   return 'Payment type is required';
                 }
                 return null;
@@ -194,10 +294,10 @@ class _StoreEditScreenState extends State<StoreEditScreen> {
             TextFormField(
               controller: _paymentCodeController,
               decoration: InputDecoration(
-                labelText: 'Payment Code *',
+                labelText: _getPaymentCodeLabels()['label'],
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.code),
-                hintText: 'Phone number or payment identifier',
+                hintText: _getPaymentCodeLabels()['hint'],
               ),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
@@ -289,52 +389,64 @@ class _StoreEditScreenState extends State<StoreEditScreen> {
             ),
             SizedBox(height: 16),
 
-            // Categories
-            TextFormField(
-              controller: _categoriesController,
-              decoration: InputDecoration(
-                labelText: 'Categories',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.category),
-                hintText: 'Comma-separated (e.g., Grocery, Electronics)',
-              ),
-            ),
-            SizedBox(height: 24),
-
-            // Help text
+            // Categories Multi-Select
             Container(
+              width: double.infinity,
               padding: EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.blue[50],
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.blue[200]!),
+                border: Border.all(color: Colors.grey.shade400),
+                borderRadius: BorderRadius.circular(4),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.info, color: Colors.blue[600], size: 18),
+                      Icon(Icons.category, color: Colors.grey.shade600),
                       SizedBox(width: 8),
                       Text(
-                        'Tips:',
+                        'Categories',
                         style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue[800],
+                          fontSize: 16,
+                          color: Colors.grey.shade700,
                         ),
                       ),
                     ],
                   ),
-                  SizedBox(height: 4),
-                  Text(
-                    '• Fields marked with * are required\n'
-                    '• Use GPS coordinates for accurate location\n'
-                    '• Categories help users find your store in search',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.blue[700],
-                    ),
+                  SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _categories.map((category) {
+                      final isSelected = _selectedCategories.contains(category);
+                      return FilterChip(
+                        label: Text(category),
+                        selected: isSelected,
+                        onSelected: (selected) {
+                          setState(() {
+                            if (selected) {
+                              _selectedCategories.add(category);
+                            } else {
+                              _selectedCategories.remove(category);
+                            }
+                          });
+                        },
+                        selectedColor: Colors.blue.shade100,
+                        checkmarkColor: Colors.blue.shade700,
+                      );
+                    }).toList(),
                   ),
+                  if (_selectedCategories.isNotEmpty) ...[
+                    SizedBox(height: 8),
+                    Text(
+                      'Selected: ${_selectedCategories.join(', ')}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

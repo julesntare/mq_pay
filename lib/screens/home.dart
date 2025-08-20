@@ -40,6 +40,38 @@ class _HomeState extends State<Home> {
     _loadSavedPreferences();
   }
 
+  String _maskPhoneNumber(String phoneNumber) {
+    // Remove all non-digit characters
+    String cleaned = phoneNumber.replaceAll(RegExp(r'[^0-9]'), '');
+
+    if (cleaned.length >= 10) {
+      // Show first 3 digits, mask middle digits, show last 2 digits
+      String first = cleaned.substring(0, 3);
+      String last = cleaned.substring(cleaned.length - 2);
+      String masked = '*' * (cleaned.length - 5);
+      return '$first$masked$last';
+    }
+    return phoneNumber; // Return original if too short
+  }
+
+  String _maskUssdCode(String ussdCode) {
+    // Pattern: *182*1*serviceType*phoneNumber*amount#
+    RegExp ussdPattern = RegExp(r'\*182\*(\d+)\*(\d+)\*(\d+)\*(\d+)#');
+    Match? match = ussdPattern.firstMatch(ussdCode);
+
+    if (match != null) {
+      String prefix = match.group(1)!; // 1
+      String serviceType = match.group(2)!; // serviceType
+      String phoneNumber = match.group(3)!; // phoneNumber
+      String amount = match.group(4)!; // amount
+
+      String maskedPhone = _maskPhoneNumber(phoneNumber);
+      return '*182*$prefix*$serviceType*$maskedPhone*$amount#';
+    }
+
+    return ussdCode; // Return original if pattern doesn't match
+  }
+
   String _formatPhoneNumber(String phoneNumber) {
     // Remove all non-digit characters
     String cleaned = phoneNumber.replaceAll(RegExp(r'[^0-9]'), '');
@@ -599,7 +631,7 @@ class _HomeState extends State<Home> {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: SelectableText(
-                generatedUssdCode!,
+                _maskUssdCode(generatedUssdCode!),
                 style: theme.textTheme.bodyMedium?.copyWith(
                   fontFamily: 'monospace',
                   fontWeight: FontWeight.w500,

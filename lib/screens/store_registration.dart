@@ -11,8 +11,37 @@ class StoreRegistrationPage extends StatefulWidget {
 class _StoreRegistrationPageState extends State<StoreRegistrationPage> {
   final TextEditingController _storeNameController = TextEditingController();
   final TextEditingController _paymentCodeController = TextEditingController();
-  String _paymentType = "Phone Number";
+  String _paymentType = "MTN MoMo";
+  List<String> _selectedCategories = [];
   bool _isLoading = false;
+
+  // Dropdown options
+  final List<String> _paymentTypes = [
+    'MTN MoMo',
+    'Airtel Money',
+    'Bank Transfer',
+    'Tigo Cash',
+    'Cash',
+    'Credit Card',
+  ];
+
+  final List<String> _categories = [
+    'Grocery',
+    'Electronics',
+    'Clothing',
+    'Restaurant',
+    'Pharmacy',
+    'Hardware',
+    'Beauty & Health',
+    'Automotive',
+    'Sports & Recreation',
+    'Books & Education',
+    'Home & Garden',
+    'Technology',
+    'Services',
+    'Entertainment',
+    'Other',
+  ];
 
   Future<void> _registerStore() async {
     setState(() => _isLoading = true);
@@ -44,6 +73,7 @@ class _StoreRegistrationPageState extends State<StoreRegistrationPage> {
         'name': _storeNameController.text,
         'paymentCode': _paymentCodeController.text,
         'paymentType': _paymentType,
+        'categories': _selectedCategories,
         'latitude': position.latitude,
         'longitude': position.longitude,
         'createdAt': FieldValue.serverTimestamp(),
@@ -53,11 +83,29 @@ class _StoreRegistrationPageState extends State<StoreRegistrationPage> {
           SnackBar(content: Text("Store Registered Successfully!")));
       _storeNameController.clear();
       _paymentCodeController.clear();
+      setState(() {
+        _selectedCategories.clear();
+      });
     } catch (e) {
       _showError("Error: $e");
     }
 
     setState(() => _isLoading = false);
+  }
+
+  IconData _getPaymentTypeIcon(String type) {
+    switch (type) {
+      case 'MTN MoMo':
+        return Icons.phone_android_rounded;
+      case 'Airtel Money':
+        return Icons.phone_iphone_rounded;
+      case 'Bank Transfer':
+        return Icons.account_balance_rounded;
+      case 'Credit Card':
+        return Icons.credit_card_rounded;
+      default:
+        return Icons.payment_rounded;
+    }
   }
 
   void _showError(String message) {
@@ -146,6 +194,48 @@ class _StoreRegistrationPageState extends State<StoreRegistrationPage> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
+                        const SizedBox(height: 16),
+
+                        // Registration Tips
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primary.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: theme.colorScheme.primary.withOpacity(0.3),
+                            ),
+                          ),
+                          child: Column(
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.info_rounded,
+                                    color: theme.colorScheme.primary,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Registration Tips',
+                                    style: theme.textTheme.titleSmall?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: theme.colorScheme.primary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'Your store location will be automatically detected to help customers find you nearby. Make sure location permission is enabled.',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurface
+                                      .withOpacity(0.8),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                         const SizedBox(height: 24),
 
                         // Store Name Field
@@ -194,7 +284,7 @@ class _StoreRegistrationPageState extends State<StoreRegistrationPage> {
                               onChanged: (value) {
                                 setState(() => _paymentType = value!);
                               },
-                              items: ["Phone Number", "MoMo Code"]
+                              items: _paymentTypes
                                   .map((type) => DropdownMenuItem(
                                         value: type,
                                         child: Padding(
@@ -213,9 +303,7 @@ class _StoreRegistrationPageState extends State<StoreRegistrationPage> {
                                                       BorderRadius.circular(6),
                                                 ),
                                                 child: Icon(
-                                                  type == "Phone Number"
-                                                      ? Icons.phone_rounded
-                                                      : Icons.qr_code_rounded,
+                                                  _getPaymentTypeIcon(type),
                                                   color:
                                                       theme.colorScheme.primary,
                                                   size: 16,
@@ -235,6 +323,86 @@ class _StoreRegistrationPageState extends State<StoreRegistrationPage> {
                                       ))
                                   .toList(),
                             ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        // Categories Multi-Select
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            border:
+                                Border.all(color: theme.colorScheme.outline),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.category_rounded,
+                                    color: theme.colorScheme.primary,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Categories (Optional)',
+                                    style:
+                                        theme.textTheme.titleMedium?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: _categories.map((category) {
+                                  final isSelected =
+                                      _selectedCategories.contains(category);
+                                  return FilterChip(
+                                    label: Text(
+                                      category,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    selected: isSelected,
+                                    onSelected: (selected) {
+                                      setState(() {
+                                        if (selected) {
+                                          _selectedCategories.add(category);
+                                        } else {
+                                          _selectedCategories.remove(category);
+                                        }
+                                      });
+                                    },
+                                    selectedColor: theme.colorScheme.primary
+                                        .withOpacity(0.2),
+                                    checkmarkColor: theme.colorScheme.primary,
+                                    backgroundColor: theme.colorScheme.surface,
+                                    elevation: 1,
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 4),
+                                  );
+                                }).toList(),
+                              ),
+                              if (_selectedCategories.isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Selected: ${_selectedCategories.join(', ')}',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.primary,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                         ),
 
@@ -320,42 +488,7 @@ class _StoreRegistrationPageState extends State<StoreRegistrationPage> {
 
                 const SizedBox(height: 20),
 
-                // Info Card
-                Card(
-                  elevation: 2,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16)),
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.info_rounded,
-                              color: theme.colorScheme.primary,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Registration Info',
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'Your store location will be automatically detected to help customers find you nearby. Make sure location permission is enabled.',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface.withOpacity(0.7),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+                // Info Card - moved to top
               ],
             ),
           ),
