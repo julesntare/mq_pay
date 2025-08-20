@@ -501,37 +501,6 @@ class _HomeState extends State<Home> {
               const SizedBox(height: 20),
             ],
 
-            // Payment Buttons
-            Row(
-              children: [
-                if (mobileNumber.isNotEmpty) ...[
-                  Expanded(
-                    child: _buildPaymentButton(
-                      context: context,
-                      theme: theme,
-                      title: S.of(context).mobileNumber,
-                      icon: Icons.phone_rounded,
-                      isEnabled: _isValidAmount(),
-                      onPressed: () => _generateQrCode('Mobile Number'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                ],
-                if (momoCode.isNotEmpty) ...[
-                  Expanded(
-                    child: _buildPaymentButton(
-                      context: context,
-                      theme: theme,
-                      title: S.of(context).momoCode,
-                      icon: Icons.qr_code_rounded,
-                      isEnabled: _isValidAmount(),
-                      onPressed: () => _generateQrCode('Momo Code'),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-
             // Manual Payment Button
             if (manualMobileController.text.isNotEmpty) ...[
               const SizedBox(height: 12),

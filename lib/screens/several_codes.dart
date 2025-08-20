@@ -27,6 +27,12 @@ class _CodesPageState extends State<CodesPage> {
   List<Item> filteredItems = [];
   TextEditingController searchController = TextEditingController();
 
+  // Form state and controllers
+  bool _showAddForm = false;
+  final _formKey = GlobalKey<FormState>();
+  TextEditingController _titleController = TextEditingController();
+  TextEditingController _ussCodeController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
@@ -34,6 +40,14 @@ class _CodesPageState extends State<CodesPage> {
     searchController.addListener(() {
       filterItems();
     });
+  }
+
+  @override
+  void dispose() {
+    searchController.dispose();
+    _titleController.dispose();
+    _ussCodeController.dispose();
+    super.dispose();
   }
 
   Future<void> saveItems() async {
@@ -66,136 +80,63 @@ class _CodesPageState extends State<CodesPage> {
     });
   }
 
-  void addItem() {
-    showDialog(
-      context: context,
-      builder: (context) {
-        TextEditingController titleController = TextEditingController();
-        TextEditingController ussCodeController = TextEditingController();
-        final theme = Theme.of(context);
+  void toggleAddForm() {
+    setState(() {
+      _showAddForm = !_showAddForm;
+      if (!_showAddForm) {
+        // Clear form when hiding
+        _titleController.clear();
+        _ussCodeController.clear();
+      }
+    });
+  }
 
-        return Dialog(
+  void submitNewCode() {
+    if (_formKey.currentState!.validate()) {
+      setState(() {
+        items.add(Item(
+          title: _titleController.text,
+          ussCode: _ussCodeController.text,
+        ));
+        saveItems();
+        filterItems();
+
+        // Clear form and hide it
+        _titleController.clear();
+        _ussCodeController.clear();
+        _showAddForm = false;
+      });
+
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.check_rounded,
+                  color: Colors.white,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Text('Code added successfully!'),
+            ],
+          ),
+          backgroundColor: AppTheme.successColor,
+          behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(12),
           ),
-          child: Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              color: theme.colorScheme.surface,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.primary.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(
-                        Icons.add_rounded,
-                        color: theme.colorScheme.primary,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      "Add New Code",
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                TextField(
-                  controller: titleController,
-                  decoration: const InputDecoration(
-                    labelText: "Title",
-                    hintText: "Enter a descriptive title",
-                    prefixIcon: Icon(Icons.title_rounded),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: ussCodeController,
-                  keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(
-                    labelText: "USSD Code / Pay Code",
-                    hintText: "Enter the code or phone number",
-                    prefixIcon: Icon(Icons.code_rounded),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text("Cancel"),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () {
-                          if (titleController.text.isNotEmpty &&
-                              ussCodeController.text.isNotEmpty) {
-                            setState(() {
-                              items.add(Item(
-                                title: titleController.text,
-                                ussCode: ussCodeController.text,
-                              ));
-                              saveItems();
-                              filterItems();
-                            });
-                            Navigator.pop(context);
-
-                            // Show success message
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(6),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withOpacity(0.2),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: const Icon(
-                                        Icons.check_rounded,
-                                        color: Colors.white,
-                                        size: 18,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    const Text('Code added successfully!'),
-                                  ],
-                                ),
-                                backgroundColor: AppTheme.successColor,
-                                behavior: SnackBarBehavior.floating,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                margin: const EdgeInsets.all(16),
-                              ),
-                            );
-                          }
-                        },
-                        child: const Text("Add"),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
+          margin: const EdgeInsets.all(16),
+        ),
+      );
+    }
   }
 
   void editItem(int index) {
@@ -477,36 +418,40 @@ class _CodesPageState extends State<CodesPage> {
 
             // Content
             Expanded(
-              child: filteredItems.isEmpty
-                  ? _buildEmptyState(context, theme)
-                  : _buildCodesList(context, theme),
+              child: _showAddForm
+                  ? _buildAddForm(context, theme)
+                  : (filteredItems.isEmpty
+                      ? _buildEmptyState(context, theme)
+                      : _buildCodesList(context, theme)),
             ),
           ],
         ),
       ),
-      floatingActionButton: Container(
-        decoration: BoxDecoration(
-          gradient: AppTheme.secondaryGradient,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: AppTheme.secondaryColor.withOpacity(0.3),
-              blurRadius: 12,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        child: FloatingActionButton(
-          onPressed: addItem,
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          child: const Icon(
-            Icons.add_rounded,
-            color: Colors.white,
-            size: 28,
-          ),
-        ),
-      ),
+      floatingActionButton: (filteredItems.isNotEmpty || _showAddForm)
+          ? Container(
+              decoration: BoxDecoration(
+                gradient: AppTheme.secondaryGradient,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.secondaryColor.withOpacity(0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: FloatingActionButton(
+                onPressed: toggleAddForm,
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                child: Icon(
+                  _showAddForm ? Icons.close_rounded : Icons.add_rounded,
+                  color: Colors.white,
+                  size: 28,
+                ),
+              ),
+            )
+          : null,
     );
   }
 
@@ -545,17 +490,18 @@ class _CodesPageState extends State<CodesPage> {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
-            ElevatedButton.icon(
-              onPressed: addItem,
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('Add First Code'),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 16,
+            if (!_showAddForm)
+              ElevatedButton.icon(
+                onPressed: toggleAddForm,
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('Add First Code'),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 32,
+                    vertical: 16,
+                  ),
                 ),
               ),
-            ),
           ],
         ),
       ),
@@ -734,6 +680,156 @@ class _CodesPageState extends State<CodesPage> {
         onPressed: onPressed,
         icon: Icon(icon, color: color),
         padding: const EdgeInsets.all(12),
+      ),
+    );
+  }
+
+  Widget _buildAddForm(BuildContext context, ThemeData theme) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Form Header
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surface,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          Icons.add_rounded,
+                          color: theme.colorScheme.primary,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        "Add New Code",
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        onPressed: toggleAddForm,
+                        icon: const Icon(Icons.close_rounded),
+                        tooltip: 'Cancel',
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Title Field
+                  TextFormField(
+                    controller: _titleController,
+                    decoration: const InputDecoration(
+                      labelText: "Title",
+                      hintText: "Enter a descriptive title",
+                      prefixIcon: Icon(Icons.title_rounded),
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Please enter a title';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+
+                  // USSD Code Field
+                  TextFormField(
+                    controller: _ussCodeController,
+                    keyboardType: TextInputType.phone,
+                    decoration: const InputDecoration(
+                      labelText: "USSD Code / Pay Code",
+                      hintText: "Enter the code or phone number",
+                      prefixIcon: Icon(Icons.code_rounded),
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Please enter a USSD code or pay code';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Action Buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: toggleAddForm,
+                          child: const Text("Cancel"),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: submitNewCode,
+                          child: const Text("Add Code"),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            // Help Text
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: theme.colorScheme.primary.withOpacity(0.1),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.lightbulb_outline_rounded,
+                    color: theme.colorScheme.primary,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Tip: You can save USSD codes like *182# or phone numbers for mobile money payments',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
