@@ -25,6 +25,7 @@ class _HomeState extends State<Home> {
   final FocusNode amountFocusNode = FocusNode();
   String? selectedNumber;
   String? selectedName;
+  bool showManualInput = true;
 
   String? generatedUssdCode;
   bool showQrCode = false;
@@ -479,27 +480,27 @@ class _HomeState extends State<Home> {
             ),
             const SizedBox(height: 20),
 
-            // Mobile Number Input (if manual entry)
-            if (manualMobileController.text.isNotEmpty) ...[
-              TextField(
-                controller: manualMobileController,
-                keyboardType: TextInputType.phone,
-                decoration: InputDecoration(
-                  labelText: S.of(context).mobileNumber,
-                  hintText: 'Enter mobile number',
-                  prefixIcon: const Icon(Icons.phone_rounded),
-                  suffixIcon: IconButton(
-                    icon: const Icon(Icons.clear_rounded),
-                    onPressed: () {
-                      manualMobileController.clear();
-                      setState(() {});
-                    },
-                  ),
-                ),
-                onChanged: (value) => setState(() {}),
+            // Mobile Number Input
+            TextField(
+              controller: manualMobileController,
+              keyboardType: TextInputType.phone,
+              decoration: InputDecoration(
+                labelText: S.of(context).mobileNumber,
+                hintText: 'Enter mobile number',
+                prefixIcon: const Icon(Icons.phone_rounded),
+                suffixIcon: manualMobileController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear_rounded),
+                        onPressed: () {
+                          manualMobileController.clear();
+                          setState(() {});
+                        },
+                      )
+                    : null,
               ),
-              const SizedBox(height: 20),
-            ],
+              onChanged: (value) => setState(() {}),
+            ),
+            const SizedBox(height: 20),
 
             // Manual Payment Button
             if (manualMobileController.text.isNotEmpty) ...[
