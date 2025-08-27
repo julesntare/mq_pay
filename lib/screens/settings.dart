@@ -5,6 +5,40 @@ import '../generated/l10n.dart';
 import '../helpers/localProvider.dart';
 import '../helpers/app_theme.dart';
 import '../helpers/theme_provider.dart';
+import 'dart:convert';
+
+// Payment Method Model
+class PaymentMethod {
+  final String id;
+  String type; // 'mobile' or 'momo'
+  String value; // phone number or momo code
+  String provider; // 'MTN', 'Airtel', etc.
+  bool isDefault;
+
+  PaymentMethod({
+    required this.id,
+    required this.type,
+    required this.value,
+    required this.provider,
+    this.isDefault = false,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'type': type,
+        'value': value,
+        'provider': provider,
+        'isDefault': isDefault,
+      };
+
+  factory PaymentMethod.fromJson(Map<String, dynamic> json) => PaymentMethod(
+        id: json['id'],
+        type: json['type'],
+        value: json['value'],
+        provider: json['provider'],
+        isDefault: json['isDefault'] ?? false,
+      );
+}
 
 // New SettingsPage widget
 class SettingsPage extends StatefulWidget {
@@ -26,6 +60,12 @@ class _SettingsPageState extends State<SettingsPage> {
   late TextEditingController mobileController;
   late TextEditingController momoCodeController;
   late String selectedLanguage;
+  List<PaymentMethod> paymentMethods = [];
+
+  // Controllers for adding new payment methods
+  final TextEditingController _newPaymentController = TextEditingController();
+  String _selectedType = 'mobile';
+  String _selectedProvider = 'MTN';
 
   @override
   void initState() {
@@ -33,6 +73,56 @@ class _SettingsPageState extends State<SettingsPage> {
     mobileController = TextEditingController(text: widget.initialMobile);
     momoCodeController = TextEditingController(text: widget.initialMomoCode);
     selectedLanguage = widget.selectedLanguage;
+    _loadPaymentMethods();
+  }
+
+  Future<void> _loadPaymentMethods() async {
+    final prefs = await SharedPreferences.getInstance();
+    final paymentMethodsJson = prefs.getString('paymentMethods') ?? '[]';
+    final List<dynamic> jsonList = json.decode(paymentMethodsJson);
+
+    setState(() {
+      paymentMethods =
+          jsonList.map((json) => PaymentMethod.fromJson(json)).toList();
+
+      // If no payment methods exist, migrate from old single mobile/momo
+      if (paymentMethods.isEmpty) {
+        _migrateOldPaymentMethods();
+      }
+    });
+  }
+
+  void _migrateOldPaymentMethods() {
+    if (widget.initialMobile.isNotEmpty) {
+      final provider = _getProviderFromNumber(widget.initialMobile);
+      paymentMethods.add(PaymentMethod(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        type: 'mobile',
+        value: widget.initialMobile,
+        provider: provider,
+        isDefault: true,
+      ));
+    }
+
+    if (widget.initialMomoCode.isNotEmpty) {
+      paymentMethods.add(PaymentMethod(
+        id: DateTime.now().millisecondsSinceEpoch.toString() + '1',
+        type: 'momo',
+        value: widget.initialMomoCode,
+        provider: 'General',
+        isDefault: paymentMethods.isEmpty,
+      ));
+    }
+  }
+
+  String _getProviderFromNumber(String phoneNumber) {
+    String cleaned = phoneNumber.replaceAll(RegExp(r'[^0-9]'), '');
+    if (cleaned.startsWith('072') || cleaned.startsWith('073')) {
+      return 'Airtel';
+    } else if (cleaned.startsWith('078') || cleaned.startsWith('079')) {
+      return 'MTN';
+    }
+    return 'Unknown';
   }
 
   String _getFlag(String languageCode) {
@@ -169,43 +259,426 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
                 const SizedBox(width: 12),
                 Text(
-                  'Payment Configuration',
+                  'Payment Methods',
                   style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 20),
-
-            // Mobile Number Field
-            TextField(
-              controller: mobileController,
-              keyboardType: TextInputType.phone,
-              decoration: InputDecoration(
-                labelText: S.of(context).mobileNumber,
-                hintText: 'Enter your mobile number',
-                prefixIcon: const Icon(Icons.phone_rounded),
-                helperText: 'Your default mobile number for payments',
+            const SizedBox(height: 8),
+            Text(
+              'Manage your mobile numbers and payment options',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withOpacity(0.7),
               ),
             ),
             const SizedBox(height: 20),
 
-            // Momo Code Field
-            TextField(
-              controller: momoCodeController,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                labelText: S.of(context).momoCode,
-                hintText: 'Enter your momo code',
-                prefixIcon: const Icon(Icons.qr_code_rounded),
-                helperText: 'Your mobile money agent code',
+            // List of existing payment methods
+            if (paymentMethods.isNotEmpty) ...[
+              ...paymentMethods
+                  .map((method) => _buildPaymentMethodItem(method, theme)),
+              const SizedBox(height: 16),
+            ] else ...[
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'No payment methods configured. Add your first payment method below.',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            // Add new payment method button
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => _showAddPaymentMethodDialog(context, theme),
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('Add Payment Method'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
               ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildPaymentMethodItem(PaymentMethod method, ThemeData theme) {
+    IconData icon;
+    Color color;
+
+    switch (method.provider.toLowerCase()) {
+      case 'mtn':
+        icon = Icons.phone_android_rounded;
+        color = Colors.yellow.shade700;
+        break;
+      case 'airtel':
+        icon = Icons.phone_android_rounded;
+        color = Colors.red.shade600;
+        break;
+      default:
+        icon = method.type == 'mobile'
+            ? Icons.phone_rounded
+            : Icons.qr_code_rounded;
+        color = theme.colorScheme.primary;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: method.isDefault
+            ? theme.colorScheme.primaryContainer.withOpacity(0.1)
+            : theme.colorScheme.surfaceVariant.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(12),
+        border: method.isDefault
+            ? Border.all(color: theme.colorScheme.primary.withOpacity(0.3))
+            : null,
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      '${method.provider} - ${method.value}',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    if (method.isDefault) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primary,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          'DEFAULT',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${method.provider} • ${_maskValue(method.value)}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withOpacity(0.7),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          PopupMenuButton<String>(
+            icon: Icon(
+              Icons.more_vert_rounded,
+              color: theme.colorScheme.onSurface.withOpacity(0.7),
+            ),
+            onSelected: (value) {
+              switch (value) {
+                case 'default':
+                  _setAsDefault(method);
+                  break;
+                case 'edit':
+                  _editPaymentMethod(method);
+                  break;
+                case 'delete':
+                  _deletePaymentMethod(method);
+                  break;
+              }
+            },
+            itemBuilder: (context) => [
+              if (!method.isDefault)
+                const PopupMenuItem(
+                  value: 'default',
+                  child: Row(
+                    children: [
+                      Icon(Icons.star_rounded),
+                      SizedBox(width: 8),
+                      Text('Set as Default'),
+                    ],
+                  ),
+                ),
+              const PopupMenuItem(
+                value: 'edit',
+                child: Row(
+                  children: [
+                    Icon(Icons.edit_rounded),
+                    SizedBox(width: 8),
+                    Text('Edit'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'delete',
+                enabled: paymentMethods.length > 1,
+                child: Row(
+                  children: [
+                    Icon(Icons.delete_rounded, color: Colors.red),
+                    SizedBox(width: 8),
+                    Text('Delete', style: TextStyle(color: Colors.red)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _maskValue(String value) {
+    if (value.length > 6) {
+      return '${value.substring(0, 3)}***${value.substring(value.length - 2)}';
+    }
+    return value;
+  }
+
+  void _setAsDefault(PaymentMethod method) {
+    setState(() {
+      // Remove default from all methods
+      for (var m in paymentMethods) {
+        m.isDefault = false;
+      }
+      // Set new default
+      method.isDefault = true;
+    });
+    _savePaymentMethods();
+  }
+
+  void _editPaymentMethod(PaymentMethod method) {
+    _newPaymentController.text = method.value;
+    _selectedType = method.type;
+    _selectedProvider = method.provider;
+
+    _showAddPaymentMethodDialog(context, Theme.of(context),
+        editingMethod: method);
+  }
+
+  void _deletePaymentMethod(PaymentMethod method) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Payment Method'),
+        content: Text(
+            'Are you sure you want to delete "${method.provider} - ${method.value}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              setState(() {
+                paymentMethods.remove(method);
+                // If deleted method was default, set first remaining as default
+                if (method.isDefault && paymentMethods.isNotEmpty) {
+                  paymentMethods.first.isDefault = true;
+                }
+              });
+              _savePaymentMethods();
+              Navigator.pop(context);
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _savePaymentMethods() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonList = paymentMethods.map((method) => method.toJson()).toList();
+    await prefs.setString('paymentMethods', json.encode(jsonList));
+  }
+
+  void _showAddPaymentMethodDialog(BuildContext context, ThemeData theme,
+      {PaymentMethod? editingMethod}) {
+    final isEditing = editingMethod != null;
+
+    if (!isEditing) {
+      _newPaymentController.clear();
+      _selectedType = 'mobile';
+      _selectedProvider = 'MTN';
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(isEditing ? 'Edit Payment Method' : 'Add Payment Method'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Type Selection
+                DropdownButtonFormField<String>(
+                  value: _selectedType,
+                  decoration: const InputDecoration(
+                    labelText: 'Type',
+                    prefixIcon: Icon(Icons.category_rounded),
+                  ),
+                  items: const [
+                    DropdownMenuItem(
+                        value: 'mobile', child: Text('Mobile Number')),
+                    DropdownMenuItem(value: 'momo', child: Text('Momo Code')),
+                  ],
+                  onChanged: (value) {
+                    setDialogState(() {
+                      _selectedType = value!;
+                    });
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                // Provider Selection
+                DropdownButtonFormField<String>(
+                  value: _selectedProvider,
+                  decoration: const InputDecoration(
+                    labelText: 'Provider',
+                    prefixIcon: Icon(Icons.business_rounded),
+                  ),
+                  items: _selectedType == 'mobile'
+                      ? const [
+                          DropdownMenuItem(value: 'MTN', child: Text('MTN')),
+                          DropdownMenuItem(
+                              value: 'Airtel', child: Text('Airtel')),
+                        ]
+                      : const [
+                          DropdownMenuItem(
+                              value: 'General', child: Text('General')),
+                          DropdownMenuItem(
+                              value: 'MTN', child: Text('MTN MoMo')),
+                          DropdownMenuItem(
+                              value: 'Airtel', child: Text('Airtel Money')),
+                        ],
+                  onChanged: (value) {
+                    setDialogState(() {
+                      _selectedProvider = value!;
+                    });
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                // Value Input
+                TextField(
+                  controller: _newPaymentController,
+                  keyboardType: _selectedType == 'mobile'
+                      ? TextInputType.phone
+                      : TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: _selectedType == 'mobile'
+                        ? 'Phone Number'
+                        : 'Momo Code',
+                    hintText: _selectedType == 'mobile'
+                        ? '078xxxxxxx'
+                        : 'Enter momo code',
+                    prefixIcon: Icon(_selectedType == 'mobile'
+                        ? Icons.phone_rounded
+                        : Icons.qr_code_rounded),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                _savePaymentMethod(editingMethod);
+                Navigator.pop(context);
+              },
+              child: Text(isEditing ? 'Update' : 'Add'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _savePaymentMethod(PaymentMethod? editingMethod) {
+    final value = _newPaymentController.text.trim();
+
+    if (value.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a valid value')),
+      );
+      return;
+    }
+
+    setState(() {
+      if (editingMethod != null) {
+        // Edit existing method
+        editingMethod.value = value;
+        editingMethod.type = _selectedType;
+        editingMethod.provider = _selectedProvider;
+      } else {
+        // Add new method
+        final newMethod = PaymentMethod(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          type: _selectedType,
+          value: value,
+          provider: _selectedProvider,
+          isDefault: paymentMethods.isEmpty,
+        );
+        paymentMethods.add(newMethod);
+      }
+    });
+
+    _savePaymentMethods();
   }
 
   Widget _buildLanguageSection(BuildContext context, ThemeData theme) {
@@ -598,20 +1071,36 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _saveSettings() async {
-    final newMobile = mobileController.text.trim();
-    final newMomo = momoCodeController.text.trim();
     final prefs = await SharedPreferences.getInstance();
 
-    if (newMobile.isEmpty) {
-      await prefs.remove('mobileNumber');
-    } else {
-      await prefs.setString('mobileNumber', newMobile);
-    }
+    // Save payment methods (new format)
+    await _savePaymentMethods();
 
-    if (newMomo.isEmpty) {
-      await prefs.remove('momoCode');
-    } else {
-      await prefs.setString('momoCode', newMomo);
+    // For backward compatibility, also save the default payment method in old format
+    final defaultMethod = paymentMethods.firstWhere(
+      (method) => method.isDefault,
+      orElse: () => paymentMethods.isNotEmpty
+          ? paymentMethods.first
+          : PaymentMethod(
+              id: '',
+              type: '',
+              value: '',
+              provider: '',
+            ),
+    );
+
+    if (defaultMethod.id.isNotEmpty) {
+      if (defaultMethod.type == 'mobile') {
+        await prefs.setString('mobileNumber', defaultMethod.value);
+      } else {
+        await prefs.remove('mobileNumber');
+      }
+
+      if (defaultMethod.type == 'momo') {
+        await prefs.setString('momoCode', defaultMethod.value);
+      } else {
+        await prefs.remove('momoCode');
+      }
     }
 
     // Show modern success message
@@ -649,5 +1138,13 @@ class _SettingsPageState extends State<SettingsPage> {
         duration: const Duration(seconds: 2),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    mobileController.dispose();
+    momoCodeController.dispose();
+    _newPaymentController.dispose();
+    super.dispose();
   }
 }
