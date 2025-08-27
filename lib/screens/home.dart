@@ -616,12 +616,46 @@ class _HomeState extends State<Home> {
                   size: 28,
                 ),
                 const SizedBox(width: 12),
-                Text(
-                  'Payment Details',
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
+                Expanded(
+                  child: Text(
+                    'Payment Details',
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
+                if (amountController.text.isNotEmpty ||
+                    manualMobileController.text.isNotEmpty ||
+                    selectedPaymentMethod != 'auto')
+                  TextButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        amountController.clear();
+                        manualMobileController.clear();
+                        selectedPaymentMethod = 'auto';
+                        showQrCode = false;
+                        generatedUssdCode = null;
+                      });
+                    },
+                    icon: Icon(
+                      Icons.clear_all_rounded,
+                      size: 18,
+                      color: theme.colorScheme.error,
+                    ),
+                    label: Text(
+                      'Clear All',
+                      style: TextStyle(
+                        color: theme.colorScheme.error,
+                        fontSize: 12,
+                      ),
+                    ),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
               ],
             ),
             const SizedBox(height: 24),
@@ -678,7 +712,9 @@ class _HomeState extends State<Home> {
             const SizedBox(height: 20),
 
             // Generate QR Code for receiving payments
-            if (amountController.text.isNotEmpty && _isValidAmount()) ...[
+            if (amountController.text.isNotEmpty &&
+                _isValidAmount() &&
+                selectedPaymentMethod != 'auto') ...[
               SizedBox(
                 width: double.infinity,
                 child: _buildPaymentButton(
@@ -694,8 +730,10 @@ class _HomeState extends State<Home> {
               ),
             ],
 
-            // Show hint when amount is empty or invalid
-            if (amountController.text.isEmpty || !_isValidAmount()) ...[
+            // Show hint when amount is empty, invalid, or no payment method selected
+            if (amountController.text.isEmpty ||
+                !_isValidAmount() ||
+                selectedPaymentMethod == 'auto') ...[
               const SizedBox(height: 12),
               Container(
                 padding: const EdgeInsets.all(12),
@@ -1109,9 +1147,7 @@ class _HomeState extends State<Home> {
         value: 'auto',
         child: Row(
           children: [
-            Icon(Icons.auto_awesome_rounded, size: 20),
-            SizedBox(width: 8),
-            Text('Auto Select'),
+            Text('Select Payment ID'),
           ],
         ),
       ),
