@@ -75,7 +75,8 @@ class _CodesPageState extends State<CodesPage> {
       filteredItems = items
           .where((item) =>
               item.title.toLowerCase().contains(query) ||
-              item.ussCode.toLowerCase().contains(query))
+              item.ussCode.toLowerCase().contains(query) ||
+              _getDisplayCode(item.ussCode).toLowerCase().contains(query))
           .toList();
     });
   }
@@ -192,16 +193,24 @@ class _CodesPageState extends State<CodesPage> {
                     labelText: "Title",
                     hintText: "Enter a descriptive title",
                     prefixIcon: Icon(Icons.title_rounded),
+                    border: OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 16),
                 TextField(
                   controller: ussCodeController,
-                  keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(
+                  keyboardType: TextInputType.text,
+                  maxLines: 2,
+                  minLines: 1,
+                  decoration: InputDecoration(
                     labelText: "USSD Code / Pay Code",
-                    hintText: "Enter the code or phone number",
-                    prefixIcon: Icon(Icons.code_rounded),
+                    hintText:
+                        "e.g., *182#, *182*1*1*0780123456*0780123456#, or 0780123456",
+                    helperText:
+                        "Enter complete USSD code, phone number, or any pay code",
+                    prefixIcon: const Icon(Icons.code_rounded),
+                    border: const OutlineInputBorder(),
+                    helperMaxLines: 2,
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -328,6 +337,29 @@ class _CodesPageState extends State<CodesPage> {
     );
   }
 
+  String _getDisplayCode(String ussCode) {
+    // Clean up the input
+    String cleanCode = ussCode.trim();
+
+    // If it's already a complete USSD code, return as is
+    if (cleanCode.contains('*') && cleanCode.contains('#')) {
+      return cleanCode;
+    }
+
+    // If it looks like a phone number, format for mobile money
+    if (RegExp(r'^(?:\+2507|2507|07|7)[0-9]{8}$').hasMatch(cleanCode)) {
+      return "*182*1*1*$cleanCode*$cleanCode#";
+    }
+
+    // For other codes that look like simple USSD without #, add it
+    if (cleanCode.startsWith('*') && !cleanCode.contains('#')) {
+      return "$cleanCode#";
+    }
+
+    // For other codes, format as pay bill
+    return "*182*8*1*$cleanCode*$cleanCode#";
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -370,7 +402,7 @@ class _CodesPageState extends State<CodesPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'QR Codes',
+                              'Misc. USSDs',
                               style: theme.textTheme.headlineMedium?.copyWith(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
@@ -390,7 +422,7 @@ class _CodesPageState extends State<CodesPage> {
                   ),
 
                   // Search Bar
-                  if (filteredItems.isNotEmpty) ...[
+                  if (items.isNotEmpty) ...[
                     const SizedBox(height: 20),
                     Container(
                       decoration: BoxDecoration(
@@ -420,14 +452,16 @@ class _CodesPageState extends State<CodesPage> {
             Expanded(
               child: _showAddForm
                   ? _buildAddForm(context, theme)
-                  : (filteredItems.isEmpty
+                  : (items.isEmpty
                       ? _buildEmptyState(context, theme)
-                      : _buildCodesList(context, theme)),
+                      : (filteredItems.isEmpty
+                          ? _buildNoSearchResults(context, theme)
+                          : _buildCodesList(context, theme))),
             ),
           ],
         ),
       ),
-      floatingActionButton: (filteredItems.isNotEmpty || _showAddForm)
+      floatingActionButton: (items.isNotEmpty || _showAddForm)
           ? Container(
               decoration: BoxDecoration(
                 gradient: AppTheme.secondaryGradient,
@@ -476,7 +510,7 @@ class _CodesPageState extends State<CodesPage> {
             ),
             const SizedBox(height: 24),
             Text(
-              'No QR Codes Yet',
+              'No Misc. USSDs Yet',
               style: theme.textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -504,6 +538,61 @@ class _CodesPageState extends State<CodesPage> {
               ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildNoSearchResults(BuildContext context, ThemeData theme) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const SizedBox(height: 60), // Add some top spacing
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(40),
+            ),
+            child: Icon(
+              Icons.search_off_rounded,
+              size: 48,
+              color: theme.colorScheme.primary,
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            'No Results Found',
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'No codes match your search criteria.\nTry different keywords or clear the search.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurface.withOpacity(0.7),
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          OutlinedButton.icon(
+            onPressed: () {
+              searchController.clear();
+              filterItems();
+            },
+            icon: const Icon(Icons.clear_rounded),
+            label: const Text('Clear Search'),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 12,
+              ),
+            ),
+          ),
+          const SizedBox(height: 60), // Add some bottom spacing
+        ],
       ),
     );
   }
@@ -542,11 +631,11 @@ class _CodesPageState extends State<CodesPage> {
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: theme.colorScheme.surface,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.08),
+              color: theme.shadowColor.withOpacity(0.08),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -584,12 +673,23 @@ class _CodesPageState extends State<CodesPage> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          item.ussCode,
+                          _getDisplayCode(item.ussCode),
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: theme.colorScheme.onSurface.withOpacity(0.7),
                             fontFamily: 'monospace',
                           ),
                         ),
+                        if (item.ussCode != _getDisplayCode(item.ussCode)) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            'Original: ${item.ussCode}',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color:
+                                  theme.colorScheme.onSurface.withOpacity(0.5),
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -606,13 +706,8 @@ class _CodesPageState extends State<CodesPage> {
                       label: 'Call',
                       color: AppTheme.successColor,
                       onPressed: () {
-                        String input = item.ussCode;
-                        launchUSSD(
-                          input.contains('*') && input.contains('#')
-                              ? input
-                              : "*182*${RegExp(r'^(?:\+2507|2507|07|7)[0-9]{8}$').hasMatch(input) ? '1' : '8'}*1*${input}*${input}#",
-                          context,
-                        );
+                        // Use the display code which handles all formats properly
+                        launchUSSD(_getDisplayCode(item.ussCode), context);
                       },
                     ),
                   ),
@@ -760,12 +855,18 @@ class _CodesPageState extends State<CodesPage> {
                   // USSD Code Field
                   TextFormField(
                     controller: _ussCodeController,
-                    keyboardType: TextInputType.phone,
-                    decoration: const InputDecoration(
+                    keyboardType: TextInputType.text,
+                    maxLines: 2,
+                    minLines: 1,
+                    decoration: InputDecoration(
                       labelText: "USSD Code / Pay Code",
-                      hintText: "Enter the code or phone number",
-                      prefixIcon: Icon(Icons.code_rounded),
-                      border: OutlineInputBorder(),
+                      hintText:
+                          "e.g., *182#, *182*1*1*0780123456*0780123456#, or 0780123456",
+                      helperText:
+                          "Enter complete USSD code, phone number, or any pay code",
+                      prefixIcon: const Icon(Icons.code_rounded),
+                      border: const OutlineInputBorder(),
+                      helperMaxLines: 2,
                     ),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
@@ -809,20 +910,36 @@ class _CodesPageState extends State<CodesPage> {
                   color: theme.colorScheme.primary.withOpacity(0.1),
                 ),
               ),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(
-                    Icons.lightbulb_outline_rounded,
-                    color: theme.colorScheme.primary,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Tip: You can save USSD codes like *182# or phone numbers for mobile money payments',
-                      style: theme.textTheme.bodySmall?.copyWith(
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.lightbulb_outline_rounded,
                         color: theme.colorScheme.primary,
+                        size: 20,
                       ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Supported Formats',
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          color: theme.colorScheme.primary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    '• Complete USSD codes: *182#, *144#, *131#\n'
+                    '• Mobile money codes: *182*1*1*0780123456*0780123456#\n'
+                    '• Phone numbers: 0780123456, +250780123456\n'
+                    '• Pay bill codes: 12345, ABCD123\n'
+                    '• Any custom code you want to save',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.primary,
+                      height: 1.4,
                     ),
                   ),
                 ],

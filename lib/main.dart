@@ -120,7 +120,7 @@ class _MainWrapperState extends State<MainWrapper> {
       backgroundColor: theme.colorScheme.background,
       appBar: AppBar(
         title: Text(
-          ['Home', 'QR Codes', 'Nearby Stores', 'Settings'][_selectedIndex],
+          ['Home', 'Misc. USSDs', 'Nearby Stores', 'Settings'][_selectedIndex],
           style: theme.textTheme.headlineMedium?.copyWith(
             fontWeight: FontWeight.w700,
           ),
@@ -265,7 +265,7 @@ class _MainWrapperState extends State<MainWrapper> {
                     _buildDrawerItem(
                       context: context,
                       icon: Icons.qr_code_rounded,
-                      title: 'QR Codes',
+                      title: 'Misc. USSDs',
                       index: 1,
                       theme: theme,
                     ),
