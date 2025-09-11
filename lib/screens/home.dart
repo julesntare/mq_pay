@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import 'package:barcode_scan2/barcode_scan2.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../generated/l10n.dart';
 import 'package:flutter_native_contact_picker/flutter_native_contact_picker.dart';
@@ -8,6 +7,7 @@ import 'package:flutter_native_contact_picker/model/contact.dart';
 import '../helpers/launcher.dart';
 import '../helpers/app_theme.dart';
 import 'settings.dart';
+import 'qr_scanner_screen.dart';
 import 'dart:convert';
 
 class Home extends StatefulWidget {
@@ -371,14 +371,18 @@ class _HomeState extends State<Home> {
 
   Future<void> _scanQrCode() async {
     try {
-      var result = await BarcodeScanner.scan();
+      final result = await Navigator.of(context).push<String?>(
+        MaterialPageRoute(
+          builder: (context) => const QrScannerScreen(),
+        ),
+      );
 
-      if (result.type == ResultType.Cancelled) {
-        return;
+      if (result == null) {
+        return; // User cancelled scanning
       }
 
       setState(() {
-        scannedData = result.rawContent;
+        scannedData = result;
       });
 
       // Validate if the scanned data is a USSD-like text
