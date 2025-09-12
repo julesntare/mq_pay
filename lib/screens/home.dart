@@ -25,11 +25,16 @@ class _HomeState extends State<Home> {
   final FlutterNativeContactPicker _contactPicker =
       FlutterNativeContactPicker();
   final FocusNode amountFocusNode = FocusNode();
+  final FocusNode phoneFocusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _qrCodeKey = GlobalKey();
   String? selectedNumber;
   String? selectedName;
   bool showManualInput = true;
+
+  // Multistep form variables
+  int currentStep = 0;
+  bool isPhoneNumberMomo = false;
 
   String? generatedUssdCode;
   bool showQrCode = false;
@@ -45,6 +50,10 @@ class _HomeState extends State<Home> {
   void initState() {
     super.initState();
     _loadSavedPreferences();
+    // Request focus on amount field after build is complete
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      amountFocusNode.requestFocus();
+    });
   }
 
   String _maskPhoneNumber(String phoneNumber) {
@@ -145,6 +154,67 @@ class _HomeState extends State<Home> {
     return false;
   }
 
+  bool _isValidMomoCode(String momoCode) {
+    // Remove all non-digit characters
+    String cleaned = momoCode.replaceAll(RegExp(r'[^0-9]'), '');
+
+    // Momo codes are typically more than 3 digits
+    return cleaned.length >= 3;
+  }
+
+  void _nextStep() {
+    if (currentStep < 1) {
+      setState(() {
+        currentStep++;
+      });
+
+      // Focus on phone number field when moving to step 2
+      if (currentStep == 1) {
+        Future.delayed(const Duration(milliseconds: 350), () {
+          phoneFocusNode.requestFocus();
+
+          // Scroll to ensure the input field is visible when keyboard appears
+          Future.delayed(const Duration(milliseconds: 300), () {
+            if (context.mounted) {
+              Scrollable.ensureVisible(
+                phoneFocusNode.context!,
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
+              );
+            }
+          });
+        });
+      }
+    }
+  }
+
+  void _previousStep() {
+    if (currentStep > 0) {
+      setState(() {
+        currentStep--;
+      });
+
+      // Focus on amount field when going back to step 1
+      if (currentStep == 0) {
+        Future.delayed(const Duration(milliseconds: 350), () {
+          amountFocusNode.requestFocus();
+        });
+      }
+    }
+  }
+
+  void _resetForm() {
+    setState(() {
+      currentStep = 0;
+      amountController.clear();
+      mobileController.clear();
+      isPhoneNumberMomo = false;
+    });
+    Future.delayed(const Duration(milliseconds: 350), () {
+      amountFocusNode.requestFocus();
+    });
+  }
+
   String _getServiceType(String phoneNumber) {
     // Remove all non-digit characters
     String cleaned = phoneNumber.replaceAll(RegExp(r'[^0-9]'), '');
@@ -176,7 +246,12 @@ class _HomeState extends State<Home> {
 
   @override
   void dispose() {
+    amountController.dispose();
+    mobileController.dispose();
+    manualMobileController.dispose();
+    momoCodeController.dispose();
     amountFocusNode.dispose();
+    phoneFocusNode.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -369,6 +444,219 @@ class _HomeState extends State<Home> {
     );
   }
 
+  Future<void> _showPhoneNumberDialog(BuildContext context) async {
+    final theme = Theme.of(context);
+    TextEditingController phoneController = TextEditingController();
+
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Row(
+            children: [
+              Icon(
+                Icons.phone_rounded,
+                color: theme.colorScheme.primary,
+              ),
+              SizedBox(width: 12),
+              Text(
+                'Enter Phone Number',
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Amount: ${amountController.text} RWF',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: theme.colorScheme.primary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              SizedBox(height: 20),
+              TextField(
+                controller: phoneController,
+                keyboardType: TextInputType.phone,
+                autofocus: true,
+                decoration: InputDecoration(
+                  labelText: 'Phone Number',
+                  hintText: 'Enter recipient\'s phone number or momo code',
+                  prefixIcon: Icon(Icons.phone_rounded),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  helperText: 'Phone: 078xxxxxxx or Momo: 123456',
+                ),
+              ),
+            ],
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                  color: theme.colorScheme.error,
+                ),
+              ),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            ElevatedButton.icon(
+              icon: Icon(Icons.send_rounded),
+              label: Text('Proceed'),
+              onPressed: () {
+                if (phoneController.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Please enter a phone number')),
+                  );
+                  return;
+                }
+
+                if (!_isValidPhoneNumber(phoneController.text) &&
+                    !_isValidMomoCode(phoneController.text)) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                        content: Text(
+                            'Please enter a valid phone number or momo code')),
+                  );
+                  return;
+                }
+
+                Navigator.of(context).pop();
+
+                // Process the payment
+                String input = phoneController.text;
+                String ussdCode;
+
+                if (_isValidPhoneNumber(input)) {
+                  String formattedPhone = _formatPhoneNumber(input);
+                  String serviceType = _getServiceType(formattedPhone);
+                  ussdCode =
+                      '*182*1*$serviceType*$formattedPhone*${amountController.text}#';
+                } else {
+                  // Must be momo code since validation passed
+                  ussdCode = '*182*8*1*$input*${amountController.text}#';
+                }
+
+                // Launch USSD or show QR code
+                _showPaymentOptions(context, ussdCode, input);
+              },
+              style: ElevatedButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _showPaymentOptions(
+      BuildContext context, String ussdCode, String paymentInfo) async {
+    final theme = Theme.of(context);
+    bool isPhoneNumber = _isValidPhoneNumber(paymentInfo);
+
+    return showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Row(
+            children: [
+              Icon(
+                Icons.payment_rounded,
+                color: theme.colorScheme.primary,
+              ),
+              SizedBox(width: 12),
+              Text(
+                'Payment Options',
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primaryContainer.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      'Payment Details',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    Text('Amount: ${amountController.text} RWF'),
+                    Text(isPhoneNumber
+                        ? 'To: ${_maskPhoneNumber(paymentInfo)}'
+                        : 'Momo Code: ${paymentInfo.length > 3 ? paymentInfo.substring(0, 3) + "***" : paymentInfo}'),
+                  ],
+                ),
+              ),
+              SizedBox(height: 20),
+              Text(
+                'Choose how you want to proceed:',
+                style: theme.textTheme.bodyMedium,
+              ),
+            ],
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: Text('Cancel'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            ElevatedButton.icon(
+              icon: Icon(Icons.phone_rounded),
+              label: Text('Dial USSD'),
+              onPressed: () {
+                Navigator.of(context).pop();
+                launchUSSD(ussdCode, context);
+                // Clear form after successful operation
+                setState(() {
+                  amountController.clear();
+                });
+              },
+            ),
+            ElevatedButton.icon(
+              icon: Icon(Icons.qr_code_rounded),
+              label: Text('Show QR'),
+              onPressed: () {
+                Navigator.of(context).pop();
+                setState(() {
+                  generatedUssdCode = ussdCode;
+                  showQrCode = true;
+                });
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> _scanQrCode() async {
     try {
       final result = await Navigator.of(context).push<String?>(
@@ -411,46 +699,560 @@ class _HomeState extends State<Home> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
 
     return Scaffold(
       backgroundColor: theme.colorScheme.background,
+      resizeToAvoidBottomInset: true,
       body: SafeArea(
         child: SingleChildScrollView(
-          controller: _scrollController,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              minHeight: MediaQuery.of(context).size.height -
-                  MediaQuery.of(context).padding.top -
-                  MediaQuery.of(context).padding.bottom,
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Welcome Section
-                  _buildWelcomeSection(context, theme),
-                  const SizedBox(height: 30),
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 20,
+            bottom: 20 +
+                keyboardHeight * 0.1, // Add small padding when keyboard is open
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // App Title
+              _buildAppHeader(context, theme),
+              const SizedBox(height: 40),
 
-                  // Quick Actions
-                  _buildQuickActions(context, theme),
-                  const SizedBox(height: 30),
+              // Streamlined Payment Form
+              _buildStreamlinedPaymentForm(context, theme),
 
-                  // Payment Options
-                  _buildPaymentOptions(context, theme),
-                  const SizedBox(height: 30),
-
-                  // Recent Activity or QR Display
-                  if (showQrCode && generatedUssdCode != null)
-                    _buildQrCodeSection(context, theme)
-                  else
-                    _buildRecentActivity(context, theme),
-                ],
-              ),
-            ),
+              // Add extra space when keyboard is visible
+              if (keyboardHeight > 0) SizedBox(height: 100),
+            ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildAppHeader(BuildContext context, ThemeData theme) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'MQ Pay',
+              style: theme.textTheme.headlineMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+            Text(
+              'Quick Payment',
+              style: theme.textTheme.bodyLarge?.copyWith(
+                color: theme.colorScheme.onSurface.withOpacity(0.6),
+              ),
+            ),
+          ],
+        ),
+        IconButton(
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (context) => SettingsPage(
+                      initialMobile: mobileNumber,
+                      initialMomoCode: momoCode,
+                      selectedLanguage: selectedLanguage ?? 'en',
+                    )),
+          ),
+          icon: Icon(
+            Icons.settings_rounded,
+            color: theme.colorScheme.onSurface.withOpacity(0.7),
+            size: 28,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStreamlinedPaymentForm(BuildContext context, ThemeData theme) {
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+    final isKeyboardOpen = keyboardHeight > 0;
+
+    return Container(
+      constraints: BoxConstraints(maxWidth: 400),
+      width: double.infinity,
+      child: Card(
+        elevation: 8,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Padding(
+          padding: EdgeInsets.all(isKeyboardOpen ? 20 : 30),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Form Title with Step Indicator
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Send Money',
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      'Step ${currentStep + 1} of 2',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 30),
+
+              // Step Progress Indicator
+              Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primary,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Container(
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: currentStep >= 1
+                            ? theme.colorScheme.primary
+                            : theme.colorScheme.outline.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 40),
+
+              // Step Content (without fixed height)
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                child: currentStep == 0
+                    ? _buildAmountStep(theme)
+                    : _buildPhoneStep(theme),
+              ),
+
+              const SizedBox(height: 30),
+
+              // Navigation Buttons
+              Row(
+                children: [
+                  if (currentStep > 0)
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _previousStep,
+                        icon: Icon(Icons.arrow_back_rounded),
+                        label: Text('Back'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(15),
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (currentStep > 0) const SizedBox(width: 16),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: _getNextButtonAction(),
+                      icon: Icon(currentStep == 0
+                          ? Icons.arrow_forward_rounded
+                          : Icons.send_rounded),
+                      label: Text(
+                        currentStep == 0 ? 'Next' : 'Pay Now',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: theme.colorScheme.primary,
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor:
+                            theme.colorScheme.onSurface.withOpacity(0.12),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAmountStep(ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Enter Amount',
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: theme.colorScheme.onSurface,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'How much do you want to send?',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurface.withOpacity(0.7),
+          ),
+        ),
+        const SizedBox(height: 24),
+        TextField(
+          controller: amountController,
+          focusNode: amountFocusNode,
+          keyboardType: TextInputType.number,
+          autofocus: true,
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+          ),
+          decoration: InputDecoration(
+            labelText: 'Amount (RWF)',
+            hintText: 'Enter amount...',
+            prefixIcon: Icon(Icons.attach_money_rounded),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(15),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(15),
+              borderSide: BorderSide(
+                color: theme.colorScheme.primary,
+                width: 2,
+              ),
+            ),
+            contentPadding: EdgeInsets.symmetric(
+              horizontal: 20,
+              vertical: 20,
+            ),
+          ),
+          onChanged: (value) => setState(() {}),
+          onSubmitted: (value) {
+            if (_isValidAmount()) {
+              _nextStep();
+            }
+          },
+        ),
+        const SizedBox(height: 16),
+        if (amountController.text.isNotEmpty && !_isValidAmount())
+          Text(
+            'Please enter a valid amount (minimum 1 RWF)',
+            style: TextStyle(
+              color: theme.colorScheme.error,
+              fontSize: 14,
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildPhoneStep(ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Recipient Information',
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: theme.colorScheme.onSurface,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Enter phone number or momo code',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurface.withOpacity(0.7),
+          ),
+        ),
+        const SizedBox(height: 24),
+        TextField(
+          controller: mobileController,
+          focusNode: phoneFocusNode,
+          keyboardType: TextInputType.text,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w500,
+          ),
+          decoration: InputDecoration(
+            labelText: 'Phone Number or Momo Code',
+            hintText: '078xxxxxxx or 123456',
+            prefixIcon: Icon(Icons.phone_rounded),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(15),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(15),
+              borderSide: BorderSide(
+                color: theme.colorScheme.primary,
+                width: 2,
+              ),
+            ),
+            contentPadding: EdgeInsets.symmetric(
+              horizontal: 20,
+              vertical: 20,
+            ),
+            helperText: _getInputHelperText(),
+          ),
+          onChanged: (value) {
+            setState(() {
+              isPhoneNumberMomo =
+                  _isValidMomoCode(value) && !_isValidPhoneNumber(value);
+            });
+          },
+          onSubmitted: (value) {
+            if (_canProceedWithPayment()) {
+              _processPayment(context);
+            }
+          },
+        ),
+        const SizedBox(height: 16),
+        if (mobileController.text.isNotEmpty &&
+            !_isValidPhoneNumber(mobileController.text) &&
+            !_isValidMomoCode(mobileController.text))
+          Text(
+            'Please enter a valid phone number (078xxxxxxx) or momo code',
+            style: TextStyle(
+              color: theme.colorScheme.error,
+              fontSize: 14,
+            ),
+          ),
+        if (mobileController.text.isNotEmpty &&
+            (_isValidPhoneNumber(mobileController.text) ||
+                _isValidMomoCode(mobileController.text)))
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  _isValidPhoneNumber(mobileController.text)
+                      ? Icons.phone_rounded
+                      : Icons.qr_code_rounded,
+                  color: theme.colorScheme.primary,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _isValidPhoneNumber(mobileController.text)
+                        ? 'Valid phone number detected'
+                        : 'Valid momo code detected',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.primary,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  String _getInputHelperText() {
+    if (mobileController.text.isEmpty) {
+      return 'Phone: 078xxxxxxx or Momo: 123456';
+    } else if (_isValidPhoneNumber(mobileController.text)) {
+      return 'Phone number format detected';
+    } else if (_isValidMomoCode(mobileController.text)) {
+      return 'Momo code format detected';
+    } else {
+      return 'Enter valid phone number or momo code';
+    }
+  }
+
+  VoidCallback? _getNextButtonAction() {
+    if (currentStep == 0) {
+      return _isValidAmount() ? _nextStep : null;
+    } else {
+      return _canProceedWithPayment() ? () => _processPayment(context) : null;
+    }
+  }
+
+  bool _canProceedWithPayment() {
+    return _isValidAmount() &&
+        mobileController.text.isNotEmpty &&
+        (_isValidPhoneNumber(mobileController.text) ||
+            _isValidMomoCode(mobileController.text));
+  }
+
+  void _processPayment(BuildContext context) {
+    String input = mobileController.text.trim();
+    String ussdCode;
+
+    // Determine if input is phone number or momo code
+    if (_isValidPhoneNumber(input)) {
+      // Process as phone number
+      String formattedPhone = _formatPhoneNumber(input);
+      String serviceType = _getServiceType(formattedPhone);
+      ussdCode =
+          '*182*1*$serviceType*$formattedPhone*${amountController.text}#';
+    } else if (_isValidMomoCode(input)) {
+      // Process as momo code
+      ussdCode = '*182*8*1*$input*${amountController.text}#';
+    } else {
+      // Should not reach here due to validation, but handle gracefully
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Invalid phone number or momo code')),
+      );
+      return;
+    }
+
+    // Show the USSD code in a dialog
+    _showUssdDialog(context, ussdCode, input);
+  }
+
+  Future<void> _showUssdDialog(
+      BuildContext context, String ussdCode, String paymentInfo) async {
+    final theme = Theme.of(context);
+    bool isPhoneNumber = _isValidPhoneNumber(paymentInfo);
+
+    return showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Row(
+            children: [
+              Icon(
+                Icons.dialpad_rounded,
+                color: theme.colorScheme.primary,
+              ),
+              SizedBox(width: 12),
+              Text(
+                'USSD Code',
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Payment Details:',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              SizedBox(height: 10),
+              Text('Amount: ${amountController.text} RWF'),
+              Text(isPhoneNumber
+                  ? 'To: ${_maskPhoneNumber(paymentInfo)}'
+                  : 'Momo Code: ${paymentInfo.length > 3 ? paymentInfo.substring(0, 3) + "***" : paymentInfo}'),
+              SizedBox(height: 20),
+              Text(
+                'Dial this USSD code:',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              SizedBox(height: 10),
+              Container(
+                padding: EdgeInsets.all(15),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: theme.colorScheme.primary.withOpacity(0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        ussdCode,
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'monospace',
+                          color: theme.colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () {
+                        // Copy to clipboard functionality can be added here
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('USSD code copied!')),
+                        );
+                      },
+                      icon: Icon(Icons.copy_rounded),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: Text('Close'),
+              onPressed: () {
+                Navigator.of(context).pop();
+                // Reset the form for next payment
+                _resetForm();
+              },
+            ),
+            ElevatedButton.icon(
+              icon: Icon(Icons.phone_rounded),
+              label: Text('Dial'),
+              onPressed: () {
+                Navigator.of(context).pop();
+                launchUSSD(ussdCode, context);
+
+                // Reset the form for next payment
+                _resetForm();
+              },
+              style: ElevatedButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -498,6 +1300,144 @@ class _HomeState extends State<Home> {
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAmountInputSection(BuildContext context, ThemeData theme) {
+    return GradientCard(
+      gradient: LinearGradient(
+        colors: [
+          theme.colorScheme.primary,
+          theme.colorScheme.primary.withOpacity(0.8),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.attach_money_rounded,
+                color: Colors.white,
+                size: 28,
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Enter Amount',
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // Amount Input with immediate focus and numeric keypad
+          TextField(
+            controller: amountController,
+            focusNode: amountFocusNode,
+            keyboardType: TextInputType.number,
+            autofocus: true,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+            ),
+            decoration: InputDecoration(
+              hintText: 'Enter amount...',
+              hintStyle: TextStyle(
+                color: Colors.white70,
+                fontSize: 24,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(15),
+                borderSide: BorderSide(color: Colors.white30),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(15),
+                borderSide: BorderSide(color: Colors.white30),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(15),
+                borderSide: BorderSide(color: Colors.white, width: 2),
+              ),
+              prefixIcon: Icon(
+                Icons.payments_rounded,
+                color: Colors.white70,
+                size: 28,
+              ),
+              suffixIcon: amountController.text.isNotEmpty
+                  ? IconButton(
+                      icon: Icon(Icons.clear_rounded, color: Colors.white70),
+                      onPressed: () {
+                        amountController.clear();
+                        setState(() {});
+                      },
+                    )
+                  : null,
+              contentPadding:
+                  EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+            ),
+            onChanged: (value) => setState(() {}),
+          ),
+
+          const SizedBox(height: 20),
+
+          // Proceed Button (only show when amount is entered)
+          if (amountController.text.isNotEmpty && _isValidAmount())
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () => _showPhoneNumberDialog(context),
+                icon: Icon(Icons.arrow_forward_rounded),
+                label: Text(
+                  'Proceed with Payment',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: theme.colorScheme.primary,
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+
+          // Helper text when no amount entered
+          if (amountController.text.isEmpty)
+            Container(
+              padding: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline_rounded,
+                    color: Colors.white70,
+                    size: 20,
+                  ),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Enter the amount you want to pay and proceed',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );
@@ -615,78 +1555,49 @@ class _HomeState extends State<Home> {
             Row(
               children: [
                 Icon(
-                  Icons.payment_rounded,
+                  Icons.qr_code_rounded,
                   color: theme.colorScheme.primary,
                   size: 28,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'Payment Details',
+                    'Receive Payment',
                     style: theme.textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
-                if (amountController.text.isNotEmpty ||
-                    manualMobileController.text.isNotEmpty ||
-                    selectedPaymentMethod != 'auto')
-                  TextButton.icon(
-                    onPressed: () {
-                      setState(() {
-                        amountController.clear();
-                        manualMobileController.clear();
-                        selectedPaymentMethod = 'auto';
-                        showQrCode = false;
-                        generatedUssdCode = null;
-                      });
-                    },
-                    icon: Icon(
-                      Icons.clear_all_rounded,
-                      size: 18,
-                      color: theme.colorScheme.error,
-                    ),
-                    label: Text(
-                      'Clear All',
-                      style: TextStyle(
-                        color: theme.colorScheme.error,
-                        fontSize: 12,
-                      ),
-                    ),
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                  ),
               ],
+            ),
+            const SizedBox(height: 16),
+
+            Text(
+              'Generate QR codes for others to pay you',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withOpacity(0.7),
+              ),
             ),
             const SizedBox(height: 24),
 
             // Amount Input for receiving payments
             TextField(
-              controller: amountController,
+              controller:
+                  TextEditingController(), // Separate controller for receiving
               keyboardType: TextInputType.number,
               decoration: InputDecoration(
-                labelText: S.of(context).amount,
-                hintText: 'Amount you want to receive',
+                labelText: 'Amount to Receive',
+                hintText: 'Enter amount to receive',
                 prefixIcon: const Icon(Icons.attach_money_rounded),
-                suffixIcon: amountController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear_rounded),
-                        onPressed: () {
-                          amountController.clear();
-                          setState(() {});
-                        },
-                      )
-                    : null,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               onChanged: (value) => setState(() {}),
             ),
             const SizedBox(height: 20),
 
-            // Payment Method Selection
+            // Payment Method Selection for receiving
             Container(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
@@ -697,8 +1608,8 @@ class _HomeState extends State<Home> {
               child: DropdownButtonFormField<String>(
                 value: selectedPaymentMethod,
                 decoration: InputDecoration(
-                  labelText: 'Payment Method',
-                  prefixIcon: const Icon(Icons.payment_rounded),
+                  labelText: 'Your Payment Method',
+                  prefixIcon: const Icon(Icons.account_balance_wallet_rounded),
                   border: InputBorder.none,
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -715,116 +1626,61 @@ class _HomeState extends State<Home> {
             ),
             const SizedBox(height: 20),
 
-            // Generate QR Code for receiving payments
-            if (amountController.text.isNotEmpty &&
-                _isValidAmount() &&
-                selectedPaymentMethod != 'auto') ...[
-              SizedBox(
-                width: double.infinity,
-                child: _buildPaymentButton(
-                  context: context,
-                  theme: theme,
-                  title: 'Generate QR Code',
-                  icon: Icons.qr_code_rounded,
-                  isEnabled: true,
-                  onPressed: () {
-                    _generateQrCodeForReceiving();
-                  },
-                ),
-              ),
-            ],
-
-            // Show hint when amount is empty, invalid, or no payment method selected
-            if (amountController.text.isEmpty ||
-                !_isValidAmount() ||
-                selectedPaymentMethod == 'auto') ...[
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.secondary.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: theme.colorScheme.secondary.withOpacity(0.2),
+            // Generate QR Code Button
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  // TODO: Implement QR generation for receiving payments
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                          'QR code generation for receiving payments - coming soon!'),
+                    ),
+                  );
+                },
+                icon: Icon(Icons.qr_code_rounded),
+                label: Text('Generate QR to Receive'),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.qr_code_rounded,
-                      color: theme.colorScheme.secondary,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Enter amount and select payment method to generate QR code for receiving payments.',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.secondary,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-
-            const SizedBox(height: 30),
-
-            // Manual Payment Section (for paying others)
-            Text(
-              'Pay Someone',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 16),
 
-            // Mobile Number Input for paying others
-            TextField(
-              controller: manualMobileController,
-              keyboardType: TextInputType.phone,
-              decoration: InputDecoration(
-                labelText: S.of(context).mobileNumber,
-                hintText: 'Enter mobile number to pay',
-                prefixIcon: const Icon(Icons.phone_rounded),
-                suffixIcon: manualMobileController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear_rounded),
-                        onPressed: () {
-                          manualMobileController.clear();
-                          setState(() {});
-                        },
-                      )
-                    : null,
-              ),
-              onChanged: (value) => setState(() {}),
-            ),
             const SizedBox(height: 20),
 
-            // Manual Payment Button (only when mobile number is entered)
-            if (manualMobileController.text.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: _buildPaymentButton(
-                  context: context,
-                  theme: theme,
-                  title: S.of(context).proceed,
-                  icon: Icons.send_rounded,
-                  isEnabled: manualMobileController.text.isNotEmpty &&
-                      _isValidAmount(),
-                  onPressed: () {
-                    String serviceType =
-                        _getServiceType(manualMobileController.text);
-                    launchUSSD(
-                      "*182*1*$serviceType*${manualMobileController.text}*${amountController.text}#",
-                      context,
-                    );
-                  },
+            // Info container
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.secondary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: theme.colorScheme.secondary.withOpacity(0.2),
                 ),
               ),
-            ],
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline_rounded,
+                    color: theme.colorScheme.secondary,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Use the amount input above for sending payments. This section is for receiving payments from others.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.secondary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -1306,7 +2162,8 @@ class _HomeState extends State<Home> {
         List<String>? phoneNumbers = contact.phoneNumbers;
         selectedNumber = phoneNumbers?.first;
         if (selectedNumber != null) {
-          if (_isValidPhoneNumber(selectedNumber!)) {
+          if (_isValidPhoneNumber(selectedNumber!) ||
+              _isValidMomoCode(selectedNumber!)) {
             String formattedNumber = _formatPhoneNumber(selectedNumber!);
             setState(() {
               manualMobileController.text = formattedNumber;
