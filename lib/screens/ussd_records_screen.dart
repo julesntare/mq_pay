@@ -3,6 +3,8 @@ import 'package:intl/intl.dart';
 import '../models/ussd_record.dart';
 import '../services/ussd_record_service.dart';
 import '../helpers/app_theme.dart';
+import '../helpers/launcher.dart';
+import 'edit_ussd_record_dialog.dart';
 
 class UssdRecordsScreen extends StatefulWidget {
   const UssdRecordsScreen({super.key});
@@ -283,97 +285,297 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
     final color = isPhonePayment ? AppTheme.successColor : AppTheme.warningColor;
     final icon = isPhonePayment ? Icons.phone_rounded : Icons.qr_code_rounded;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: theme.cardColor,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: theme.shadowColor.withValues(alpha: 0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+    return GestureDetector(
+      onTap: () => _showRecordActions(record),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: theme.cardColor,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: theme.shadowColor.withValues(alpha: 0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Row(
+            children: [
+              // Icon and Type
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: color, size: 24),
+              ),
+              const SizedBox(width: 16),
+              // Details
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          isPhonePayment ? 'Phone Payment' : 'Momo Payment',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          NumberFormat.currency(
+                            locale: 'en_RW',
+                            symbol: 'RWF ',
+                            decimalDigits: 0,
+                          ).format(record.amount),
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: color,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      isPhonePayment
+                          ? 'To: ${record.maskedRecipient ?? record.recipient}'
+                          : 'Momo Code: ${record.recipient}',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          DateFormat('MMM dd, yyyy • HH:mm').format(record.timestamp),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.refresh_rounded,
+                              size: 16,
+                              color: AppTheme.successColor,
+                            ),
+                            const SizedBox(width: 4),
+                            Icon(
+                              Icons.edit_rounded,
+                              size: 16,
+                              color: theme.colorScheme.primary,
+                            ),
+                            const SizedBox(width: 4),
+                            Icon(
+                              Icons.more_vert_rounded,
+                              size: 16,
+                              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
-      child: Padding(
+    );
+  }
+
+  Future<void> _editRecord(UssdRecord record) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => EditUssdRecordDialog(record: record),
+    );
+
+    if (result == true) {
+      _loadRecords(); // Refresh the list
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Transaction updated successfully')),
+        );
+      }
+    }
+  }
+
+  Future<void> _redialRecord(UssdRecord record) async {
+    try {
+      launchUSSD(record.ussdCode, context);
+
+      // Save a new record for the redial
+      final newRecord = record.copyWith(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        timestamp: DateTime.now(),
+      );
+      await UssdRecordService.saveUssdRecord(newRecord);
+
+      _loadRecords(); // Refresh to show the new record
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Redialing transaction...')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to redial: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteRecord(UssdRecord record) async {
+    final confirmed = await _showConfirmationDialog(
+      'Delete Transaction',
+      'Are you sure you want to delete this transaction record?',
+    );
+
+    if (confirmed) {
+      await UssdRecordService.deleteUssdRecord(record.id);
+      _loadRecords();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Transaction deleted successfully')),
+        );
+      }
+    }
+  }
+
+  void _showRecordActions(UssdRecord record) {
+    final theme = Theme.of(context);
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Container(
         padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 50,
+              height: 4,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.outline.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Transaction Actions',
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 24),
+            _buildActionTile(
+              icon: Icons.refresh_rounded,
+              title: 'Redial',
+              subtitle: 'Make the same payment again',
+              color: AppTheme.successColor,
+              onTap: () {
+                Navigator.pop(context);
+                _redialRecord(record);
+              },
+            ),
+            const SizedBox(height: 12),
+            _buildActionTile(
+              icon: Icons.edit_rounded,
+              title: 'Edit',
+              subtitle: 'Modify transaction details',
+              color: theme.colorScheme.primary,
+              onTap: () {
+                Navigator.pop(context);
+                _editRecord(record);
+              },
+            ),
+            const SizedBox(height: 12),
+            _buildActionTile(
+              icon: Icons.visibility_rounded,
+              title: 'View USSD Code',
+              subtitle: 'See the full USSD code used',
+              color: AppTheme.warningColor,
+              onTap: () {
+                Navigator.pop(context);
+                _showUssdCodeDialog(record);
+              },
+            ),
+            const SizedBox(height: 12),
+            _buildActionTile(
+              icon: Icons.delete_rounded,
+              title: 'Delete',
+              subtitle: 'Remove this transaction',
+              color: Colors.red,
+              onTap: () {
+                Navigator.pop(context);
+                _deleteRecord(record);
+              },
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withValues(alpha: 0.2)),
+        ),
         child: Row(
           children: [
-            // Icon and Type
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: color.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(icon, color: color, size: 24),
+              child: Icon(icon, color: color, size: 20),
             ),
             const SizedBox(width: 16),
-            // Details
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        isPhonePayment ? 'Phone Payment' : 'Momo Payment',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        NumberFormat.currency(
-                          locale: 'en_RW',
-                          symbol: 'RWF ',
-                          decimalDigits: 0,
-                        ).format(record.amount),
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: color,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
                   Text(
-                    isPhonePayment
-                        ? 'To: ${record.maskedRecipient ?? record.recipient}'
-                        : 'Momo Code: ${record.recipient}',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                    title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: color,
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        DateFormat('MMM dd, yyyy • HH:mm').format(record.timestamp),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () => _showUssdCodeDialog(record),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            'View USSD',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.primary,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                    ),
                   ),
                 ],
               ),

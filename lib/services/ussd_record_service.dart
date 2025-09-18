@@ -72,4 +72,34 @@ class UssdRecordService {
       'momo': momoTotal,
     };
   }
+
+  static Future<void> updateUssdRecord(UssdRecord updatedRecord) async {
+    final prefs = await SharedPreferences.getInstance();
+    final existingRecords = await getUssdRecords();
+
+    final index = existingRecords.indexWhere((record) => record.id == updatedRecord.id);
+    if (index != -1) {
+      existingRecords[index] = updatedRecord;
+      final recordsJson = jsonEncode(existingRecords.map((r) => r.toJson()).toList());
+      await prefs.setString(_ussdRecordsKey, recordsJson);
+    }
+  }
+
+  static Future<void> deleteUssdRecord(String recordId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final existingRecords = await getUssdRecords();
+
+    existingRecords.removeWhere((record) => record.id == recordId);
+    final recordsJson = jsonEncode(existingRecords.map((r) => r.toJson()).toList());
+    await prefs.setString(_ussdRecordsKey, recordsJson);
+  }
+
+  static Future<UssdRecord?> getUssdRecordById(String recordId) async {
+    final records = await getUssdRecords();
+    try {
+      return records.firstWhere((record) => record.id == recordId);
+    } catch (e) {
+      return null;
+    }
+  }
 }
