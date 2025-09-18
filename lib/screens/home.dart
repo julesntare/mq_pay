@@ -7,6 +7,9 @@ import '../helpers/launcher.dart';
 import '../helpers/app_theme.dart';
 import 'settings.dart';
 import 'qr_scanner_screen.dart';
+import 'ussd_records_screen.dart';
+import '../models/ussd_record.dart';
+import '../services/ussd_record_service.dart';
 import 'dart:convert';
 
 class Home extends StatefulWidget {
@@ -375,21 +378,38 @@ class _HomeState extends State<Home> {
             ),
           ],
         ),
-        IconButton(
-          onPressed: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-                builder: (context) => SettingsPage(
-                      initialMobile: mobileNumber,
-                      initialMomoCode: momoCode,
-                      selectedLanguage: selectedLanguage ?? 'en',
-                    )),
-          ),
-          icon: Icon(
-            Icons.settings_rounded,
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
-            size: 28,
-          ),
+        Row(
+          children: [
+            IconButton(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const UssdRecordsScreen(),
+                ),
+              ),
+              icon: Icon(
+                Icons.history_rounded,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                size: 28,
+              ),
+            ),
+            IconButton(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => SettingsPage(
+                          initialMobile: mobileNumber,
+                          initialMomoCode: momoCode,
+                          selectedLanguage: selectedLanguage ?? 'en',
+                        )),
+              ),
+              icon: Icon(
+                Icons.settings_rounded,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                size: 28,
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -858,8 +878,14 @@ class _HomeState extends State<Home> {
             ElevatedButton.icon(
               icon: Icon(Icons.phone_rounded),
               label: Text('Dial'),
-              onPressed: () {
+              onPressed: () async {
                 Navigator.of(context).pop();
+
+                // Save the USSD record before dialing
+                String recipientType = _isValidPhoneNumber(paymentInfo) ? 'phone' : 'momo';
+                double amount = double.tryParse(amountController.text) ?? 0.0;
+                await _saveUssdRecord(ussdCode, paymentInfo, recipientType, amount);
+
                 launchUSSD(ussdCode, context);
 
                 // Reset the form for next payment
@@ -1049,5 +1075,19 @@ class _HomeState extends State<Home> {
         ],
       ),
     );
+  }
+
+  Future<void> _saveUssdRecord(String ussdCode, String recipient, String recipientType, double amount) async {
+    final record = UssdRecord(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      ussdCode: ussdCode,
+      recipient: recipient,
+      recipientType: recipientType,
+      amount: amount,
+      timestamp: DateTime.now(),
+      maskedRecipient: recipientType == 'phone' ? _maskPhoneNumber(recipient) : null,
+    );
+
+    await UssdRecordService.saveUssdRecord(record);
   }
 }
