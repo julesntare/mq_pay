@@ -58,18 +58,22 @@ class UssdRecordService {
     final records = await getUssdRecords();
     double phoneTotal = 0.0;
     double momoTotal = 0.0;
+    double miscTotal = 0.0;
 
     for (final record in records) {
       if (record.recipientType == 'phone') {
         phoneTotal += record.amount;
       } else if (record.recipientType == 'momo') {
         momoTotal += record.amount;
+      } else if (record.recipientType == 'misc') {
+        miscTotal += record.amount;
       }
     }
 
     return {
       'phone': phoneTotal,
       'momo': momoTotal,
+      'misc': miscTotal,
     };
   }
 

@@ -56,6 +56,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
     final confirmed = await _showConfirmationDialog(
       'Clear All Records',
       'Are you sure you want to clear all USSD records? This action cannot be undone.',
+      confirmText: 'Clear All',
     );
 
     if (confirmed) {
@@ -69,7 +70,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
     }
   }
 
-  Future<bool> _showConfirmationDialog(String title, String message) async {
+  Future<bool> _showConfirmationDialog(String title, String message, {String confirmText = 'Confirm'}) async {
     return await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -83,7 +84,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
           ElevatedButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Clear All'),
+            child: Text(confirmText),
           ),
         ],
       ),
@@ -230,6 +231,17 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            child: _buildTypeCard(
+              theme,
+              'Miscellaneous Codes',
+              amountByType['misc'] ?? 0.0,
+              Icons.code_rounded,
+              AppTheme.primaryColor,
+            ),
+          ),
         ],
       ),
     );
@@ -282,8 +294,20 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
 
   Widget _buildRecordCard(ThemeData theme, UssdRecord record) {
     final isPhonePayment = record.recipientType == 'phone';
-    final color = isPhonePayment ? AppTheme.successColor : AppTheme.warningColor;
-    final icon = isPhonePayment ? Icons.phone_rounded : Icons.qr_code_rounded;
+    final isMiscCode = record.recipientType == 'misc';
+    Color color;
+    IconData icon;
+
+    if (isPhonePayment) {
+      color = AppTheme.successColor;
+      icon = Icons.phone_rounded;
+    } else if (isMiscCode) {
+      color = AppTheme.primaryColor;
+      icon = Icons.code_rounded;
+    } else {
+      color = AppTheme.warningColor;
+      icon = Icons.qr_code_rounded;
+    }
 
     return GestureDetector(
       onTap: () => _showRecordActions(record),
@@ -323,7 +347,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          isPhonePayment ? 'Phone Payment' : 'Momo Payment',
+                          isPhonePayment ? 'Phone Payment' : (isMiscCode ? 'Misc. Code' : 'Momo Payment'),
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
@@ -345,7 +369,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                     Text(
                       isPhonePayment
                           ? 'To: ${record.maskedRecipient ?? record.recipient}'
-                          : 'Momo Code: ${record.recipient}',
+                          : (isMiscCode ? 'Code: ${record.recipient}' : 'Momo Code: ${record.recipient}'),
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                       ),
@@ -440,6 +464,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
     final confirmed = await _showConfirmationDialog(
       'Delete Transaction',
       'Are you sure you want to delete this transaction record?',
+      confirmText: 'Delete',
     );
 
     if (confirmed) {

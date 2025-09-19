@@ -3,6 +3,8 @@ import '../helpers/launcher.dart';
 import '../helpers/app_theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import '../models/ussd_record.dart';
+import '../services/ussd_record_service.dart';
 
 class Item {
   String title;
@@ -706,8 +708,7 @@ class _CodesPageState extends State<CodesPage> {
                       label: 'Call',
                       color: AppTheme.successColor,
                       onPressed: () {
-                        // Use the display code which handles all formats properly
-                        launchUSSD(_getDisplayCode(item.ussCode), context);
+                        _showAmountDialog(item);
                       },
                     ),
                   ),
@@ -777,6 +778,230 @@ class _CodesPageState extends State<CodesPage> {
         padding: const EdgeInsets.all(12),
       ),
     );
+  }
+
+  void _showAmountDialog(Item item) {
+    final theme = Theme.of(context);
+    final TextEditingController amountController = TextEditingController();
+    final _amountFormKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              color: theme.colorScheme.surface,
+            ),
+            child: Form(
+              key: _amountFormKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          Icons.qr_code_rounded,
+                          color: theme.colorScheme.primary,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.title,
+                              style: theme.textTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              _getDisplayCode(item.ussCode),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurface.withOpacity(0.7),
+                                fontFamily: 'monospace',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  TextFormField(
+                    controller: amountController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: "Amount (Optional)",
+                      hintText: "Enter amount in RWF",
+                      prefixIcon: Icon(Icons.attach_money_rounded),
+                      border: OutlineInputBorder(),
+                      helperText: "Leave empty if no amount is needed",
+                    ),
+                    validator: (value) {
+                      if (value != null && value.trim().isNotEmpty) {
+                        final amount = double.tryParse(value.trim());
+                        if (amount == null || amount < 0) {
+                          return 'Please enter a valid amount';
+                        }
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text("Cancel"),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            if (_amountFormKey.currentState!.validate()) {
+                              Navigator.pop(context);
+                              final amountText = amountController.text.trim();
+                              final amount = amountText.isEmpty ? 0.0 : double.parse(amountText);
+                              _callUSSDWithAmount(item, amount);
+                            }
+                          },
+                          icon: const Icon(Icons.call_rounded),
+                          label: const Text("Call"),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _callUSSDWithAmount(Item item, double amount) async {
+    try {
+      String ussdCode = _getDisplayCode(item.ussCode);
+
+      // Append amount to USSD code if provided
+      if (amount > 0) {
+        // If the code ends with #, insert amount before it
+        if (ussdCode.endsWith('#')) {
+          ussdCode = ussdCode.substring(0, ussdCode.length - 1) + '*${amount.toStringAsFixed(0)}#';
+        } else {
+          // If no # at the end, just append the amount
+          ussdCode = '$ussdCode*${amount.toStringAsFixed(0)}';
+        }
+      }
+
+      // Launch the USSD
+      launchUSSD(ussdCode, context);
+
+      // Save to history if amount was provided
+      if (amount > 0) {
+        final record = UssdRecord(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          ussdCode: ussdCode,
+          recipient: item.title, // Use title as recipient for misc codes
+          recipientType: 'misc', // New type for miscellaneous codes
+          amount: amount,
+          timestamp: DateTime.now(),
+          maskedRecipient: item.title,
+        );
+
+        await UssdRecordService.saveUssdRecord(record);
+
+        // Show success message
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.check_rounded,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text('USSD called and saved to history (RWF ${amount.toStringAsFixed(0)})'),
+                ],
+              ),
+              backgroundColor: AppTheme.successColor,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              margin: const EdgeInsets.all(16),
+            ),
+          );
+        }
+      } else {
+        // Show message for call without saving
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.call_rounded,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text('USSD code dialed'),
+                ],
+              ),
+              backgroundColor: AppTheme.primaryColor,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              margin: const EdgeInsets.all(16),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildAddForm(BuildContext context, ThemeData theme) {
