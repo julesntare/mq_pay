@@ -78,6 +78,8 @@ flutter:
   # the material Icons class.
   uses-material-design: true
   generate: true
+  assets:
+    - assets/data/
 
 flutter_intl:
   enabled: true # Required. Must be set to true to activate the package. Default: false
@@ -88,7 +90,7 @@ flutter_intl:
   use_deferred_loading: false
 
   # To add assets to your application, add an assets section, like this:
-  # assets:
+  assets:
   #   - images/a_dot_burr.jpeg
   #   - images/a_dot_ham.jpeg
 

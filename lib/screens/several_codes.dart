@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import '../helpers/launcher.dart';
 import '../helpers/app_theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -9,13 +10,39 @@ import '../services/ussd_record_service.dart';
 class Item {
   String title;
   String ussCode;
+  String? description;
+  String? provider;
+  String? category;
+  List<String>? keywords;
 
-  Item({required this.title, required this.ussCode});
+  Item({
+    required this.title,
+    required this.ussCode,
+    this.description,
+    this.provider,
+    this.category,
+    this.keywords,
+  });
 
-  Map<String, dynamic> toJson() => {'title': title, 'ussCode': ussCode};
+  Map<String, dynamic> toJson() => {
+        'title': title,
+        'code': ussCode,
+        'description': description,
+        'provider': provider,
+        'category': category,
+        'keywords': keywords,
+      };
 
   factory Item.fromJson(Map<String, dynamic> json) {
-    return Item(title: json['title'], ussCode: json['ussCode']);
+    return Item(
+      title: json['title'],
+      ussCode: json['ussCode'] ?? json['code'], // Support both keys
+      description: json['description'],
+      provider: json['provider'],
+      category: json['category'],
+      keywords:
+          json['keywords'] != null ? List<String>.from(json['keywords']) : null,
+    );
   }
 }
 
@@ -27,6 +54,7 @@ class CodesPage extends StatefulWidget {
 class _CodesPageState extends State<CodesPage> {
   List<Item> items = [];
   List<Item> filteredItems = [];
+  List<Item> paginatedItems = [];
   TextEditingController searchController = TextEditingController();
 
   // Form state and controllers
@@ -35,12 +63,22 @@ class _CodesPageState extends State<CodesPage> {
   TextEditingController _titleController = TextEditingController();
   TextEditingController _ussCodeController = TextEditingController();
 
+  // Loading state
+  bool _isLoading = true;
+
+  // Pagination
+  int currentPage = 0;
+  int itemsPerPage = 20;
+  int get totalPages => (filteredItems.length / itemsPerPage).ceil();
+
   @override
   void initState() {
     super.initState();
     loadItems();
     searchController.addListener(() {
-      filterItems();
+      setState(() {
+        filterItems();
+      });
     });
   }
 
@@ -60,12 +98,37 @@ class _CodesPageState extends State<CodesPage> {
   }
 
   Future<void> loadItems() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    List<String>? jsonList = prefs.getStringList('items');
-    if (jsonList != null) {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Load USSDs from JSON file
+      final String response =
+          await rootBundle.loadString("assets/data/misc_ussds.json");
+      dynamic data = json.decode(response);
+
+      List<Item> loadedItems = [];
+      for (var ussd in data) {
+        try {
+          Item item = Item.fromJson(ussd);
+          loadedItems.add(item);
+        } catch (e) {
+          print('Error parsing item: $ussd, error: $e');
+        }
+      }
+
       setState(() {
-        items =
-            jsonList.map((item) => Item.fromJson(json.decode(item))).toList();
+        items = loadedItems;
+        _isLoading = false;
+        filterItems();
+      });
+    } catch (e) {
+      print('Error loading USSDs: $e');
+      // Initialize with empty list if loading fails
+      setState(() {
+        items = [];
+        _isLoading = false;
         filterItems();
       });
     }
@@ -74,13 +137,59 @@ class _CodesPageState extends State<CodesPage> {
   void filterItems() {
     String query = searchController.text.toLowerCase();
     setState(() {
-      filteredItems = items
-          .where((item) =>
-              item.title.toLowerCase().contains(query) ||
-              item.ussCode.toLowerCase().contains(query) ||
-              _getDisplayCode(item.ussCode).toLowerCase().contains(query))
-          .toList();
+      filteredItems = items.where((item) {
+        // Search in title
+        if (item.title.toLowerCase().contains(query)) return true;
+
+        // Search in USSD code
+        if (item.ussCode.toLowerCase().contains(query)) return true;
+        if (_getDisplayCode(item.ussCode).toLowerCase().contains(query))
+          return true;
+
+        // Search in description
+        if (item.description != null &&
+            item.description!.toLowerCase().contains(query)) return true;
+
+        // Search in provider
+        if (item.provider != null &&
+            item.provider!.toLowerCase().contains(query)) return true;
+
+        // Search in category
+        if (item.category != null &&
+            item.category!.toLowerCase().contains(query)) return true;
+
+        // Search in keywords
+        if (item.keywords != null) {
+          for (String keyword in item.keywords!) {
+            if (keyword.toLowerCase().contains(query)) return true;
+          }
+        }
+
+        return false;
+      }).toList();
+
+      // Reset to first page when filtering
+      currentPage = 0;
+      _updatePaginatedItems();
     });
+  }
+
+  void _updatePaginatedItems() {
+    int startIndex = currentPage * itemsPerPage;
+    int endIndex = (startIndex + itemsPerPage).clamp(0, filteredItems.length);
+
+    setState(() {
+      paginatedItems = filteredItems.sublist(startIndex, endIndex);
+    });
+  }
+
+  void _goToPage(int page) {
+    if (page >= 0 && page < totalPages) {
+      setState(() {
+        currentPage = page;
+        _updatePaginatedItems();
+      });
+    }
   }
 
   void toggleAddForm() {
@@ -97,10 +206,9 @@ class _CodesPageState extends State<CodesPage> {
   void submitNewCode() {
     if (_formKey.currentState!.validate()) {
       setState(() {
-        items.add(Item(
-          title: _titleController.text,
-          ussCode: _ussCodeController.text,
-        ));
+        items.add(
+          Item(title: _titleController.text, ussCode: _ussCodeController.text),
+        );
         saveItems();
         filterItems();
 
@@ -142,12 +250,22 @@ class _CodesPageState extends State<CodesPage> {
     }
   }
 
-  void editItem(int index) {
-    TextEditingController titleController =
-        TextEditingController(text: filteredItems[index].title);
-    TextEditingController ussCodeController =
-        TextEditingController(text: filteredItems[index].ussCode);
+  void editItem(int paginatedIndex) {
+    Item itemToEdit = paginatedItems[paginatedIndex];
+
+    TextEditingController titleController = TextEditingController(
+      text: itemToEdit.title,
+    );
+    TextEditingController ussCodeController = TextEditingController(
+      text: itemToEdit.ussCode,
+    );
     final theme = Theme.of(context);
+
+    // Find the actual index in the main items list
+    int actualIndex = items.indexWhere(
+      (item) =>
+          item.title == itemToEdit.title && item.ussCode == itemToEdit.ussCode,
+    );
 
     showDialog(
       context: context,
@@ -229,9 +347,10 @@ class _CodesPageState extends State<CodesPage> {
                       child: ElevatedButton(
                         onPressed: () {
                           if (titleController.text.isNotEmpty &&
-                              ussCodeController.text.isNotEmpty) {
+                              ussCodeController.text.isNotEmpty &&
+                              actualIndex != -1) {
                             setState(() {
-                              items[index] = Item(
+                              items[actualIndex] = Item(
                                 title: titleController.text,
                                 ussCode: ussCodeController.text,
                               );
@@ -284,10 +403,21 @@ class _CodesPageState extends State<CodesPage> {
     );
   }
 
-  void deleteItem(int index) {
-    Item deletedItem = items[index];
+  void deleteItem(int paginatedIndex) {
+    Item itemToDelete = paginatedItems[paginatedIndex];
+
+    // Find the actual index in the main items list
+    int actualIndex = items.indexWhere(
+      (item) =>
+          item.title == itemToDelete.title &&
+          item.ussCode == itemToDelete.ussCode,
+    );
+
+    if (actualIndex == -1) return; // Item not found
+
+    Item deletedItem = items[actualIndex];
     setState(() {
-      items.removeAt(index);
+      items.removeAt(actualIndex);
       saveItems();
       filterItems();
     });
@@ -319,9 +449,7 @@ class _CodesPageState extends State<CodesPage> {
         ),
         backgroundColor: AppTheme.errorColor,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.all(16),
         action: SnackBarAction(
           label: "Undo",
@@ -329,7 +457,7 @@ class _CodesPageState extends State<CodesPage> {
           backgroundColor: Colors.white.withOpacity(0.2),
           onPressed: () {
             setState(() {
-              items.insert(index, deletedItem);
+              items.insert(actualIndex, deletedItem);
               saveItems();
               filterItems();
             });
@@ -434,11 +562,21 @@ class _CodesPageState extends State<CodesPage> {
                       child: TextField(
                         controller: searchController,
                         style: TextStyle(color: theme.colorScheme.onSurface),
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           hintText: 'Search codes...',
-                          prefixIcon: Icon(Icons.search_rounded),
+                          prefixIcon: const Icon(Icons.search_rounded),
+                          suffixIcon: searchController.text.isNotEmpty
+                              ? IconButton(
+                                  onPressed: () {
+                                    searchController.clear();
+                                    filterItems();
+                                  },
+                                  icon: const Icon(Icons.clear_rounded),
+                                  tooltip: 'Clear search',
+                                )
+                              : null,
                           border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(
+                          contentPadding: const EdgeInsets.symmetric(
                             horizontal: 20,
                             vertical: 16,
                           ),
@@ -454,11 +592,21 @@ class _CodesPageState extends State<CodesPage> {
             Expanded(
               child: _showAddForm
                   ? _buildAddForm(context, theme)
-                  : (items.isEmpty
-                      ? _buildEmptyState(context, theme)
-                      : (filteredItems.isEmpty
-                          ? _buildNoSearchResults(context, theme)
-                          : _buildCodesList(context, theme))),
+                  : _isLoading
+                      ? _buildLoadingState(context, theme)
+                      : (items.isEmpty
+                          ? _buildEmptyState(context, theme)
+                          : (filteredItems.isEmpty
+                              ? _buildNoSearchResults(context, theme)
+                              : Stack(
+                                  children: [
+                                    _buildCodesList(context, theme),
+                                    if (totalPages > 1) ...[
+                                      _buildLeftArrow(context, theme),
+                                      _buildRightArrow(context, theme),
+                                    ],
+                                  ],
+                                ))),
             ),
           ],
         ),
@@ -491,6 +639,45 @@ class _CodesPageState extends State<CodesPage> {
     );
   }
 
+  Widget _buildLoadingState(BuildContext context, ThemeData theme) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(40),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(50),
+              ),
+              child: CircularProgressIndicator(
+                color: theme.colorScheme.primary,
+                strokeWidth: 3,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Loading USSDs...',
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Please wait while we load the USSD codes',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withOpacity(0.7),
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildEmptyState(BuildContext context, ThemeData theme) {
     return Center(
       child: Padding(
@@ -512,32 +699,31 @@ class _CodesPageState extends State<CodesPage> {
             ),
             const SizedBox(height: 24),
             Text(
-              'No Misc. USSDs Yet',
+              'No USSDs Available',
               style: theme.textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 12),
             Text(
-              'Start by adding your first USSD code or payment code',
+              'Unable to load USSD codes at this time',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurface.withOpacity(0.7),
               ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
-            if (!_showAddForm)
-              ElevatedButton.icon(
-                onPressed: toggleAddForm,
-                icon: const Icon(Icons.add_rounded),
-                label: const Text('Add First Code'),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 32,
-                    vertical: 16,
-                  ),
+            ElevatedButton.icon(
+              onPressed: loadItems,
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Retry'),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 16,
                 ),
               ),
+            ),
           ],
         ),
       ),
@@ -587,10 +773,7 @@ class _CodesPageState extends State<CodesPage> {
             icon: const Icon(Icons.clear_rounded),
             label: const Text('Clear Search'),
             style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 24,
-                vertical: 12,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             ),
           ),
           const SizedBox(height: 60), // Add some bottom spacing
@@ -602,7 +785,7 @@ class _CodesPageState extends State<CodesPage> {
   Widget _buildCodesList(BuildContext context, ThemeData theme) {
     return ListView.builder(
       padding: const EdgeInsets.all(20),
-      itemCount: filteredItems.length,
+      itemCount: paginatedItems.length,
       itemBuilder: (context, index) {
         return _buildCodeCard(context, theme, index);
       },
@@ -610,10 +793,10 @@ class _CodesPageState extends State<CodesPage> {
   }
 
   Widget _buildCodeCard(BuildContext context, ThemeData theme, int index) {
-    final item = filteredItems[index];
+    final item = paginatedItems[index];
 
     return Dismissible(
-      key: Key(item.title),
+      key: Key('${item.title}-${item.ussCode}'),
       background: Container(
         margin: const EdgeInsets.only(bottom: 16),
         decoration: BoxDecoration(
@@ -622,11 +805,7 @@ class _CodesPageState extends State<CodesPage> {
         ),
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
-        child: const Icon(
-          Icons.delete_rounded,
-          color: Colors.white,
-          size: 28,
-        ),
+        child: const Icon(Icons.delete_rounded, color: Colors.white, size: 28),
       ),
       direction: DismissDirection.endToStart,
       onDismissed: (direction) => deleteItem(index),
@@ -681,13 +860,79 @@ class _CodesPageState extends State<CodesPage> {
                             fontFamily: 'monospace',
                           ),
                         ),
+                        if (item.provider != null || item.category != null) ...[
+                          const SizedBox(height: 4),
+                          Wrap(
+                            spacing: 4,
+                            children: [
+                              if (item.provider != null) ...[
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.business_rounded,
+                                      size: 12,
+                                      color: theme.colorScheme.onSurface
+                                          .withOpacity(0.5),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Flexible(
+                                      child: Text(
+                                        item.provider!,
+                                        style: theme.textTheme.bodySmall?.copyWith(
+                                          color: theme.colorScheme.onSurface
+                                              .withOpacity(0.6),
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                              if (item.provider != null &&
+                                  item.category != null) ...[
+                                Text(
+                                  ' • ',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurface
+                                        .withOpacity(0.5),
+                                  ),
+                                ),
+                              ],
+                              if (item.category != null) ...[
+                                Text(
+                                  item.category!,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurface
+                                        .withOpacity(0.6),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ],
+                        if (item.description != null) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            item.description!,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurface.withOpacity(
+                                0.7,
+                              ),
+                              fontStyle: FontStyle.italic,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
                         if (item.ussCode != _getDisplayCode(item.ussCode)) ...[
                           const SizedBox(height: 2),
                           Text(
                             'Original: ${item.ussCode}',
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color:
-                                  theme.colorScheme.onSurface.withOpacity(0.5),
+                              color: theme.colorScheme.onSurface.withOpacity(
+                                0.5,
+                              ),
                               fontStyle: FontStyle.italic,
                             ),
                           ),
@@ -753,9 +998,7 @@ class _CodesPageState extends State<CodesPage> {
         backgroundColor: color,
         foregroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(vertical: 12),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
@@ -831,7 +1074,9 @@ class _CodesPageState extends State<CodesPage> {
                             Text(
                               _getDisplayCode(item.ussCode),
                               style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurface.withOpacity(0.7),
+                                color: theme.colorScheme.onSurface.withOpacity(
+                                  0.7,
+                                ),
                                 fontFamily: 'monospace',
                               ),
                             ),
@@ -877,7 +1122,9 @@ class _CodesPageState extends State<CodesPage> {
                             if (_amountFormKey.currentState!.validate()) {
                               Navigator.pop(context);
                               final amountText = amountController.text.trim();
-                              final amount = amountText.isEmpty ? 0.0 : double.parse(amountText);
+                              final amount = amountText.isEmpty
+                                  ? 0.0
+                                  : double.parse(amountText);
                               _callUSSDWithAmount(item, amount);
                             }
                           },
@@ -904,7 +1151,8 @@ class _CodesPageState extends State<CodesPage> {
       if (amount > 0) {
         // If the code ends with #, insert amount before it
         if (ussdCode.endsWith('#')) {
-          ussdCode = ussdCode.substring(0, ussdCode.length - 1) + '*${amount.toStringAsFixed(0)}#';
+          ussdCode = ussdCode.substring(0, ussdCode.length - 1) +
+              '*${amount.toStringAsFixed(0)}#';
         } else {
           // If no # at the end, just append the amount
           ussdCode = '$ussdCode*${amount.toStringAsFixed(0)}';
@@ -947,7 +1195,9 @@ class _CodesPageState extends State<CodesPage> {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  Text('USSD called and saved to history (RWF ${amount.toStringAsFixed(0)})'),
+                  Text(
+                    'USSD called and saved to history (RWF ${amount.toStringAsFixed(0)})',
+                  ),
                 ],
               ),
               backgroundColor: AppTheme.successColor,
@@ -1171,6 +1421,98 @@ class _CodesPageState extends State<CodesPage> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLeftArrow(BuildContext context, ThemeData theme) {
+    return Positioned(
+      left: 16,
+      top: 0,
+      bottom: 0,
+      child: Center(
+        child: AnimatedOpacity(
+          opacity: currentPage > 0 ? 1.0 : 0.3,
+          duration: const Duration(milliseconds: 200),
+          child: Container(
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface,
+              borderRadius: BorderRadius.circular(50),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(50),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(50),
+                onTap: currentPage > 0 ? () => _goToPage(currentPage - 1) : null,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Icon(
+                    Icons.chevron_left_rounded,
+                    color: currentPage > 0
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.onSurface.withOpacity(0.3),
+                    size: 28,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRightArrow(BuildContext context, ThemeData theme) {
+    return Positioned(
+      right: 16,
+      top: 0,
+      bottom: 0,
+      child: Center(
+        child: AnimatedOpacity(
+          opacity: currentPage < totalPages - 1 ? 1.0 : 0.3,
+          duration: const Duration(milliseconds: 200),
+          child: Container(
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface,
+              borderRadius: BorderRadius.circular(50),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(50),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(50),
+                onTap: currentPage < totalPages - 1
+                    ? () => _goToPage(currentPage + 1)
+                    : null,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Icon(
+                    Icons.chevron_right_rounded,
+                    color: currentPage < totalPages - 1
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.onSurface.withOpacity(0.3),
+                    size: 28,
+                  ),
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );
