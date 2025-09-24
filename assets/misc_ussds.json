@@ -1,0 +1,1114 @@
+[
+  {
+    "title": "MTN Mobile Money (MoMo)",
+    "code": "*182#",
+    "description": "Complete mobile financial services including money transfers, bill payments, virtual cards, and international remittances",
+    "keywords": [
+      "mobile money",
+      "transfer",
+      "bills",
+      "payments",
+      "virtual card"
+    ],
+    "provider": "MTN Rwanda",
+    "category": "Mobile Money"
+  },
+  {
+    "title": "Check MTN Balance",
+    "code": "*130#",
+    "description": "Check MTN account balance and credit information",
+    "keywords": [
+      "balance",
+      "credit",
+      "account"
+    ],
+    "provider": "MTN Rwanda",
+    "category": "Mobile Network"
+  },
+  {
+    "title": "MTN Recharge",
+    "code": "*131#",
+    "description": "Recharge MTN account with airtime credit",
+    "keywords": [
+      "recharge",
+      "airtime",
+      "top-up"
+    ],
+    "provider": "MTN Rwanda",
+    "category": "Mobile Network"
+  },
+  {
+    "title": "MTN Phone Number",
+    "code": "*135*8#",
+    "description": "Display your MTN phone number",
+    "keywords": [
+      "number",
+      "phone",
+      "display"
+    ],
+    "provider": "MTN Rwanda",
+    "category": "Mobile Network"
+  },
+  {
+    "title": "MTN Data Balance",
+    "code": "*345#",
+    "description": "Check data balance and access data menu",
+    "keywords": [
+      "data",
+      "balance",
+      "internet"
+    ],
+    "provider": "MTN Rwanda",
+    "category": "Mobile Network"
+  },
+  {
+    "title": "MTN Daily Data",
+    "code": "*345*1#",
+    "description": "Daily internet package (1GB)",
+    "keywords": [
+      "data",
+      "daily",
+      "internet",
+      "1GB"
+    ],
+    "provider": "MTN Rwanda",
+    "category": "Mobile Network"
+  },
+  {
+    "title": "MTN Weekly Data",
+    "code": "*345*7#",
+    "description": "Weekly internet package",
+    "keywords": [
+      "data",
+      "weekly",
+      "internet"
+    ],
+    "provider": "MTN Rwanda",
+    "category": "Mobile Network"
+  },
+  {
+    "title": "MTN Monthly Data",
+    "code": "*345*30#",
+    "description": "Monthly internet package",
+    "keywords": [
+      "data",
+      "monthly",
+      "internet"
+    ],
+    "provider": "MTN Rwanda",
+    "category": "Mobile Network"
+  },
+  {
+    "title": "MTN WiFi Services",
+    "code": "*346#",
+    "description": "MTN WiFi hotspot services access",
+    "keywords": [
+      "wifi",
+      "hotspot",
+      "wireless"
+    ],
+    "provider": "MTN Rwanda",
+    "category": "Mobile Network"
+  },
+  {
+    "title": "MTN Daily WiFi",
+    "code": "*346*1#",
+    "description": "Daily WiFi package (RWF 1,000)",
+    "keywords": [
+      "wifi",
+      "daily",
+      "hotspot"
+    ],
+    "provider": "MTN Rwanda",
+    "category": "Mobile Network"
+  },
+  {
+    "title": "MTN Weekly WiFi",
+    "code": "*346*7#",
+    "description": "Weekly WiFi package (RWF 6,500)",
+    "keywords": [
+      "wifi",
+      "weekly",
+      "hotspot"
+    ],
+    "provider": "MTN Rwanda",
+    "category": "Mobile Network"
+  },
+  {
+    "title": "MTN Call Packs",
+    "code": "*140#",
+    "description": "Call packs and international services",
+    "keywords": [
+      "calls",
+      "international",
+      "packs"
+    ],
+    "provider": "MTN Rwanda",
+    "category": "Mobile Network"
+  },
+  {
+    "title": "MTN International Bundles",
+    "code": "*140*6#",
+    "description": "Access international calling bundles",
+    "keywords": [
+      "international",
+      "bundles",
+      "calling"
+    ],
+    "provider": "MTN Rwanda",
+    "category": "Mobile Network"
+  },
+  {
+    "title": "MTN Rahura",
+    "code": "*151#",
+    "description": "Local content and entertainment services",
+    "keywords": [
+      "entertainment",
+      "local",
+      "content"
+    ],
+    "provider": "MTN Rwanda",
+    "category": "Entertainment"
+  },
+  {
+    "title": "MTN Assurance",
+    "code": "*188#",
+    "description": "Life insurance services",
+    "keywords": [
+      "insurance",
+      "life",
+      "assurance"
+    ],
+    "provider": "MTN Rwanda",
+    "category": "Insurance"
+  },
+  {
+    "title": "MTN Facebook",
+    "code": "*198#",
+    "description": "MTN Facebook service access and activation",
+    "keywords": [
+      "facebook",
+      "social",
+      "media"
+    ],
+    "provider": "MTN Rwanda",
+    "category": "Social Media"
+  },
+  {
+    "title": "MTN Star Connect",
+    "code": "*516#",
+    "description": "Celebrity calling service",
+    "keywords": [
+      "celebrity",
+      "calling",
+      "star"
+    ],
+    "provider": "MTN Rwanda",
+    "category": "Entertainment"
+  },
+  {
+    "title": "MTN M2U (Me2U)",
+    "code": "*772#",
+    "description": "Mobile to You transfer service and entertainment platform",
+    "keywords": [
+      "transfer",
+      "mobile",
+      "entertainment",
+      "me2u"
+    ],
+    "provider": "MTN Rwanda",
+    "category": "Mobile Services"
+  },
+  {
+    "title": "MTN Virtual Card",
+    "code": "*182*2*6#",
+    "description": "Virtual card services and management",
+    "keywords": [
+      "virtual",
+      "card",
+      "payment"
+    ],
+    "provider": "MTN Rwanda",
+    "category": "Mobile Money"
+  },
+  {
+    "title": "MTN International Transfer",
+    "code": "*182*1*3#",
+    "description": "International money transfer services",
+    "keywords": [
+      "international",
+      "transfer",
+      "money"
+    ],
+    "provider": "MTN Rwanda",
+    "category": "Mobile Money"
+  },
+  {
+    "title": "MTN MoMo Push",
+    "code": "*182*7#",
+    "description": "MoMo Push services for payments and transactions",
+    "keywords": [
+      "push",
+      "payment",
+      "transaction"
+    ],
+    "provider": "MTN Rwanda",
+    "category": "Mobile Money"
+  },
+  {
+    "title": "MTN Irembo Payment",
+    "code": "*182*3*7*[BillID]#",
+    "description": "Direct Irembo government service payments via MoMo",
+    "keywords": [
+      "irembo",
+      "government",
+      "payment",
+      "bills"
+    ],
+    "provider": "MTN Rwanda",
+    "category": "Mobile Money"
+  },
+  {
+    "title": "Airtel Balance Check",
+    "code": "*131#",
+    "description": "Check balance and main service menu",
+    "keywords": [
+      "balance",
+      "menu",
+      "services"
+    ],
+    "provider": "Airtel Rwanda",
+    "category": "Mobile Network"
+  },
+  {
+    "title": "Airtel Recharge",
+    "code": "*130*[Voucher Code]#",
+    "description": "Account recharge with voucher code",
+    "keywords": [
+      "recharge",
+      "voucher",
+      "airtime"
+    ],
+    "provider": "Airtel Rwanda",
+    "category": "Mobile Network"
+  },
+  {
+    "title": "Airtel Phone Number",
+    "code": "*467#",
+    "description": "Display Airtel phone number",
+    "keywords": [
+      "number",
+      "phone",
+      "display"
+    ],
+    "provider": "Airtel Rwanda",
+    "category": "Mobile Network"
+  },
+  {
+    "title": "Airtel Customer Portal",
+    "code": "*456#",
+    "description": "Customer portal and self-care services",
+    "keywords": [
+      "customer",
+      "portal",
+      "self-care"
+    ],
+    "provider": "Airtel Rwanda",
+    "category": "Customer Service"
+  },
+  {
+    "title": "Airtel Number Check",
+    "code": "*121#",
+    "description": "Alternative number check service",
+    "keywords": [
+      "number",
+      "check",
+      "phone"
+    ],
+    "provider": "Airtel Rwanda",
+    "category": "Mobile Network"
+  },
+  {
+    "title": "Airtel Hello Tunes",
+    "code": "*132#",
+    "description": "Caller tunes and hello tunes management",
+    "keywords": [
+      "hello",
+      "tunes",
+      "caller"
+    ],
+    "provider": "Airtel Rwanda",
+    "category": "Entertainment"
+  },
+  {
+    "title": "Airtel Hello Tunes Alt",
+    "code": "*490#",
+    "description": "Alternative hello tunes management",
+    "keywords": [
+      "hello",
+      "tunes",
+      "music"
+    ],
+    "provider": "Airtel Rwanda",
+    "category": "Entertainment"
+  },
+  {
+    "title": "Airtel Roaming",
+    "code": "*133#",
+    "description": "Roaming services activation and deactivation",
+    "keywords": [
+      "roaming",
+      "international",
+      "travel"
+    ],
+    "provider": "Airtel Rwanda",
+    "category": "Mobile Network"
+  },
+  {
+    "title": "Airtel International Calling",
+    "code": "*141#",
+    "description": "International calling services",
+    "keywords": [
+      "international",
+      "calling",
+      "abroad"
+    ],
+    "provider": "Airtel Rwanda",
+    "category": "Mobile Network"
+  },
+  {
+    "title": "Airtel Money",
+    "code": "*182#",
+    "description": "Complete mobile money services",
+    "keywords": [
+      "mobile",
+      "money",
+      "transfer",
+      "payment"
+    ],
+    "provider": "Airtel Rwanda",
+    "category": "Mobile Money"
+  },
+  {
+    "title": "Airtel Money Alt",
+    "code": "*500#",
+    "description": "Alternative Airtel Money access code",
+    "keywords": [
+      "mobile",
+      "money",
+      "alternative",
+      "payment"
+    ],
+    "provider": "Airtel Rwanda",
+    "category": "Mobile Money"
+  },
+  {
+    "title": "Airtel Money Registration",
+    "code": "*700#",
+    "description": "Airtel Money self-registration service",
+    "keywords": [
+      "registration",
+      "mobile",
+      "money"
+    ],
+    "provider": "Airtel Rwanda",
+    "category": "Mobile Money"
+  },
+  {
+    "title": "Airtel Balance Transfer",
+    "code": "*134#",
+    "description": "Balance transfer to another Airtel number",
+    "keywords": [
+      "balance",
+      "transfer",
+      "airtime"
+    ],
+    "provider": "Airtel Rwanda",
+    "category": "Mobile Network"
+  },
+  {
+    "title": "Airtel OneNetwork",
+    "code": "*138#",
+    "description": "OneNetwork recharge service",
+    "keywords": [
+      "onenetwork",
+      "recharge",
+      "service"
+    ],
+    "provider": "Airtel Rwanda",
+    "category": "Mobile Network"
+  },
+  {
+    "title": "Airtel Number Selection",
+    "code": "*494#",
+    "description": "Choose your number service",
+    "keywords": [
+      "number",
+      "selection",
+      "choose"
+    ],
+    "provider": "Airtel Rwanda",
+    "category": "Mobile Network"
+  },
+  {
+    "title": "Airtel Call Back",
+    "code": "*121*[number]#",
+    "description": "Call me back service",
+    "keywords": [
+      "callback",
+      "call",
+      "request"
+    ],
+    "provider": "Airtel Rwanda",
+    "category": "Mobile Network"
+  },
+  {
+    "title": "Airtel Irembo Payment",
+    "code": "*182*4*5*1*[BillID]#",
+    "description": "Airtel Irembo government service payment processing",
+    "keywords": [
+      "irembo",
+      "government",
+      "payment",
+      "airtel"
+    ],
+    "provider": "Airtel Rwanda",
+    "category": "Mobile Money"
+  },
+  {
+    "title": "Bank of Kigali Mobile",
+    "code": "*334#",
+    "description": "Main mobile banking services",
+    "keywords": [
+      "banking",
+      "mobile",
+      "account"
+    ],
+    "provider": "Bank of Kigali",
+    "category": "Banking"
+  },
+  {
+    "title": "BK Balance Check",
+    "code": "*334*1#",
+    "description": "Check Bank of Kigali account balance",
+    "keywords": [
+      "balance",
+      "account",
+      "banking"
+    ],
+    "provider": "Bank of Kigali",
+    "category": "Banking"
+  },
+  {
+    "title": "BK Transfer",
+    "code": "*334*1*2*[account]*[amount]#",
+    "description": "Transfer to Bank of Kigali account",
+    "keywords": [
+      "transfer",
+      "account",
+      "money"
+    ],
+    "provider": "Bank of Kigali",
+    "category": "Banking"
+  },
+  {
+    "title": "Equity Bank Mobile",
+    "code": "*555#",
+    "description": "Mobile banking and account management",
+    "keywords": [
+      "banking",
+      "mobile",
+      "equity"
+    ],
+    "provider": "Equity Bank Rwanda",
+    "category": "Banking"
+  },
+  {
+    "title": "Equity Balance Check",
+    "code": "*555*1#",
+    "description": "Check Equity Bank account balance",
+    "keywords": [
+      "balance",
+      "equity",
+      "account"
+    ],
+    "provider": "Equity Bank Rwanda",
+    "category": "Banking"
+  },
+  {
+    "title": "Equity Transfer",
+    "code": "*555*2*1*[account]*[amount]#",
+    "description": "Transfer to Equity Bank account",
+    "keywords": [
+      "transfer",
+      "equity",
+      "account"
+    ],
+    "provider": "Equity Bank Rwanda",
+    "category": "Banking"
+  },
+  {
+    "title": "I&M Bank Mobile",
+    "code": "*227#",
+    "description": "Mobile banking and internet banking alternative",
+    "keywords": [
+      "banking",
+      "mobile",
+      "internet"
+    ],
+    "provider": "I&M Bank Rwanda",
+    "category": "Banking"
+  },
+  {
+    "title": "Access Bank Mobile",
+    "code": "*903#",
+    "description": "Basic banking transactions and money transfers",
+    "keywords": [
+      "banking",
+      "transfer",
+      "access"
+    ],
+    "provider": "Access Bank Rwanda",
+    "category": "Banking"
+  },
+  {
+    "title": "Letshego Mobile",
+    "code": "*598#",
+    "description": "Mobile banking, loan applications, and savings management",
+    "keywords": [
+      "microfinance",
+      "loans",
+      "savings"
+    ],
+    "provider": "Letshego Rwanda",
+    "category": "Banking"
+  },
+  {
+    "title": "GTBank Rwanda",
+    "code": "*737#",
+    "description": "GTBank mobile banking services",
+    "keywords": [
+      "gtbank",
+      "banking",
+      "mobile"
+    ],
+    "provider": "GTBank Rwanda",
+    "category": "Banking"
+  },
+  {
+    "title": "Cogebanque Mobile",
+    "code": "*850#",
+    "description": "Cogebanque mobile banking services",
+    "keywords": [
+      "cogebanque",
+      "banking",
+      "mobile"
+    ],
+    "provider": "Cogebanque",
+    "category": "Banking"
+  },
+  {
+    "title": "BPR Bank Mobile",
+    "code": "*505#",
+    "description": "BPR Bank mobile banking services",
+    "keywords": [
+      "bpr",
+      "banking",
+      "mobile"
+    ],
+    "provider": "BPR Bank Rwanda",
+    "category": "Banking"
+  },
+  {
+    "title": "ZIGAMA CSS Mobile",
+    "code": "*400#",
+    "description": "ZIGAMA CSS military and police banking services",
+    "keywords": [
+      "zigama",
+      "military",
+      "police",
+      "banking"
+    ],
+    "provider": "ZIGAMA CSS",
+    "category": "Banking"
+  },
+  {
+    "title": "Urwego Bank Mobile",
+    "code": "*600#",
+    "description": "Urwego microfinance banking services",
+    "keywords": [
+      "urwego",
+      "microfinance",
+      "banking"
+    ],
+    "provider": "Urwego Bank",
+    "category": "Banking"
+  },
+  {
+    "title": "Development Bank Mobile",
+    "code": "*750#",
+    "description": "Development Bank of Rwanda services",
+    "keywords": [
+      "development",
+      "bank",
+      "financing"
+    ],
+    "provider": "Development Bank of Rwanda",
+    "category": "Banking"
+  },
+  {
+    "title": "Irembo Government Services",
+    "code": "*909#",
+    "description": "100+ government services including certificates, licenses, and applications",
+    "keywords": [
+      "government",
+      "certificates",
+      "licenses",
+      "services"
+    ],
+    "provider": "Government of Rwanda",
+    "category": "Government Services"
+  },
+  {
+    "title": "Rwanda Revenue Authority",
+    "code": "*800#",
+    "description": "Tax declarations, motor vehicle taxes, VAT reward program",
+    "keywords": [
+      "tax",
+      "revenue",
+      "VAT",
+      "declaration"
+    ],
+    "provider": "Rwanda Revenue Authority",
+    "category": "Government Services"
+  },
+  {
+    "title": "Smart Nkunganire Agriculture",
+    "code": "*774#",
+    "description": "Agricultural input subsidy registration and farm services",
+    "keywords": [
+      "agriculture",
+      "farming",
+      "subsidies",
+      "fertilizer"
+    ],
+    "provider": "Rwanda Agriculture Board",
+    "category": "Government Services"
+  },
+  {
+    "title": "Police Traffic Fines",
+    "code": "*127#",
+    "description": "Traffic fines checking and payment",
+    "keywords": [
+      "police",
+      "traffic",
+      "fines",
+      "contraventions"
+    ],
+    "provider": "Rwanda National Police",
+    "category": "Government Services"
+  },
+  {
+    "title": "Health Insurance CBHI/RAMA",
+    "code": "*876#",
+    "description": "Health insurance status, contributions, and coverage verification",
+    "keywords": [
+      "health",
+      "insurance",
+      "mutuelle",
+      "CBHI",
+      "RAMA"
+    ],
+    "provider": "Rwanda Social Security Board",
+    "category": "Government Services"
+  },
+  {
+    "title": "EjoHeza Pension",
+    "code": "*506#",
+    "description": "Long-term savings and pension scheme",
+    "keywords": [
+      "pension",
+      "savings",
+      "ejoheza",
+      "retirement"
+    ],
+    "provider": "Rwanda Social Security Board",
+    "category": "Government Services"
+  },
+  {
+    "title": "Land Information Services",
+    "code": "*651#",
+    "description": "Land information services and property verification",
+    "keywords": [
+      "land",
+      "property",
+      "verification",
+      "titles"
+    ],
+    "provider": "Rwanda Land Management",
+    "category": "Government Services"
+  },
+  {
+    "title": "Babyl Health Services",
+    "code": "*811#",
+    "description": "Digital health consultations",
+    "keywords": [
+      "health",
+      "consultation",
+      "medical",
+      "digital"
+    ],
+    "provider": "Babyl Rwanda",
+    "category": "Health Services"
+  },
+  {
+    "title": "SIM Registration Verification",
+    "code": "*125#",
+    "description": "SIM card registration verification across all networks",
+    "keywords": [
+      "SIM",
+      "registration",
+      "verification",
+      "mobile"
+    ],
+    "provider": "All Networks",
+    "category": "Mobile Network"
+  },
+  {
+    "title": "Electricity Cash Power",
+    "code": "*720#",
+    "description": "Prepaid electricity purchase and meter token generation",
+    "keywords": [
+      "electricity",
+      "prepaid",
+      "cash power",
+      "tokens"
+    ],
+    "provider": "Rwanda Energy Group",
+    "category": "Utilities"
+  },
+  {
+    "title": "WASAC Water Bills",
+    "code": "*545#",
+    "description": "Water bill payments and account management",
+    "keywords": [
+      "water",
+      "bills",
+      "wasac",
+      "utilities"
+    ],
+    "provider": "WASAC",
+    "category": "Utilities"
+  },
+  {
+    "title": "REG Customer Service",
+    "code": "2727",
+    "description": "Rwanda Energy Group customer service toll-free line",
+    "keywords": [
+      "energy",
+      "customer",
+      "service",
+      "electricity"
+    ],
+    "provider": "Rwanda Energy Group",
+    "category": "Customer Service"
+  },
+  {
+    "title": "RSSB Customer Service",
+    "code": "4044",
+    "description": "Rwanda Social Security Board customer service",
+    "keywords": [
+      "rssb",
+      "customer",
+      "service",
+      "social security"
+    ],
+    "provider": "Rwanda Social Security Board",
+    "category": "Customer Service"
+  },
+  {
+    "title": "EjoHeza Customer Service",
+    "code": "5006",
+    "description": "EjoHeza pension scheme customer service",
+    "keywords": [
+      "ejoheza",
+      "pension",
+      "customer",
+      "service"
+    ],
+    "provider": "Rwanda Social Security Board",
+    "category": "Customer Service"
+  },
+  {
+    "title": "RSwitch eKash",
+    "code": "*182*1*2#",
+    "description": "Instant money transfers between all banks and mobile money operators",
+    "keywords": [
+      "cross-network",
+      "transfer",
+      "banks",
+      "interoperability"
+    ],
+    "provider": "RSwitch",
+    "category": "Financial Services"
+  },
+  {
+    "title": "eFashe Cross-Network",
+    "code": "*662#",
+    "description": "Cross-network airtime and money transfers between MTN and Airtel",
+    "keywords": [
+      "cross-network",
+      "airtime",
+      "transfer",
+      "efashe"
+    ],
+    "provider": "eFashe Group",
+    "category": "Financial Services"
+  },
+  {
+    "title": "General Emergency",
+    "code": "112",
+    "description": "General emergency services - Police, Fire, Medical",
+    "keywords": [
+      "emergency",
+      "police",
+      "fire",
+      "medical"
+    ],
+    "provider": "Rwanda Emergency Services",
+    "category": "Emergency Services"
+  },
+  {
+    "title": "Traffic Accidents",
+    "code": "113",
+    "description": "Traffic accident emergency response",
+    "keywords": [
+      "traffic",
+      "accident",
+      "emergency",
+      "police"
+    ],
+    "provider": "Rwanda National Police",
+    "category": "Emergency Services"
+  },
+  {
+    "title": "Fire Brigade",
+    "code": "111",
+    "description": "Fire and rescue emergency services",
+    "keywords": [
+      "fire",
+      "rescue",
+      "emergency",
+      "brigade"
+    ],
+    "provider": "Rwanda Fire and Rescue",
+    "category": "Emergency Services"
+  },
+  {
+    "title": "Maritime Security",
+    "code": "110",
+    "description": "Maritime and water-related emergencies",
+    "keywords": [
+      "maritime",
+      "water",
+      "security",
+      "emergency"
+    ],
+    "provider": "Rwanda National Police",
+    "category": "Emergency Services"
+  },
+  {
+    "title": "Health Services Emergency",
+    "code": "114",
+    "description": "Health and medical emergency services",
+    "keywords": [
+      "health",
+      "medical",
+      "emergency",
+      "ambulance"
+    ],
+    "provider": "Rwanda Health Services",
+    "category": "Emergency Services"
+  },
+  {
+    "title": "Child Helpline",
+    "code": "116",
+    "description": "Child protection and assistance helpline",
+    "keywords": [
+      "child",
+      "protection",
+      "helpline",
+      "assistance"
+    ],
+    "provider": "Rwanda Child Protection",
+    "category": "Emergency Services"
+  },
+  {
+    "title": "Traffic Police",
+    "code": "118",
+    "description": "Traffic police services and assistance",
+    "keywords": [
+      "traffic",
+      "police",
+      "assistance",
+      "road"
+    ],
+    "provider": "Rwanda National Police",
+    "category": "Emergency Services"
+  },
+  {
+    "title": "Ambulance Services",
+    "code": "912",
+    "description": "Ambulance and medical emergency transport",
+    "keywords": [
+      "ambulance",
+      "medical",
+      "transport",
+      "emergency"
+    ],
+    "provider": "Rwanda Health Services",
+    "category": "Emergency Services"
+  },
+  {
+    "title": "Police Abuse Reporting",
+    "code": "3511",
+    "description": "Report abuse by police officers",
+    "keywords": [
+      "police",
+      "abuse",
+      "report",
+      "complaint"
+    ],
+    "provider": "Rwanda National Police",
+    "category": "Emergency Services"
+  },
+  {
+    "title": "Gender-Based Violence",
+    "code": "3512",
+    "description": "Gender-based violence reporting and assistance",
+    "keywords": [
+      "gender",
+      "violence",
+      "reporting",
+      "assistance"
+    ],
+    "provider": "Rwanda Gender Monitoring",
+    "category": "Emergency Services"
+  },
+  {
+    "title": "Anti-Corruption Hotline",
+    "code": "997",
+    "description": "Anti-corruption reporting hotline",
+    "keywords": [
+      "corruption",
+      "reporting",
+      "hotline",
+      "whistleblower"
+    ],
+    "provider": "Rwanda Anti-Corruption",
+    "category": "Emergency Services"
+  },
+  {
+    "title": "Yego Cabs",
+    "code": "9191",
+    "description": "Toll-free taxi booking service with SMS confirmation",
+    "keywords": [
+      "taxi",
+      "yego",
+      "transport",
+      "booking"
+    ],
+    "provider": "Yego Innovation Limited",
+    "category": "Transportation"
+  },
+  {
+    "title": "Kigali 24/7 Taxi",
+    "code": "725074659",
+    "description": "24/7 taxi dispatch service in Kigali",
+    "keywords": [
+      "taxi",
+      "24/7",
+      "kigali",
+      "dispatch"
+    ],
+    "provider": "Kigali 24/7",
+    "category": "Transportation"
+  },
+  {
+    "title": "Kimironko Taxi Park",
+    "code": "784651645",
+    "description": "Kimironko taxi park dispatch service",
+    "keywords": [
+      "taxi",
+      "kimironko",
+      "park",
+      "dispatch"
+    ],
+    "provider": "Kimironko Taxi Park",
+    "category": "Transportation"
+  },
+  {
+    "title": "Kinyinya Taxi",
+    "code": "790200199",
+    "description": "Kinyinya area taxi services",
+    "keywords": [
+      "taxi",
+      "kinyinya",
+      "transport"
+    ],
+    "provider": "Kinyinya Taxi",
+    "category": "Transportation"
+  },
+  {
+    "title": "DStv Payment Check",
+    "code": "30333",
+    "description": "DStv balance check via SMS",
+    "keywords": [
+      "dstv",
+      "television",
+      "balance",
+      "subscription"
+    ],
+    "provider": "DStv Rwanda",
+    "category": "Entertainment"
+  },
+  {
+    "title": "Airtel Customer Care",
+    "code": "456",
+    "description": "Airtel Rwanda customer care service",
+    "keywords": [
+      "airtel",
+      "customer",
+      "care",
+      "support"
+    ],
+    "provider": "Airtel Rwanda",
+    "category": "Customer Service"
+  },
+  {
+    "title": "Airtel Customer Care Alt",
+    "code": "100",
+    "description": "Alternative Airtel customer care number",
+    "keywords": [
+      "airtel",
+      "customer",
+      "care",
+      "alternative"
+    ],
+    "provider": "Airtel Rwanda",
+    "category": "Customer Service"
+  },
+  {
+    "title": "Airtel International Care",
+    "code": "+250730000456",
+    "description": "Airtel customer care for all networks",
+    "keywords": [
+      "airtel",
+      "international",
+      "customer",
+      "care"
+    ],
+    "provider": "Airtel Rwanda",
+    "category": "Customer Service"
+  }
+]
