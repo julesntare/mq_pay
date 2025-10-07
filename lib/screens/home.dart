@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../generated/l10n.dart';
 import 'package:flutter_native_contact_picker/flutter_native_contact_picker.dart';
-import 'package:flutter_native_contact_picker/model/contact.dart';
+import 'package:flutter_native_contact_picker/model/contact.dart' as picker;
+import 'package:flutter_contacts/flutter_contacts.dart';
 import '../helpers/launcher.dart';
 import '../helpers/app_theme.dart';
 import 'settings.dart';
@@ -46,6 +47,11 @@ class _HomeState extends State<Home> {
   String? selectedLanguage = 'en';
   String selectedPaymentMethod = 'auto'; // 'auto', 'mobile', 'momo'
   List<PaymentMethod> paymentMethods = [];
+
+  // Contact autocomplete variables
+  List<Contact> allContacts = [];
+  List<ContactSuggestion> filteredContacts = [];
+  bool isLoadingContacts = false;
 
   @override
   void initState() {
@@ -639,45 +645,133 @@ class _HomeState extends State<Home> {
           ),
         ),
         const SizedBox(height: 24),
-        TextField(
-          controller: mobileController,
-          focusNode: phoneFocusNode,
-          keyboardType: TextInputType.text,
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w500,
-          ),
-          decoration: InputDecoration(
-            labelText: 'Phone Number or Momo Code',
-            hintText: '078xxxxxxx or 123456',
-            prefixIcon: Icon(Icons.phone_rounded),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(15),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(15),
-              borderSide: BorderSide(
-                color: theme.colorScheme.primary,
-                width: 2,
+        Column(
+          children: [
+            TextField(
+              controller: mobileController,
+              focusNode: phoneFocusNode,
+              keyboardType: TextInputType.text,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w500,
               ),
+              decoration: InputDecoration(
+                labelText: 'Phone Number or Momo Code',
+                hintText: 'Type name or 078xxxxxxx',
+                prefixIcon: Icon(Icons.phone_rounded),
+                suffixIcon: isLoadingContacts
+                    ? Padding(
+                        padding: const EdgeInsets.all(12.0),
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      )
+                    : mobileController.text.isNotEmpty
+                        ? IconButton(
+                            icon: Icon(
+                              Icons.clear_rounded,
+                              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                mobileController.clear();
+                                filteredContacts = [];
+                                selectedName = null;
+                              });
+                            },
+                            tooltip: 'Clear',
+                          )
+                        : null,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(15),
+                  borderSide: BorderSide(
+                    color: theme.colorScheme.primary,
+                    width: 2,
+                  ),
+                ),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 20,
+                ),
+                helperText: _getInputHelperText(),
+              ),
+              onChanged: (value) {
+                setState(() {
+                  isPhoneNumberMomo =
+                      _isValidMomoCode(value) && !_isValidPhoneNumber(value);
+                });
+
+                // Filter contacts for autocomplete
+                _filterContacts(value);
+              },
+              onSubmitted: (value) {
+                if (_canProceedWithPayment()) {
+                  _processPayment(context);
+                }
+              },
             ),
-            contentPadding: EdgeInsets.symmetric(
-              horizontal: 20,
-              vertical: 20,
-            ),
-            helperText: _getInputHelperText(),
-          ),
-          onChanged: (value) {
-            setState(() {
-              isPhoneNumberMomo =
-                  _isValidMomoCode(value) && !_isValidPhoneNumber(value);
-            });
-          },
-          onSubmitted: (value) {
-            if (_canProceedWithPayment()) {
-              _processPayment(context);
-            }
-          },
+            // Contact suggestions dropdown
+            if (filteredContacts.isNotEmpty)
+              Container(
+                margin: const EdgeInsets.only(top: 8),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surface,
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(
+                    color: theme.colorScheme.outline.withValues(alpha: 0.3),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: filteredContacts.length,
+                  separatorBuilder: (context, index) => Divider(
+                    height: 1,
+                    color: theme.colorScheme.outline.withValues(alpha: 0.2),
+                  ),
+                  itemBuilder: (context, index) {
+                    final contact = filteredContacts[index];
+                    return ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor:
+                            theme.colorScheme.primary.withValues(alpha: 0.1),
+                        child: Icon(
+                          Icons.person,
+                          color: theme.colorScheme.primary,
+                          size: 20,
+                        ),
+                      ),
+                      title: Text(
+                        contact.name,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      subtitle: Text(
+                        contact.phoneNumber,
+                        style: theme.textTheme.bodySmall,
+                      ),
+                      onTap: () => _selectContactSuggestion(contact),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                    );
+                  },
+                ),
+              ),
+          ],
         ),
         const SizedBox(height: 16),
         if (mobileController.text.isNotEmpty &&
@@ -882,9 +976,11 @@ class _HomeState extends State<Home> {
                 Navigator.of(context).pop();
 
                 // Save the USSD record before dialing
-                String recipientType = _isValidPhoneNumber(paymentInfo) ? 'phone' : 'momo';
+                String recipientType =
+                    _isValidPhoneNumber(paymentInfo) ? 'phone' : 'momo';
                 double amount = double.tryParse(amountController.text) ?? 0.0;
-                await _saveUssdRecord(ussdCode, paymentInfo, recipientType, amount);
+                await _saveUssdRecord(
+                    ussdCode, paymentInfo, recipientType, amount);
 
                 launchUSSD(ussdCode, context);
 
@@ -1011,7 +1107,7 @@ class _HomeState extends State<Home> {
 
   Future<void> _loadContact() async {
     try {
-      Contact? contact = await _contactPicker.selectContact();
+      picker.Contact? contact = await _contactPicker.selectContact();
       if (contact != null) {
         List<String>? phoneNumbers = contact.phoneNumbers;
         selectedNumber = phoneNumbers?.first;
@@ -1077,7 +1173,8 @@ class _HomeState extends State<Home> {
     );
   }
 
-  Future<void> _saveUssdRecord(String ussdCode, String recipient, String recipientType, double amount) async {
+  Future<void> _saveUssdRecord(String ussdCode, String recipient,
+      String recipientType, double amount) async {
     final record = UssdRecord(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       ussdCode: ussdCode,
@@ -1085,9 +1182,133 @@ class _HomeState extends State<Home> {
       recipientType: recipientType,
       amount: amount,
       timestamp: DateTime.now(),
-      maskedRecipient: recipientType == 'phone' ? _maskPhoneNumber(recipient) : null,
+      maskedRecipient:
+          recipientType == 'phone' ? _maskPhoneNumber(recipient) : null,
     );
 
     await UssdRecordService.saveUssdRecord(record);
   }
+
+  // Load all contacts from device
+  Future<void> _loadAllContacts() async {
+    if (isLoadingContacts) return;
+
+    setState(() {
+      isLoadingContacts = true;
+    });
+
+    try {
+      // Request permission
+      if (await FlutterContacts.requestPermission()) {
+        // Get all contacts with phone numbers
+        final contacts = await FlutterContacts.getContacts(
+          withProperties: true,
+          withPhoto: false,
+        );
+
+        setState(() {
+          allContacts = contacts;
+          isLoadingContacts = false;
+        });
+      } else {
+        setState(() {
+          isLoadingContacts = false;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Contact permission denied')),
+          );
+        }
+      }
+    } catch (e) {
+      setState(() {
+        isLoadingContacts = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading contacts: $e')),
+        );
+      }
+    }
+  }
+
+  // Filter contacts based on search query (supports both name and phone number search)
+  void _filterContacts(String query) {
+    if (query.isEmpty) {
+      setState(() {
+        filteredContacts = [];
+      });
+      return;
+    }
+
+    // Load contacts if not already loaded
+    if (allContacts.isEmpty && !isLoadingContacts) {
+      _loadAllContacts();
+    }
+
+    final queryLower = query.toLowerCase();
+    // Remove spaces and special characters from query for phone number matching
+    final queryDigits = query.replaceAll(RegExp(r'[^0-9]'), '');
+    List<ContactSuggestion> suggestions = [];
+    Set<String> addedContacts = {}; // Track added contacts to avoid duplicates
+
+    for (var contact in allContacts) {
+      String displayName = contact.displayName;
+
+      // Get phone numbers
+      if (contact.phones.isNotEmpty) {
+        for (var phone in contact.phones) {
+          String phoneNumber = phone.number;
+          if (phoneNumber.isNotEmpty) {
+            // Format and validate phone number
+            String formatted = _formatPhoneNumber(phoneNumber);
+            if (formatted.isNotEmpty) {
+              // Check if name matches OR phone number matches
+              bool nameMatches = displayName.toLowerCase().contains(queryLower);
+              bool phoneMatches = queryDigits.isNotEmpty &&
+                  (phoneNumber.contains(queryDigits) || formatted.contains(queryDigits));
+
+              // Create unique key to prevent duplicates
+              String uniqueKey = '$displayName-$formatted';
+
+              if ((nameMatches || phoneMatches) && !addedContacts.contains(uniqueKey)) {
+                suggestions.add(ContactSuggestion(
+                  name: displayName,
+                  phoneNumber: formatted,
+                  originalPhone: phoneNumber,
+                ));
+                addedContacts.add(uniqueKey);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    setState(() {
+      filteredContacts = suggestions.take(5).toList(); // Limit to 5 suggestions
+    });
+  }
+
+  // Select a contact from suggestions
+  void _selectContactSuggestion(ContactSuggestion suggestion) {
+    setState(() {
+      mobileController.text = suggestion.phoneNumber;
+      filteredContacts = [];
+      selectedName = suggestion.name;
+    });
+  }
+}
+
+// Helper class for contact suggestions
+class ContactSuggestion {
+  final String name;
+  final String phoneNumber;
+  final String originalPhone;
+
+  ContactSuggestion({
+    required this.name,
+    required this.phoneNumber,
+    required this.originalPhone,
+  });
 }
