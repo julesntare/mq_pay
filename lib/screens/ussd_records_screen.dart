@@ -26,6 +26,9 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
   double currentMonthTotal = 0.0;
   Map<String, double> currentMonthAmountByType = {};
 
+  // Tab selection for breakdown view
+  int selectedTab = 0; // 0: Mobile, 1: MoCode, 2: Misc
+
   @override
   void initState() {
     super.initState();
@@ -246,14 +249,23 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
   }
 
   Widget _buildSummaryCards(ThemeData theme) {
+    final tabData = [
+      {'title': 'Mobile', 'icon': Icons.phone_rounded, 'color': AppTheme.successColor, 'key': 'phone'},
+      {'title': 'MoCode', 'icon': Icons.qr_code_rounded, 'color': AppTheme.warningColor, 'key': 'momo'},
+      {'title': 'Misc', 'icon': Icons.code_rounded, 'color': AppTheme.primaryColor, 'key': 'misc'},
+    ];
+
+    final currentTab = tabData[selectedTab];
+    final totalTabAmount = amountByType[currentTab['key']] ?? 0.0;
+    final monthlyTabAmount = currentMonthAmountByType[currentTab['key']] ?? 0.0;
+
     return Container(
       padding: const EdgeInsets.all(20),
       child: Column(
         children: [
-          // Total Summary Card
+          // Compact Summary Card with Tabs
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               gradient: AppTheme.primaryGradient,
               borderRadius: BorderRadius.circular(20),
@@ -267,248 +279,208 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
             ),
             child: Column(
               children: [
-                Text(
-                  'Total Transactions',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: Colors.white70,
+                // Total Section (Compact)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Total',
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              color: Colors.white70,
+                            ),
+                          ),
+                          Text(
+                            NumberFormat.currency(
+                              locale: 'en_RW',
+                              symbol: 'RWF ',
+                              decimalDigits: 0,
+                            ).format(totalAmount),
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (monthsWithData.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                IconButton(
+                                  onPressed: currentMonthIndex < monthsWithData.length - 1
+                                      ? () => _navigateMonth(1)
+                                      : null,
+                                  icon: Icon(
+                                    Icons.arrow_back_ios_rounded,
+                                    color: currentMonthIndex < monthsWithData.length - 1
+                                        ? Colors.white
+                                        : Colors.white38,
+                                    size: 14,
+                                  ),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  DateFormat('MMM yyyy').format(monthsWithData[currentMonthIndex]),
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: Colors.white70,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                IconButton(
+                                  onPressed: currentMonthIndex > 0 ? () => _navigateMonth(-1) : null,
+                                  icon: Icon(
+                                    Icons.arrow_forward_ios_rounded,
+                                    color: currentMonthIndex > 0 ? Colors.white : Colors.white38,
+                                    size: 14,
+                                  ),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                ),
+                              ],
+                            ),
+                            Text(
+                              NumberFormat.currency(
+                                locale: 'en_RW',
+                                symbol: 'RWF ',
+                                decimalDigits: 0,
+                              ).format(currentMonthTotal),
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
                   ),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  NumberFormat.currency(
-                          locale: 'en_RW', symbol: 'RWF ', decimalDigits: 0)
-                      .format(totalAmount),
-                  style: theme.textTheme.headlineMedium?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
+
+                const Divider(color: Colors.white24, height: 1),
+
+                // Tab Bar
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    children: List.generate(tabData.length, (index) {
+                      final isSelected = selectedTab == index;
+                      final tab = tabData[index];
+                      return Expanded(
+                        child: GestureDetector(
+                          onTap: () => setState(() => selectedTab = index),
+                          child: Container(
+                            margin: EdgeInsets.only(right: index < tabData.length - 1 ? 8 : 0),
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? Colors.white.withValues(alpha: 0.2)
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: isSelected
+                                    ? Colors.white.withValues(alpha: 0.3)
+                                    : Colors.transparent,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  tab['icon'] as IconData,
+                                  color: Colors.white,
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  tab['title'] as String,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  '$totalRecords transactions',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: Colors.white70,
+
+                // Selected Tab Content
+                Container(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '${currentTab['title']} Total',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: Colors.white70,
+                        ),
+                      ),
+                      Text(
+                        NumberFormat.currency(
+                          locale: 'en_RW',
+                          symbol: 'RWF ',
+                          decimalDigits: 0,
+                        ).format(totalTabAmount),
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                // Monthly navigation row for total
-                if (monthsWithData.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  const Divider(color: Colors.white24, height: 1),
-                  const SizedBox(height: 12),
-                  _buildTotalMonthlyNavigationRow(theme),
-                ],
+
+                // Monthly amount for selected tab
+                if (monthsWithData.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          DateFormat('MMM yyyy').format(monthsWithData[currentMonthIndex]),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: Colors.white60,
+                            fontSize: 11,
+                          ),
+                        ),
+                        Text(
+                          NumberFormat.currency(
+                            locale: 'en_RW',
+                            symbol: 'RWF ',
+                            decimalDigits: 0,
+                          ).format(monthlyTabAmount),
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
               ],
             ),
           ),
-          const SizedBox(height: 16),
-          // Breakdown Cards
-          Row(
-            children: [
-              Expanded(
-                child: _buildTypeCard(
-                  theme,
-                  'Mobile Payments',
-                  amountByType['phone'] ?? 0.0,
-                  Icons.phone_rounded,
-                  AppTheme.successColor,
-                  'phone',
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildTypeCard(
-                  theme,
-                  'MoCode Payments',
-                  amountByType['momo'] ?? 0.0,
-                  Icons.qr_code_rounded,
-                  AppTheme.warningColor,
-                  'momo',
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Container(
-            width: double.infinity,
-            child: _buildTypeCard(
-              theme,
-              'Misc. Codes',
-              amountByType['misc'] ?? 0.0,
-              Icons.code_rounded,
-              AppTheme.primaryColor,
-              'misc',
-            ),
-          ),
         ],
       ),
     );
   }
 
-  Widget _buildTypeCard(ThemeData theme, String title, double amount,
-      IconData icon, Color color, String typeKey) {
-    final monthlyAmount = currentMonthAmountByType[typeKey] ?? 0.0;
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: color, size: 24),
-          const SizedBox(height: 8),
-          Text(
-            title,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            NumberFormat.currency(
-                    locale: 'en_RW', symbol: 'RWF ', decimalDigits: 0)
-                .format(amount),
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          // Monthly navigation row
-          if (monthsWithData.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            const Divider(height: 1),
-            const SizedBox(height: 8),
-            _buildMonthlyNavigationRow(theme, monthlyAmount, color),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTotalMonthlyNavigationRow(ThemeData theme) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        IconButton(
-          onPressed: currentMonthIndex < monthsWithData.length - 1
-              ? () => _navigateMonth(1)
-              : null,
-          icon: Icon(
-            Icons.arrow_back_ios_rounded,
-            color: currentMonthIndex < monthsWithData.length - 1
-                ? Colors.white
-                : Colors.white38,
-            size: 18,
-          ),
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(),
-        ),
-        Expanded(
-          child: Column(
-            children: [
-              Text(
-                DateFormat('MMM yyyy').format(monthsWithData[currentMonthIndex]),
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: Colors.white70,
-                  fontSize: 12,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                NumberFormat.currency(
-                  locale: 'en_RW',
-                  symbol: 'RWF ',
-                  decimalDigits: 0,
-                ).format(currentMonthTotal),
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-        IconButton(
-          onPressed: currentMonthIndex > 0 ? () => _navigateMonth(-1) : null,
-          icon: Icon(
-            Icons.arrow_forward_ios_rounded,
-            color: currentMonthIndex > 0 ? Colors.white : Colors.white38,
-            size: 18,
-          ),
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMonthlyNavigationRow(ThemeData theme, double monthlyAmount, Color color) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        IconButton(
-          onPressed: currentMonthIndex < monthsWithData.length - 1
-              ? () => _navigateMonth(1)
-              : null,
-          icon: Icon(
-            Icons.arrow_back_ios_rounded,
-            color: currentMonthIndex < monthsWithData.length - 1
-                ? color
-                : color.withValues(alpha: 0.3),
-            size: 16,
-          ),
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(),
-        ),
-        Expanded(
-          child: Column(
-            children: [
-              Text(
-                DateFormat('MMM yyyy').format(monthsWithData[currentMonthIndex]),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                  fontSize: 10,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 2),
-              Text(
-                NumberFormat.currency(
-                  locale: 'en_RW',
-                  symbol: 'RWF ',
-                  decimalDigits: 0,
-                ).format(monthlyAmount),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                  fontSize: 11,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-        IconButton(
-          onPressed: currentMonthIndex > 0 ? () => _navigateMonth(-1) : null,
-          icon: Icon(
-            Icons.arrow_forward_ios_rounded,
-            color: currentMonthIndex > 0
-                ? color
-                : color.withValues(alpha: 0.3),
-            size: 16,
-          ),
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(),
-        ),
-      ],
-    );
-  }
 
   Widget _buildRecordsList(ThemeData theme) {
     return ListView.builder(
