@@ -20,6 +20,12 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
   int totalRecords = 0;
   Map<String, double> amountByType = {};
 
+  // Monthly navigation
+  List<DateTime> monthsWithData = [];
+  int currentMonthIndex = 0;
+  double currentMonthTotal = 0.0;
+  Map<String, double> currentMonthAmountByType = {};
+
   @override
   void initState() {
     super.initState();
@@ -42,6 +48,9 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
         amountByType = typeAmounts;
         isLoading = false;
       });
+
+      // Calculate months with data AFTER records are set
+      _calculateMonthsWithData(loadedRecords);
     } catch (e) {
       setState(() => isLoading = false);
       if (mounted) {
@@ -50,6 +59,81 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
         );
       }
     }
+  }
+
+  void _calculateMonthsWithData(List<UssdRecord> allRecords) {
+    Map<String, double> monthlyTotals = {};
+
+    for (var record in allRecords) {
+      final monthKey = DateFormat('yyyy-MM').format(record.timestamp);
+      monthlyTotals[monthKey] =
+          (monthlyTotals[monthKey] ?? 0.0) + record.amount;
+    }
+
+    // Get months with totals > 0, sorted newest first
+    List<DateTime> months =
+        monthlyTotals.entries.where((entry) => entry.value > 0).map((entry) {
+      final parts = entry.key.split('-');
+      return DateTime(int.parse(parts[0]), int.parse(parts[1]));
+    }).toList()
+          ..sort((a, b) => b.compareTo(a)); // Newest first
+
+    setState(() {
+      monthsWithData = months;
+      currentMonthIndex = 0;
+    });
+
+    if (monthsWithData.isNotEmpty) {
+      _updateCurrentMonthTotal();
+    }
+  }
+
+  void _updateCurrentMonthTotal() {
+    if (monthsWithData.isEmpty) {
+      setState(() {
+        currentMonthTotal = 0.0;
+        currentMonthAmountByType = {};
+      });
+      return;
+    }
+
+    final currentMonth = monthsWithData[currentMonthIndex];
+    final monthKey = DateFormat('yyyy-MM').format(currentMonth);
+
+    final monthRecords = records
+        .where((record) =>
+            DateFormat('yyyy-MM').format(record.timestamp) == monthKey)
+        .toList();
+
+    final total = monthRecords.fold(0.0, (sum, record) => sum + record.amount);
+
+    // Calculate monthly amounts by type
+    final amountsByType = {
+      'phone': monthRecords
+          .where((r) => r.recipientType == 'phone')
+          .fold(0.0, (sum, r) => sum + r.amount),
+      'momo': monthRecords
+          .where((r) => r.recipientType == 'momo')
+          .fold(0.0, (sum, r) => sum + r.amount),
+      'misc': monthRecords
+          .where((r) => r.recipientType == 'misc')
+          .fold(0.0, (sum, r) => sum + r.amount),
+    };
+
+    setState(() {
+      currentMonthTotal = total;
+      currentMonthAmountByType = amountsByType;
+    });
+  }
+
+  void _navigateMonth(int direction) {
+    if (monthsWithData.isEmpty) return;
+
+    setState(() {
+      currentMonthIndex =
+          (currentMonthIndex + direction).clamp(0, monthsWithData.length - 1);
+      _updateCurrentMonthTotal();
+    });
   }
 
   Future<void> _clearAllRecords() async {
@@ -70,25 +154,27 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
     }
   }
 
-  Future<bool> _showConfirmationDialog(String title, String message, {String confirmText = 'Confirm'}) async {
+  Future<bool> _showConfirmationDialog(String title, String message,
+      {String confirmText = 'Confirm'}) async {
     return await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text(title),
+            content: Text(message),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                child: Text(confirmText),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: Text(confirmText),
-          ),
-        ],
-      ),
-    ) ?? false;
+        ) ??
+        false;
   }
 
   @override
@@ -189,7 +275,8 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  NumberFormat.currency(locale: 'en_RW', symbol: 'RWF ', decimalDigits: 0)
+                  NumberFormat.currency(
+                          locale: 'en_RW', symbol: 'RWF ', decimalDigits: 0)
                       .format(totalAmount),
                   style: theme.textTheme.headlineMedium?.copyWith(
                     color: Colors.white,
@@ -203,6 +290,13 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                     color: Colors.white70,
                   ),
                 ),
+                // Monthly navigation row for total
+                if (monthsWithData.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  const Divider(color: Colors.white24, height: 1),
+                  const SizedBox(height: 12),
+                  _buildTotalMonthlyNavigationRow(theme),
+                ],
               ],
             ),
           ),
@@ -213,20 +307,22 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
               Expanded(
                 child: _buildTypeCard(
                   theme,
-                  'Phone Payments',
+                  'Mobile Payments',
                   amountByType['phone'] ?? 0.0,
                   Icons.phone_rounded,
                   AppTheme.successColor,
+                  'phone',
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: _buildTypeCard(
                   theme,
-                  'Momo Payments',
+                  'MoCode Payments',
                   amountByType['momo'] ?? 0.0,
                   Icons.qr_code_rounded,
                   AppTheme.warningColor,
+                  'momo',
                 ),
               ),
             ],
@@ -236,10 +332,11 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
             width: double.infinity,
             child: _buildTypeCard(
               theme,
-              'Miscellaneous Codes',
+              'Misc. Codes',
               amountByType['misc'] ?? 0.0,
               Icons.code_rounded,
               AppTheme.primaryColor,
+              'misc',
             ),
           ),
         ],
@@ -247,7 +344,10 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
     );
   }
 
-  Widget _buildTypeCard(ThemeData theme, String title, double amount, IconData icon, Color color) {
+  Widget _buildTypeCard(ThemeData theme, String title, double amount,
+      IconData icon, Color color, String typeKey) {
+    final monthlyAmount = currentMonthAmountByType[typeKey] ?? 0.0;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -268,7 +368,8 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
           ),
           const SizedBox(height: 4),
           Text(
-            NumberFormat.currency(locale: 'en_RW', symbol: 'RWF ', decimalDigits: 0)
+            NumberFormat.currency(
+                    locale: 'en_RW', symbol: 'RWF ', decimalDigits: 0)
                 .format(amount),
             style: theme.textTheme.titleSmall?.copyWith(
               fontWeight: FontWeight.bold,
@@ -276,8 +377,136 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
             ),
             textAlign: TextAlign.center,
           ),
+          // Monthly navigation row
+          if (monthsWithData.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const Divider(height: 1),
+            const SizedBox(height: 8),
+            _buildMonthlyNavigationRow(theme, monthlyAmount, color),
+          ],
         ],
       ),
+    );
+  }
+
+  Widget _buildTotalMonthlyNavigationRow(ThemeData theme) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        IconButton(
+          onPressed: currentMonthIndex < monthsWithData.length - 1
+              ? () => _navigateMonth(1)
+              : null,
+          icon: Icon(
+            Icons.arrow_back_ios_rounded,
+            color: currentMonthIndex < monthsWithData.length - 1
+                ? Colors.white
+                : Colors.white38,
+            size: 18,
+          ),
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+        ),
+        Expanded(
+          child: Column(
+            children: [
+              Text(
+                DateFormat('MMM yyyy').format(monthsWithData[currentMonthIndex]),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: Colors.white70,
+                  fontSize: 12,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                NumberFormat.currency(
+                  locale: 'en_RW',
+                  symbol: 'RWF ',
+                  decimalDigits: 0,
+                ).format(currentMonthTotal),
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+        IconButton(
+          onPressed: currentMonthIndex > 0 ? () => _navigateMonth(-1) : null,
+          icon: Icon(
+            Icons.arrow_forward_ios_rounded,
+            color: currentMonthIndex > 0 ? Colors.white : Colors.white38,
+            size: 18,
+          ),
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMonthlyNavigationRow(ThemeData theme, double monthlyAmount, Color color) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        IconButton(
+          onPressed: currentMonthIndex < monthsWithData.length - 1
+              ? () => _navigateMonth(1)
+              : null,
+          icon: Icon(
+            Icons.arrow_back_ios_rounded,
+            color: currentMonthIndex < monthsWithData.length - 1
+                ? color
+                : color.withValues(alpha: 0.3),
+            size: 16,
+          ),
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+        ),
+        Expanded(
+          child: Column(
+            children: [
+              Text(
+                DateFormat('MMM yyyy').format(monthsWithData[currentMonthIndex]),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                  fontSize: 10,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                NumberFormat.currency(
+                  locale: 'en_RW',
+                  symbol: 'RWF ',
+                  decimalDigits: 0,
+                ).format(monthlyAmount),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                  fontSize: 11,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+        IconButton(
+          onPressed: currentMonthIndex > 0 ? () => _navigateMonth(-1) : null,
+          icon: Icon(
+            Icons.arrow_forward_ios_rounded,
+            color: currentMonthIndex > 0
+                ? color
+                : color.withValues(alpha: 0.3),
+            size: 16,
+          ),
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+        ),
+      ],
     );
   }
 
@@ -347,7 +576,9 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          isPhonePayment ? 'Phone Payment' : (isMiscCode ? 'Misc. Code' : 'Momo Payment'),
+                          isPhonePayment
+                              ? 'Phone Payment'
+                              : (isMiscCode ? 'Misc. Code' : 'Momo Payment'),
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
@@ -369,9 +600,12 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                     Text(
                       isPhonePayment
                           ? 'To: ${record.maskedRecipient ?? record.recipient}'
-                          : (isMiscCode ? 'Code: ${record.recipient}' : 'Momo Code: ${record.recipient}'),
+                          : (isMiscCode
+                              ? 'Code: ${record.recipient}'
+                              : 'Momo Code: ${record.recipient}'),
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.7),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -379,9 +613,11 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          DateFormat('MMM dd, yyyy • HH:mm').format(record.timestamp),
+                          DateFormat('MMM dd, yyyy • HH:mm')
+                              .format(record.timestamp),
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.5),
                           ),
                         ),
                         Row(
@@ -401,7 +637,8 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                             Icon(
                               Icons.more_vert_rounded,
                               size: 16,
-                              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                              color: theme.colorScheme.onSurface
+                                  .withValues(alpha: 0.5),
                             ),
                           ],
                         ),
@@ -599,7 +836,10 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                     subtitle,
                     style: TextStyle(
                       fontSize: 12,
-                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.7),
                     ),
                   ),
                 ],
@@ -631,15 +871,19 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
           children: [
             Text(
               'Transaction Details:',
-              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              style: theme.textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            Text('Amount: ${NumberFormat.currency(locale: 'en_RW', symbol: 'RWF ', decimalDigits: 0).format(record.amount)}'),
-            Text('Date: ${DateFormat('MMM dd, yyyy • HH:mm').format(record.timestamp)}'),
+            Text(
+                'Amount: ${NumberFormat.currency(locale: 'en_RW', symbol: 'RWF ', decimalDigits: 0).format(record.amount)}'),
+            Text(
+                'Date: ${DateFormat('MMM dd, yyyy • HH:mm').format(record.timestamp)}'),
             const SizedBox(height: 16),
             Text(
               'USSD Code Used:',
-              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              style: theme.textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Container(
@@ -648,7 +892,8 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
               decoration: BoxDecoration(
                 color: theme.colorScheme.primary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.3)),
+                border: Border.all(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.3)),
               ),
               child: Text(
                 record.ussdCode,
