@@ -33,6 +33,10 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
   // Filter state
   String? activeFilter; // null = no filter, 'phone', 'momo', 'misc'
 
+  // Search state
+  final TextEditingController searchController = TextEditingController();
+  String searchQuery = '';
+
   // Contact caching
   List<Contact> deviceContacts = [];
   bool contactsLoaded = false;
@@ -259,6 +263,12 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
     });
   }
 
+  @override
+  void dispose() {
+    searchController.dispose();
+    super.dispose();
+  }
+
   Future<void> _clearAllRecords() async {
     final confirmed = await _showConfirmationDialog(
       'Clear All Records',
@@ -332,9 +342,54 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
               : Column(
                   children: [
                     _buildSummaryCards(theme),
+                    _buildSearchBar(theme),
                     Expanded(child: _buildRecordsList(theme)),
                   ],
                 ),
+    );
+  }
+
+  Widget _buildSearchBar(ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+      child: TextField(
+        controller: searchController,
+        onChanged: (value) {
+          setState(() {
+            searchQuery = value.toLowerCase();
+          });
+        },
+        decoration: InputDecoration(
+          hintText: 'Search by name, number, amount...',
+          prefixIcon: Icon(Icons.search, color: theme.colorScheme.primary),
+          suffixIcon: searchQuery.isNotEmpty
+              ? IconButton(
+                  icon: Icon(Icons.clear, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+                  onPressed: () {
+                    setState(() {
+                      searchController.clear();
+                      searchQuery = '';
+                    });
+                  },
+                )
+              : null,
+          filled: true,
+          fillColor: theme.colorScheme.surface,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.3)),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.3)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: theme.colorScheme.primary, width: 2),
+          ),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        ),
+      ),
     );
   }
 
@@ -653,33 +708,83 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
   }
 
   Widget _buildRecordsList(ThemeData theme) {
-    // Filter records if activeFilter is set
-    final filteredRecords = activeFilter == null
+    // Filter records by type if activeFilter is set
+    var filteredRecords = activeFilter == null
         ? records
         : records
             .where((record) => record.recipientType == activeFilter)
             .toList();
 
-    if (filteredRecords.isEmpty && activeFilter != null) {
+    // Apply search filter
+    if (searchQuery.isNotEmpty) {
+      filteredRecords = filteredRecords.where((record) {
+        // Search in recipient/phone number
+        final recipientMatch = record.recipient.toLowerCase().contains(searchQuery);
+
+        // Search in masked recipient
+        final maskedMatch = record.maskedRecipient?.toLowerCase().contains(searchQuery) ?? false;
+
+        // Search in contact name
+        final contactName = _getContactNameForPhone(record.recipient);
+        final contactMatch = contactName?.toLowerCase().contains(searchQuery) ?? false;
+
+        // Search in amount
+        final amountStr = record.amount.toString();
+        final amountMatch = amountStr.contains(searchQuery);
+
+        // Search in formatted amount
+        final formattedAmount = NumberFormat.currency(
+          locale: 'en_RW',
+          symbol: 'RWF ',
+          decimalDigits: 0,
+        ).format(record.amount).toLowerCase();
+        final formattedAmountMatch = formattedAmount.contains(searchQuery);
+
+        // Search in date
+        final dateStr = DateFormat('MMM dd, yyyy').format(record.timestamp).toLowerCase();
+        final dateMatch = dateStr.contains(searchQuery);
+
+        // Search in type
+        final typeMatch = record.recipientType.toLowerCase().contains(searchQuery) ||
+            (record.recipientType == 'phone' && 'mobile'.contains(searchQuery)) ||
+            (record.recipientType == 'momo' && 'mocode'.contains(searchQuery)) ||
+            (record.recipientType == 'misc' && 'miscellaneous'.contains(searchQuery));
+
+        return recipientMatch ||
+               maskedMatch ||
+               contactMatch ||
+               amountMatch ||
+               formattedAmountMatch ||
+               dateMatch ||
+               typeMatch;
+      }).toList();
+    }
+
+    // Show empty state if no results
+    if (filteredRecords.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.filter_alt_off,
+              searchQuery.isNotEmpty ? Icons.search_off : Icons.filter_alt_off,
               size: 60,
               color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
             ),
             const SizedBox(height: 16),
             Text(
-              'No ${activeFilter == 'phone' ? 'Mobile' : activeFilter == 'momo' ? 'MoCode' : 'Misc'} transactions',
+              searchQuery.isNotEmpty
+                  ? 'No results for "$searchQuery"'
+                  : 'No ${activeFilter == 'phone' ? 'Mobile' : activeFilter == 'momo' ? 'MoCode' : 'Misc'} transactions',
               style: theme.textTheme.titleMedium?.copyWith(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              'Tap the filter again to view all',
+              searchQuery.isNotEmpty
+                  ? 'Try different keywords'
+                  : 'Tap the filter again to view all',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
               ),
