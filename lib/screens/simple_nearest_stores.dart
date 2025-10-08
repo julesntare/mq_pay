@@ -163,7 +163,7 @@ class _SimpleNearestStoresPageState extends State<SimpleNearestStoresPage> {
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(20),
-              color: Colors.white,
+              color: theme.colorScheme.surface,
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -625,7 +625,7 @@ class _SimpleNearestStoresPageState extends State<SimpleNearestStoresPage> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: theme.colorScheme.background,
+      backgroundColor: theme.colorScheme.surface,
       body: SafeArea(
         child: Column(
           children: [

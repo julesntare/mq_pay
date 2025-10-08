@@ -32,8 +32,11 @@ class _StoreEditScreenState extends State<StoreEditScreen> {
   final List<String> _paymentTypes = [
     'MTN MoMo',
     'Airtel Money',
+    'MoMo Code',
     'Bank Transfer',
     'Credit Card',
+    'Tigo Cash',
+    'Cash',
   ];
 
   final List<String> _categories = [
@@ -96,6 +99,11 @@ class _StoreEditScreenState extends State<StoreEditScreen> {
           'label': 'Airtel Money Number *',
           'hint': 'Enter Airtel mobile number (e.g., 07(2/3)XXXXXXX)',
         };
+      case 'MoMo Code':
+        return {
+          'label': 'MoMo Code *',
+          'hint': 'Enter MoMo payment code or merchant number',
+        };
       case 'Bank Transfer':
         return {
           'label': 'Bank Account Number *',
@@ -105,6 +113,16 @@ class _StoreEditScreenState extends State<StoreEditScreen> {
         return {
           'label': 'Payment Reference *',
           'hint': 'Enter payment reference or contact',
+        };
+      case 'Tigo Cash':
+        return {
+          'label': 'Tigo Cash Number *',
+          'hint': 'Enter Tigo mobile number',
+        };
+      case 'Cash':
+        return {
+          'label': 'Contact Number *',
+          'hint': 'Enter contact phone number',
         };
       default:
         return {
@@ -192,7 +210,7 @@ class _StoreEditScreenState extends State<StoreEditScreen> {
                 : Text(
                     'Save',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: Theme.of(context).colorScheme.primary,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -208,22 +226,24 @@ class _StoreEditScreenState extends State<StoreEditScreen> {
             Container(
               padding: EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.blue[50],
+                color: Theme.of(context).colorScheme.primaryContainer,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.blue[200]!),
+                border: Border.all(
+                    color: Theme.of(context).colorScheme.primary.withOpacity(0.3)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.info, color: Colors.blue[600], size: 18),
+                      Icon(Icons.info,
+                          color: Theme.of(context).colorScheme.primary, size: 18),
                       SizedBox(width: 8),
                       Text(
                         'Tips:',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: Colors.blue[800],
+                          color: Theme.of(context).colorScheme.onPrimaryContainer,
                         ),
                       ),
                     ],
@@ -235,7 +255,7 @@ class _StoreEditScreenState extends State<StoreEditScreen> {
                     '• Categories help users find your store in search',
                     style: TextStyle(
                       fontSize: 12,
-                      color: Colors.blue[700],
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
                     ),
                   ),
                 ],
@@ -314,7 +334,7 @@ class _StoreEditScreenState extends State<StoreEditScreen> {
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: Colors.grey[700],
+                color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
             SizedBox(height: 8),
@@ -394,7 +414,8 @@ class _StoreEditScreenState extends State<StoreEditScreen> {
               width: double.infinity,
               padding: EdgeInsets.all(12),
               decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey.shade400),
+                border: Border.all(
+                    color: Theme.of(context).colorScheme.outline.withOpacity(0.5)),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Column(
@@ -402,13 +423,14 @@ class _StoreEditScreenState extends State<StoreEditScreen> {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.category, color: Colors.grey.shade600),
+                      Icon(Icons.category,
+                          color: Theme.of(context).colorScheme.onSurface),
                       SizedBox(width: 8),
                       Text(
                         'Categories',
                         style: TextStyle(
                           fontSize: 16,
-                          color: Colors.grey.shade700,
+                          color: Theme.of(context).colorScheme.onSurface,
                         ),
                       ),
                     ],
@@ -431,8 +453,9 @@ class _StoreEditScreenState extends State<StoreEditScreen> {
                             }
                           });
                         },
-                        selectedColor: Colors.blue.shade100,
-                        checkmarkColor: Colors.blue.shade700,
+                        selectedColor:
+                            Theme.of(context).colorScheme.primaryContainer,
+                        checkmarkColor: Theme.of(context).colorScheme.primary,
                       );
                     }).toList(),
                   ),
@@ -442,7 +465,10 @@ class _StoreEditScreenState extends State<StoreEditScreen> {
                       'Selected: ${_selectedCategories.join(', ')}',
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.grey.shade600,
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withOpacity(0.6),
                         fontStyle: FontStyle.italic,
                       ),
                     ),

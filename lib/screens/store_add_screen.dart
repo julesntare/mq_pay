@@ -32,8 +32,11 @@ class _StoreAddScreenState extends State<StoreAddScreen> {
   final List<String> _paymentTypes = [
     'MTN MoMo',
     'Airtel Money',
+    'MoMo Code',
     'Bank Transfer',
     'Credit Card',
+    'Tigo Cash',
+    'Cash',
   ];
 
   final List<String> _categories = [
@@ -78,6 +81,11 @@ class _StoreAddScreenState extends State<StoreAddScreen> {
           'label': 'Airtel Money Number *',
           'hint': 'Enter Airtel mobile number (e.g., 07(2/3)XXXXXXX)',
         };
+      case 'MoMo Code':
+        return {
+          'label': 'MoMo Code *',
+          'hint': 'Enter MoMo payment code or merchant number',
+        };
       case 'Bank Transfer':
         return {
           'label': 'Bank Account Number *',
@@ -87,6 +95,16 @@ class _StoreAddScreenState extends State<StoreAddScreen> {
         return {
           'label': 'Payment Reference *',
           'hint': 'Enter payment reference or contact',
+        };
+      case 'Tigo Cash':
+        return {
+          'label': 'Tigo Cash Number *',
+          'hint': 'Enter Tigo mobile number',
+        };
+      case 'Cash':
+        return {
+          'label': 'Contact Number *',
+          'hint': 'Enter contact phone number',
         };
       default:
         return {
