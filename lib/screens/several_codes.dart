@@ -137,7 +137,8 @@ class _CodesPageState extends State<CodesPage> {
   void filterItems() {
     String query = searchController.text.toLowerCase();
     setState(() {
-      filteredItems = items.where((item) {
+      // First filter by search query
+      var searchFiltered = items.where((item) {
         // Search in title
         if (item.title.toLowerCase().contains(query)) return true;
 
@@ -166,6 +167,17 @@ class _CodesPageState extends State<CodesPage> {
         }
 
         return false;
+      }).toList();
+
+      // Remove duplicates based on display code
+      final seenDisplayCodes = <String>{};
+      filteredItems = searchFiltered.where((item) {
+        final displayCode = _getDisplayCode(item.ussCode);
+        if (seenDisplayCodes.contains(displayCode)) {
+          return false; // Skip duplicate
+        }
+        seenDisplayCodes.add(displayCode);
+        return true;
       }).toList();
 
       // Reset to first page when filtering
@@ -470,6 +482,18 @@ class _CodesPageState extends State<CodesPage> {
   String _getDisplayCode(String ussCode) {
     // Clean up the input
     String cleanCode = ussCode.trim();
+
+    // Remove placeholders like [BillID], [account], [amount], etc. and everything after them
+    final placeholderRegex = RegExp(r'\*\[[^\]]+\].*');
+    if (placeholderRegex.hasMatch(cleanCode)) {
+      // Remove from the first placeholder onwards
+      cleanCode = cleanCode.replaceAll(placeholderRegex, '');
+      // Ensure it ends with #
+      if (!cleanCode.endsWith('#')) {
+        cleanCode = '$cleanCode#';
+      }
+      return cleanCode;
+    }
 
     // If it's already a complete USSD code, return as is
     if (cleanCode.contains('*') && cleanCode.contains('#')) {
@@ -1024,6 +1048,203 @@ class _CodesPageState extends State<CodesPage> {
   }
 
   void _showAmountDialog(Item item) {
+    // Check if USSD code has placeholders like [BillID], [account], etc.
+    final placeholderRegex = RegExp(r'\[([^\]]+)\]');
+    final placeholders = placeholderRegex.allMatches(item.ussCode).toList();
+
+    if (placeholders.isNotEmpty) {
+      // Show placeholder input dialog instead
+      _showPlaceholderInputDialog(item, placeholders);
+    } else {
+      // Show regular amount dialog
+      _showRegularAmountDialog(item);
+    }
+  }
+
+  void _showPlaceholderInputDialog(Item item, List<RegExpMatch> placeholders) {
+    final theme = Theme.of(context);
+    final formKey = GlobalKey<FormState>();
+
+    // Create controllers for each placeholder
+    final controllers = <String, TextEditingController>{};
+    for (var match in placeholders) {
+      final placeholderName = match.group(1)!;
+      controllers[placeholderName] = TextEditingController();
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              color: theme.colorScheme.surface,
+            ),
+            child: Form(
+              key: formKey,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primary.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            Icons.qr_code_rounded,
+                            color: theme.colorScheme.primary,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                item.title,
+                                style: theme.textTheme.titleLarge?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                item.ussCode,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurface.withOpacity(0.7),
+                                  fontFamily: 'monospace',
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Input fields for each placeholder
+                    ...controllers.entries.map((entry) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: TextFormField(
+                          controller: entry.value,
+                          decoration: InputDecoration(
+                            labelText: entry.key,
+                            hintText: 'Enter ${entry.key}',
+                            prefixIcon: Icon(Icons.edit_rounded),
+                            border: OutlineInputBorder(),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Please enter ${entry.key}';
+                            }
+                            return null;
+                          },
+                        ),
+                      );
+                    }).toList(),
+
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () {
+                              for (var controller in controllers.values) {
+                                controller.dispose();
+                              }
+                              Navigator.pop(context);
+                            },
+                            child: const Text("Cancel"),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              if (formKey.currentState!.validate()) {
+                                Navigator.pop(context);
+
+                                // Build USSD code with placeholder values
+                                String finalCode = item.ussCode;
+                                for (var entry in controllers.entries) {
+                                  finalCode = finalCode.replaceAll(
+                                    '[${entry.key}]',
+                                    entry.value.text.trim(),
+                                  );
+                                }
+
+                                // Ensure it ends with #
+                                if (!finalCode.endsWith('#')) {
+                                  finalCode = '$finalCode#';
+                                }
+
+                                // Dispose controllers
+                                for (var controller in controllers.values) {
+                                  controller.dispose();
+                                }
+
+                                // Launch USSD
+                                launchUSSD(finalCode, context);
+
+                                // Show success message
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(6),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white.withOpacity(0.2),
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: const Icon(
+                                            Icons.call_rounded,
+                                            color: Colors.white,
+                                            size: 18,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Text('USSD dialed: $finalCode'),
+                                        ),
+                                      ],
+                                    ),
+                                    backgroundColor: AppTheme.successColor,
+                                    behavior: SnackBarBehavior.floating,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    margin: const EdgeInsets.all(16),
+                                  ),
+                                );
+                              }
+                            },
+                            icon: const Icon(Icons.call_rounded),
+                            label: const Text("Call"),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showRegularAmountDialog(Item item) {
     final theme = Theme.of(context);
     final TextEditingController amountController = TextEditingController();
     final _amountFormKey = GlobalKey<FormState>();
