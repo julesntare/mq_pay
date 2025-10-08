@@ -1184,6 +1184,7 @@ class _HomeState extends State<Home> {
       timestamp: DateTime.now(),
       maskedRecipient:
           recipientType == 'phone' ? _maskPhoneNumber(recipient) : null,
+      contactName: selectedName, // Save contact name if available
     );
 
     await UssdRecordService.saveUssdRecord(record);

@@ -5,6 +5,7 @@ import '../services/ussd_record_service.dart';
 import '../helpers/app_theme.dart';
 import '../helpers/launcher.dart';
 import 'edit_ussd_record_dialog.dart';
+import 'package:flutter_contacts/flutter_contacts.dart';
 
 class UssdRecordsScreen extends StatefulWidget {
   const UssdRecordsScreen({super.key});
@@ -29,10 +30,124 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
   // Tab selection for breakdown view
   int selectedTab = 0; // 0: Mobile, 1: MoCode, 2: Misc
 
+  // Filter state
+  String? activeFilter; // null = no filter, 'phone', 'momo', 'misc'
+
+  // Contact caching
+  List<Contact> deviceContacts = [];
+  bool contactsLoaded = false;
+  Map<String, String> contactNameCache = {}; // phone -> name mapping
+
   @override
   void initState() {
     super.initState();
     _loadRecords();
+    _loadContacts();
+  }
+
+  Future<void> _loadContacts() async {
+    try {
+      if (await FlutterContacts.requestPermission()) {
+        final contacts = await FlutterContacts.getContacts(
+          withProperties: true,
+          withPhoto: false,
+        );
+        setState(() {
+          deviceContacts = contacts;
+          contactsLoaded = true;
+        });
+        // Build contact name cache after contacts are loaded
+        _buildContactNameCache();
+      }
+    } catch (e) {
+      // Silently fail if contacts can't be loaded
+      setState(() {
+        contactsLoaded = true;
+      });
+    }
+  }
+
+  void _buildContactNameCache() {
+    if (records.isEmpty || deviceContacts.isEmpty) return;
+
+    // Get all unique phone numbers from records
+    final uniquePhoneNumbers = records
+        .where((record) => record.recipientType == 'phone')
+        .map((record) => record.recipient)
+        .toSet();
+
+    // Create a reverse lookup map: cleaned phone -> contact name
+    final Map<String, String> cleanedPhoneToName = {};
+
+    // Build lookup map from contacts
+    for (var contact in deviceContacts) {
+      if (contact.phones.isNotEmpty) {
+        for (var phone in contact.phones) {
+          final cleanContactPhone =
+              phone.number.replaceAll(RegExp(r'[^0-9]'), '');
+          if (cleanContactPhone.isNotEmpty) {
+            // Store with different length variants for better matching
+            cleanedPhoneToName[cleanContactPhone] = contact.displayName;
+            // Also store last 9 digits (common in Rwanda)
+            if (cleanContactPhone.length >= 9) {
+              final last9 =
+                  cleanContactPhone.substring(cleanContactPhone.length - 9);
+              cleanedPhoneToName[last9] = contact.displayName;
+            }
+            // Also store last 10 digits
+            if (cleanContactPhone.length >= 10) {
+              final last10 =
+                  cleanContactPhone.substring(cleanContactPhone.length - 10);
+              cleanedPhoneToName[last10] = contact.displayName;
+            }
+          }
+        }
+      }
+    }
+
+    // Match record phone numbers to contacts
+    for (var phoneNumber in uniquePhoneNumbers) {
+      final cleanPhone = phoneNumber.replaceAll(RegExp(r'[^0-9]'), '');
+
+      // Try exact match first
+      if (cleanedPhoneToName.containsKey(cleanPhone)) {
+        contactNameCache[phoneNumber] = cleanedPhoneToName[cleanPhone]!;
+        continue;
+      }
+
+      // Try last 9 digits
+      if (cleanPhone.length >= 9) {
+        final last9 = cleanPhone.substring(cleanPhone.length - 9);
+        if (cleanedPhoneToName.containsKey(last9)) {
+          contactNameCache[phoneNumber] = cleanedPhoneToName[last9]!;
+          continue;
+        }
+      }
+
+      // Try last 10 digits
+      if (cleanPhone.length >= 10) {
+        final last10 = cleanPhone.substring(cleanPhone.length - 10);
+        if (cleanedPhoneToName.containsKey(last10)) {
+          contactNameCache[phoneNumber] = cleanedPhoneToName[last10]!;
+          continue;
+        }
+      }
+
+      // No match found
+      contactNameCache[phoneNumber] = '';
+    }
+
+    // Trigger rebuild to show contact names
+    setState(() {});
+  }
+
+  String? _getContactNameForPhone(String phoneNumber) {
+    // Return from cache (already built in _buildContactNameCache)
+    if (contactNameCache.containsKey(phoneNumber)) {
+      final name = contactNameCache[phoneNumber];
+      return name!.isEmpty ? null : name;
+    }
+    return null;
   }
 
   Future<void> _loadRecords() async {
@@ -54,6 +169,11 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
 
       // Calculate months with data AFTER records are set
       _calculateMonthsWithData(loadedRecords);
+
+      // Rebuild contact cache if contacts are already loaded
+      if (contactsLoaded && deviceContacts.isNotEmpty) {
+        _buildContactNameCache();
+      }
     } catch (e) {
       setState(() => isLoading = false);
       if (mounted) {
@@ -250,9 +370,24 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
 
   Widget _buildSummaryCards(ThemeData theme) {
     final tabData = [
-      {'title': 'Mobile', 'icon': Icons.phone_rounded, 'color': AppTheme.successColor, 'key': 'phone'},
-      {'title': 'MoCode', 'icon': Icons.qr_code_rounded, 'color': AppTheme.warningColor, 'key': 'momo'},
-      {'title': 'Misc', 'icon': Icons.code_rounded, 'color': AppTheme.primaryColor, 'key': 'misc'},
+      {
+        'title': 'Mobile',
+        'icon': Icons.phone_rounded,
+        'color': AppTheme.successColor,
+        'key': 'phone'
+      },
+      {
+        'title': 'MoCode',
+        'icon': Icons.qr_code_rounded,
+        'color': AppTheme.warningColor,
+        'key': 'momo'
+      },
+      {
+        'title': 'Misc',
+        'icon': Icons.code_rounded,
+        'color': AppTheme.primaryColor,
+        'key': 'misc'
+      },
     ];
 
     final currentTab = tabData[selectedTab];
@@ -314,12 +449,14 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                             Row(
                               children: [
                                 IconButton(
-                                  onPressed: currentMonthIndex < monthsWithData.length - 1
+                                  onPressed: currentMonthIndex <
+                                          monthsWithData.length - 1
                                       ? () => _navigateMonth(1)
                                       : null,
                                   icon: Icon(
                                     Icons.arrow_back_ios_rounded,
-                                    color: currentMonthIndex < monthsWithData.length - 1
+                                    color: currentMonthIndex <
+                                            monthsWithData.length - 1
                                         ? Colors.white
                                         : Colors.white38,
                                     size: 14,
@@ -329,7 +466,8 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                                 ),
                                 const SizedBox(width: 8),
                                 Text(
-                                  DateFormat('MMM yyyy').format(monthsWithData[currentMonthIndex]),
+                                  DateFormat('MMM yyyy').format(
+                                      monthsWithData[currentMonthIndex]),
                                   style: theme.textTheme.bodySmall?.copyWith(
                                     color: Colors.white70,
                                     fontSize: 11,
@@ -337,10 +475,14 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                                 ),
                                 const SizedBox(width: 8),
                                 IconButton(
-                                  onPressed: currentMonthIndex > 0 ? () => _navigateMonth(-1) : null,
+                                  onPressed: currentMonthIndex > 0
+                                      ? () => _navigateMonth(-1)
+                                      : null,
                                   icon: Icon(
                                     Icons.arrow_forward_ios_rounded,
-                                    color: currentMonthIndex > 0 ? Colors.white : Colors.white38,
+                                    color: currentMonthIndex > 0
+                                        ? Colors.white
+                                        : Colors.white38,
                                     size: 14,
                                   ),
                                   padding: EdgeInsets.zero,
@@ -375,21 +517,39 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                     children: List.generate(tabData.length, (index) {
                       final isSelected = selectedTab == index;
                       final tab = tabData[index];
+                      final tabKey = tab['key'] as String;
+                      final isFiltered = activeFilter == tabKey;
                       return Expanded(
                         child: GestureDetector(
-                          onTap: () => setState(() => selectedTab = index),
+                          onTap: () {
+                            setState(() {
+                              selectedTab = index;
+                              // Toggle filter on/off
+                              if (activeFilter == tabKey) {
+                                activeFilter = null; // Turn off filter
+                              } else {
+                                activeFilter = tabKey; // Turn on filter
+                              }
+                            });
+                          },
                           child: Container(
-                            margin: EdgeInsets.only(right: index < tabData.length - 1 ? 8 : 0),
+                            margin: EdgeInsets.only(
+                                right: index < tabData.length - 1 ? 8 : 0),
                             padding: const EdgeInsets.symmetric(vertical: 8),
                             decoration: BoxDecoration(
-                              color: isSelected
-                                  ? Colors.white.withValues(alpha: 0.2)
-                                  : Colors.transparent,
+                              color: isFiltered
+                                  ? Colors.white.withValues(alpha: 0.3)
+                                  : (isSelected
+                                      ? Colors.white.withValues(alpha: 0.2)
+                                      : Colors.transparent),
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                color: isSelected
-                                    ? Colors.white.withValues(alpha: 0.3)
-                                    : Colors.transparent,
+                                color: isFiltered
+                                    ? Colors.white
+                                    : (isSelected
+                                        ? Colors.white.withValues(alpha: 0.3)
+                                        : Colors.transparent),
+                                width: isFiltered ? 2 : 1,
                               ),
                             ),
                             child: Row(
@@ -405,10 +565,20 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                                   tab['title'] as String,
                                   style: theme.textTheme.bodySmall?.copyWith(
                                     color: Colors.white,
-                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                    fontWeight: isFiltered || isSelected
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
                                     fontSize: 11,
                                   ),
                                 ),
+                                if (isFiltered) ...[
+                                  const SizedBox(width: 4),
+                                  Icon(
+                                    Icons.filter_alt,
+                                    color: Colors.white,
+                                    size: 12,
+                                  ),
+                                ],
                               ],
                             ),
                           ),
@@ -453,7 +623,8 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          DateFormat('MMM yyyy').format(monthsWithData[currentMonthIndex]),
+                          DateFormat('MMM yyyy')
+                              .format(monthsWithData[currentMonthIndex]),
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: Colors.white60,
                             fontSize: 11,
@@ -481,13 +652,48 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
     );
   }
 
-
   Widget _buildRecordsList(ThemeData theme) {
+    // Filter records if activeFilter is set
+    final filteredRecords = activeFilter == null
+        ? records
+        : records
+            .where((record) => record.recipientType == activeFilter)
+            .toList();
+
+    if (filteredRecords.isEmpty && activeFilter != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.filter_alt_off,
+              size: 60,
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'No ${activeFilter == 'phone' ? 'Mobile' : activeFilter == 'momo' ? 'MoCode' : 'Misc'} transactions',
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Tap the filter again to view all',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      itemCount: records.length,
+      itemCount: filteredRecords.length,
       itemBuilder: (context, index) {
-        final record = records[index];
+        final record = filteredRecords[index];
         return _buildRecordCard(theme, record);
       },
     );
@@ -570,11 +776,19 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      isPhonePayment
-                          ? 'To: ${record.maskedRecipient ?? record.recipient}'
-                          : (isMiscCode
-                              ? 'Code: ${record.recipient}'
-                              : 'Momo Code: ${record.recipient}'),
+                      () {
+                        if (isPhonePayment) {
+                          final phoneDisplay =
+                              record.maskedRecipient ?? record.recipient;
+                          final contactName =
+                              _getContactNameForPhone(record.recipient);
+                          return 'To: $phoneDisplay${contactName != null && contactName.isNotEmpty ? ' ($contactName)' : ''}';
+                        } else if (isMiscCode) {
+                          return 'Code: ${record.recipient}';
+                        } else {
+                          return 'Momo Code: ${record.recipient}';
+                        }
+                      }(),
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color:
                             theme.colorScheme.onSurface.withValues(alpha: 0.7),

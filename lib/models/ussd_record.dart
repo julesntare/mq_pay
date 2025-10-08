@@ -6,6 +6,7 @@ class UssdRecord {
   final double amount;
   final DateTime timestamp;
   final String? maskedRecipient;
+  final String? contactName;
 
   UssdRecord({
     required this.id,
@@ -15,6 +16,7 @@ class UssdRecord {
     required this.amount,
     required this.timestamp,
     this.maskedRecipient,
+    this.contactName,
   });
 
   Map<String, dynamic> toJson() {
@@ -26,6 +28,7 @@ class UssdRecord {
       'amount': amount,
       'timestamp': timestamp.toIso8601String(),
       'maskedRecipient': maskedRecipient,
+      'contactName': contactName,
     };
   }
 
@@ -38,6 +41,7 @@ class UssdRecord {
       amount: (json['amount'] as num).toDouble(),
       timestamp: DateTime.parse(json['timestamp'] as String),
       maskedRecipient: json['maskedRecipient'] as String?,
+      contactName: json['contactName'] as String?,
     );
   }
 
@@ -49,6 +53,7 @@ class UssdRecord {
     double? amount,
     DateTime? timestamp,
     String? maskedRecipient,
+    String? contactName,
   }) {
     return UssdRecord(
       id: id ?? this.id,
@@ -58,6 +63,7 @@ class UssdRecord {
       amount: amount ?? this.amount,
       timestamp: timestamp ?? this.timestamp,
       maskedRecipient: maskedRecipient ?? this.maskedRecipient,
+      contactName: contactName ?? this.contactName,
     );
   }
 }
