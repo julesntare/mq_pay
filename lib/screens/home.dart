@@ -647,74 +647,6 @@ class _HomeState extends State<Home> {
         const SizedBox(height: 24),
         Column(
           children: [
-            TextField(
-              controller: mobileController,
-              focusNode: phoneFocusNode,
-              keyboardType: TextInputType.text,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w500,
-              ),
-              decoration: InputDecoration(
-                labelText: 'Phone Number or Momo Code',
-                hintText: 'Type name or 078xxxxxxx',
-                prefixIcon: Icon(Icons.phone_rounded),
-                suffixIcon: isLoadingContacts
-                    ? Padding(
-                        padding: const EdgeInsets.all(12.0),
-                        child: SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      )
-                    : mobileController.text.isNotEmpty
-                        ? IconButton(
-                            icon: Icon(
-                              Icons.clear_rounded,
-                              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                mobileController.clear();
-                                filteredContacts = [];
-                                selectedName = null;
-                              });
-                            },
-                            tooltip: 'Clear',
-                          )
-                        : null,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(15),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(15),
-                  borderSide: BorderSide(
-                    color: theme.colorScheme.primary,
-                    width: 2,
-                  ),
-                ),
-                contentPadding: EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 20,
-                ),
-                helperText: _getInputHelperText(),
-              ),
-              onChanged: (value) {
-                setState(() {
-                  isPhoneNumberMomo =
-                      _isValidMomoCode(value) && !_isValidPhoneNumber(value);
-                });
-
-                // Filter contacts for autocomplete
-                _filterContacts(value);
-              },
-              onSubmitted: (value) {
-                if (_canProceedWithPayment()) {
-                  _processPayment(context);
-                }
-              },
-            ),
             // Contact suggestions dropdown
             if (filteredContacts.isNotEmpty)
               Container(
@@ -771,6 +703,75 @@ class _HomeState extends State<Home> {
                   },
                 ),
               ),
+            TextField(
+              controller: mobileController,
+              focusNode: phoneFocusNode,
+              keyboardType: TextInputType.text,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w500,
+              ),
+              decoration: InputDecoration(
+                labelText: 'Phone Number or Momo Code',
+                hintText: 'Type name or 078xxxxxxx',
+                prefixIcon: Icon(Icons.phone_rounded),
+                suffixIcon: isLoadingContacts
+                    ? Padding(
+                        padding: const EdgeInsets.all(12.0),
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      )
+                    : mobileController.text.isNotEmpty
+                        ? IconButton(
+                            icon: Icon(
+                              Icons.clear_rounded,
+                              color: theme.colorScheme.onSurface
+                                  .withValues(alpha: 0.5),
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                mobileController.clear();
+                                filteredContacts = [];
+                                selectedName = null;
+                              });
+                            },
+                            tooltip: 'Clear',
+                          )
+                        : null,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(15),
+                  borderSide: BorderSide(
+                    color: theme.colorScheme.primary,
+                    width: 2,
+                  ),
+                ),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 20,
+                ),
+                helperText: _getInputHelperText(),
+              ),
+              onChanged: (value) {
+                setState(() {
+                  isPhoneNumberMomo =
+                      _isValidMomoCode(value) && !_isValidPhoneNumber(value);
+                });
+
+                // Filter contacts for autocomplete
+                _filterContacts(value);
+              },
+              onSubmitted: (value) {
+                if (_canProceedWithPayment()) {
+                  _processPayment(context);
+                }
+              },
+            ),
           ],
         ),
         const SizedBox(height: 16),
@@ -1267,12 +1268,14 @@ class _HomeState extends State<Home> {
               // Check if name matches OR phone number matches
               bool nameMatches = displayName.toLowerCase().contains(queryLower);
               bool phoneMatches = queryDigits.isNotEmpty &&
-                  (phoneNumber.contains(queryDigits) || formatted.contains(queryDigits));
+                  (phoneNumber.contains(queryDigits) ||
+                      formatted.contains(queryDigits));
 
               // Create unique key to prevent duplicates
               String uniqueKey = '$displayName-$formatted';
 
-              if ((nameMatches || phoneMatches) && !addedContacts.contains(uniqueKey)) {
+              if ((nameMatches || phoneMatches) &&
+                  !addedContacts.contains(uniqueKey)) {
                 suggestions.add(ContactSuggestion(
                   name: displayName,
                   phoneNumber: formatted,
