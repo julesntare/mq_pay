@@ -7,6 +7,7 @@ class UssdRecord {
   final DateTime timestamp;
   final String? maskedRecipient;
   final String? contactName;
+  final String? reason;
 
   UssdRecord({
     required this.id,
@@ -17,6 +18,7 @@ class UssdRecord {
     required this.timestamp,
     this.maskedRecipient,
     this.contactName,
+    this.reason,
   });
 
   Map<String, dynamic> toJson() {
@@ -29,6 +31,7 @@ class UssdRecord {
       'timestamp': timestamp.toIso8601String(),
       'maskedRecipient': maskedRecipient,
       'contactName': contactName,
+      'reason': reason,
     };
   }
 
@@ -42,6 +45,7 @@ class UssdRecord {
       timestamp: DateTime.parse(json['timestamp'] as String),
       maskedRecipient: json['maskedRecipient'] as String?,
       contactName: json['contactName'] as String?,
+      reason: json['reason'] as String?,
     );
   }
 
@@ -54,6 +58,7 @@ class UssdRecord {
     DateTime? timestamp,
     String? maskedRecipient,
     String? contactName,
+    String? reason,
   }) {
     return UssdRecord(
       id: id ?? this.id,
@@ -64,6 +69,7 @@ class UssdRecord {
       timestamp: timestamp ?? this.timestamp,
       maskedRecipient: maskedRecipient ?? this.maskedRecipient,
       contactName: contactName ?? this.contactName,
+      reason: reason ?? this.reason,
     );
   }
 }

@@ -903,7 +903,8 @@ class _CodesPageState extends State<CodesPage> {
                                     Flexible(
                                       child: Text(
                                         item.provider!,
-                                        style: theme.textTheme.bodySmall?.copyWith(
+                                        style:
+                                            theme.textTheme.bodySmall?.copyWith(
                                           color: theme.colorScheme.onSurface
                                               .withOpacity(0.6),
                                         ),
@@ -1119,7 +1120,8 @@ class _CodesPageState extends State<CodesPage> {
                               Text(
                                 item.ussCode,
                                 style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurface.withOpacity(0.7),
+                                  color: theme.colorScheme.onSurface
+                                      .withOpacity(0.7),
                                   fontFamily: 'monospace',
                                 ),
                               ),
@@ -1203,8 +1205,10 @@ class _CodesPageState extends State<CodesPage> {
                                         Container(
                                           padding: const EdgeInsets.all(6),
                                           decoration: BoxDecoration(
-                                            color: Colors.white.withOpacity(0.2),
-                                            borderRadius: BorderRadius.circular(8),
+                                            color:
+                                                Colors.white.withOpacity(0.2),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
                                           ),
                                           child: const Icon(
                                             Icons.call_rounded,
@@ -1214,7 +1218,8 @@ class _CodesPageState extends State<CodesPage> {
                                         ),
                                         const SizedBox(width: 12),
                                         Expanded(
-                                          child: Text('USSD dialed: $finalCode'),
+                                          child:
+                                              Text('USSD dialed: $finalCode'),
                                         ),
                                       ],
                                     ),
@@ -1393,6 +1398,7 @@ class _CodesPageState extends State<CodesPage> {
           amount: amount,
           timestamp: DateTime.now(),
           maskedRecipient: item.title,
+          reason: null,
         );
 
         await UssdRecordService.saveUssdRecord(record);
@@ -1673,7 +1679,8 @@ class _CodesPageState extends State<CodesPage> {
               borderRadius: BorderRadius.circular(50),
               child: InkWell(
                 borderRadius: BorderRadius.circular(50),
-                onTap: currentPage > 0 ? () => _goToPage(currentPage - 1) : null,
+                onTap:
+                    currentPage > 0 ? () => _goToPage(currentPage - 1) : null,
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Icon(

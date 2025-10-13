@@ -22,6 +22,7 @@ class Home extends StatefulWidget {
 
 class _HomeState extends State<Home> {
   final TextEditingController amountController = TextEditingController();
+  final TextEditingController reasonController = TextEditingController();
   final TextEditingController mobileController = TextEditingController();
   final TextEditingController manualMobileController = TextEditingController();
   final TextEditingController momoCodeController = TextEditingController();
@@ -236,6 +237,7 @@ class _HomeState extends State<Home> {
   @override
   void dispose() {
     amountController.dispose();
+    reasonController.dispose();
     mobileController.dispose();
     manualMobileController.dispose();
     momoCodeController.dispose();
@@ -902,64 +904,82 @@ class _HomeState extends State<Home> {
               ),
             ],
           ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Payment Details:',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              SizedBox(height: 10),
-              Text('Amount: ${amountController.text} RWF'),
-              Text(isPhoneNumber
-                  ? 'To: ${_maskPhoneNumber(paymentInfo)}'
-                  : 'Momo Code: ${paymentInfo.length > 3 ? paymentInfo.substring(0, 3) + "***" : paymentInfo}'),
-              SizedBox(height: 20),
-              Text(
-                'Dial this USSD code:',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              SizedBox(height: 10),
-              Container(
-                padding: EdgeInsets.all(15),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: theme.colorScheme.primary.withValues(alpha: 0.3),
+          content: SingleChildScrollView(
+            // This padding ensures the dialog content moves above the keyboard
+            padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Payment Details:',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        ussdCode,
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          fontFamily: 'monospace',
-                          color: theme.colorScheme.primary,
+                SizedBox(height: 10),
+                Text('Amount: ${amountController.text} RWF'),
+                Text(isPhoneNumber
+                    ? 'To: ${_maskPhoneNumber(paymentInfo)}'
+                    : 'Momo Code: ${paymentInfo.length > 3 ? paymentInfo.substring(0, 3) + "***" : paymentInfo}'),
+                SizedBox(height: 20),
+                Text(
+                  'Dial this USSD code:',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: 10),
+                Container(
+                  padding: EdgeInsets.all(15),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          ussdCode,
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            fontFamily: 'monospace',
+                            color: theme.colorScheme.primary,
+                          ),
                         ),
                       ),
-                    ),
-                    IconButton(
-                      onPressed: () {
-                        // Copy to clipboard functionality can be added here
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('USSD code copied!')),
-                        );
-                      },
-                      icon: Icon(Icons.copy_rounded),
-                    ),
-                  ],
+                      IconButton(
+                        onPressed: () {
+                          // Copy to clipboard functionality can be added here
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('USSD code copied!')),
+                          );
+                        },
+                        icon: Icon(Icons.copy_rounded),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 16),
+                // Optional reason field
+                TextField(
+                  controller: reasonController,
+                  decoration: InputDecoration(
+                    labelText: 'Reason (optional)',
+                    hintText: 'Why are you sending this money?',
+                    prefixIcon: Icon(Icons.note_rounded),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
           actions: <Widget>[
             TextButton(
@@ -980,8 +1000,12 @@ class _HomeState extends State<Home> {
                 String recipientType =
                     _isValidPhoneNumber(paymentInfo) ? 'phone' : 'momo';
                 double amount = double.tryParse(amountController.text) ?? 0.0;
+                final reason = reasonController.text.trim().isEmpty
+                    ? null
+                    : reasonController.text.trim();
+
                 await _saveUssdRecord(
-                    ussdCode, paymentInfo, recipientType, amount);
+                    ussdCode, paymentInfo, recipientType, amount, reason);
 
                 launchUSSD(ussdCode, context);
 
@@ -1175,7 +1199,7 @@ class _HomeState extends State<Home> {
   }
 
   Future<void> _saveUssdRecord(String ussdCode, String recipient,
-      String recipientType, double amount) async {
+      String recipientType, double amount, String? reason) async {
     final record = UssdRecord(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       ussdCode: ussdCode,
@@ -1186,6 +1210,7 @@ class _HomeState extends State<Home> {
       maskedRecipient:
           recipientType == 'phone' ? _maskPhoneNumber(recipient) : null,
       contactName: selectedName, // Save contact name if available
+      reason: reason,
     );
 
     await UssdRecordService.saveUssdRecord(record);

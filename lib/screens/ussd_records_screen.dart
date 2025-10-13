@@ -364,7 +364,9 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
           prefixIcon: Icon(Icons.search, color: theme.colorScheme.primary),
           suffixIcon: searchQuery.isNotEmpty
               ? IconButton(
-                  icon: Icon(Icons.clear, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+                  icon: Icon(Icons.clear,
+                      color:
+                          theme.colorScheme.onSurface.withValues(alpha: 0.5)),
                   onPressed: () {
                     setState(() {
                       searchController.clear();
@@ -377,17 +379,20 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
           fillColor: theme.colorScheme.surface,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.3)),
+            borderSide: BorderSide(
+                color: theme.colorScheme.outline.withValues(alpha: 0.3)),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.3)),
+            borderSide: BorderSide(
+                color: theme.colorScheme.outline.withValues(alpha: 0.3)),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: BorderSide(color: theme.colorScheme.primary, width: 2),
           ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         ),
       ),
     );
@@ -719,14 +724,18 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
     if (searchQuery.isNotEmpty) {
       filteredRecords = filteredRecords.where((record) {
         // Search in recipient/phone number
-        final recipientMatch = record.recipient.toLowerCase().contains(searchQuery);
+        final recipientMatch =
+            record.recipient.toLowerCase().contains(searchQuery);
 
         // Search in masked recipient
-        final maskedMatch = record.maskedRecipient?.toLowerCase().contains(searchQuery) ?? false;
+        final maskedMatch =
+            record.maskedRecipient?.toLowerCase().contains(searchQuery) ??
+                false;
 
         // Search in contact name
         final contactName = _getContactNameForPhone(record.recipient);
-        final contactMatch = contactName?.toLowerCase().contains(searchQuery) ?? false;
+        final contactMatch =
+            contactName?.toLowerCase().contains(searchQuery) ?? false;
 
         // Search in amount
         final amountStr = record.amount.toString();
@@ -741,22 +750,27 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
         final formattedAmountMatch = formattedAmount.contains(searchQuery);
 
         // Search in date
-        final dateStr = DateFormat('MMM dd, yyyy').format(record.timestamp).toLowerCase();
+        final dateStr =
+            DateFormat('MMM dd, yyyy').format(record.timestamp).toLowerCase();
         final dateMatch = dateStr.contains(searchQuery);
 
         // Search in type
-        final typeMatch = record.recipientType.toLowerCase().contains(searchQuery) ||
-            (record.recipientType == 'phone' && 'mobile'.contains(searchQuery)) ||
-            (record.recipientType == 'momo' && 'mocode'.contains(searchQuery)) ||
-            (record.recipientType == 'misc' && 'miscellaneous'.contains(searchQuery));
+        final typeMatch =
+            record.recipientType.toLowerCase().contains(searchQuery) ||
+                (record.recipientType == 'phone' &&
+                    'mobile'.contains(searchQuery)) ||
+                (record.recipientType == 'momo' &&
+                    'mocode'.contains(searchQuery)) ||
+                (record.recipientType == 'misc' &&
+                    'miscellaneous'.contains(searchQuery));
 
         return recipientMatch ||
-               maskedMatch ||
-               contactMatch ||
-               amountMatch ||
-               formattedAmountMatch ||
-               dateMatch ||
-               typeMatch;
+            maskedMatch ||
+            contactMatch ||
+            amountMatch ||
+            formattedAmountMatch ||
+            dateMatch ||
+            typeMatch;
       }).toList();
     }
 
@@ -900,6 +914,17 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                       ),
                     ),
                     const SizedBox(height: 8),
+                    if (record.reason != null && record.reason!.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8.0),
+                        child: Text(
+                          'Reason: ${record.reason}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.6),
+                          ),
+                        ),
+                      ),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -1170,6 +1195,15 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                 'Amount: ${NumberFormat.currency(locale: 'en_RW', symbol: 'RWF ', decimalDigits: 0).format(record.amount)}'),
             Text(
                 'Date: ${DateFormat('MMM dd, yyyy • HH:mm').format(record.timestamp)}'),
+            if (record.reason != null && record.reason!.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Reason: ${record.reason}',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
             Text(
               'USSD Code Used:',
