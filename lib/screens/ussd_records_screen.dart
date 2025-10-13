@@ -808,13 +808,126 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      itemCount: filteredRecords.length,
+    // Group records by day (yyyy-MM-dd) with newest date first
+    final grouped = _groupRecordsByDay(filteredRecords);
+
+    return ListView.separated(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      itemCount: grouped.length,
+      separatorBuilder: (context, index) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
-        final record = filteredRecords[index];
-        return _buildRecordCard(theme, record);
+        final group = grouped[index];
+        final date = group.key; // 'yyyy-MM-dd'
+        final dayRecords = group.value;
+        // Parse date for display
+        final dateObj = DateTime.parse(date);
+        return _buildDayGroup(theme, dateObj, dayRecords);
       },
+    );
+  }
+
+  // Helper: groups list of records by date key 'yyyy-MM-dd' (newest first)
+  List<MapEntry<String, List<UssdRecord>>> _groupRecordsByDay(
+      List<UssdRecord> records) {
+    final Map<String, List<UssdRecord>> map = {};
+
+    for (final r in records) {
+      final key = DateFormat('yyyy-MM-dd').format(r.timestamp);
+      map.putIfAbsent(key, () => []).add(r);
+    }
+
+    // Convert to list and sort by date descending
+    final entries = map.entries.toList()
+      ..sort((a, b) => b.key.compareTo(a.key));
+
+    // Within each group, sort records by timestamp desc
+    for (final entry in entries) {
+      entry.value.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    }
+
+    return entries;
+  }
+
+  // Build a day group row with a left vertical date bracket and stacked records
+  Widget _buildDayGroup(
+      ThemeData theme, DateTime dateObj, List<UssdRecord> dayRecords) {
+    final dayLabel = DateFormat('dd').format(dateObj); // 09
+    final monthLabel = DateFormat('MMM').format(dateObj); // Oct
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Left bracket with vertical date
+        Container(
+          width: 64,
+          padding: const EdgeInsets.only(right: 8),
+          child: Column(
+            children: [
+              // Decorative bracket using left border and small caps
+              Container(
+                height: 12,
+                width: 18,
+                alignment: Alignment.centerLeft,
+                decoration: BoxDecoration(
+                  border: Border(
+                    left:
+                        BorderSide(color: theme.colorScheme.primary, width: 4),
+                  ),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              const SizedBox(height: 8),
+              // Rotated vertical date
+              RotatedBox(
+                quarterTurns: 3,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      dayLabel,
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.onSurface,
+                      ),
+                    ),
+                    Text(
+                      monthLabel,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                height: 12,
+                width: 18,
+                alignment: Alignment.centerLeft,
+                decoration: BoxDecoration(
+                  border: Border(
+                    left:
+                        BorderSide(color: theme.colorScheme.primary, width: 4),
+                  ),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            ],
+          ),
+        ),
+        // Right: records for this day
+        Expanded(
+          child: Column(
+            children: dayRecords
+                .map((r) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8.0),
+                      child: _buildRecordCard(theme, r),
+                    ))
+                .toList(),
+          ),
+        ),
+      ],
     );
   }
 
