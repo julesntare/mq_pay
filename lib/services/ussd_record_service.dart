@@ -28,7 +28,8 @@ class UssdRecordService {
       existingRecords.removeRange(0, existingRecords.length - 100);
     }
 
-    final recordsJson = jsonEncode(existingRecords.map((r) => r.toJson()).toList());
+    final recordsJson =
+        jsonEncode(existingRecords.map((r) => r.toJson()).toList());
     await prefs.setString(_ussdRecordsKey, recordsJson);
   }
 
@@ -47,7 +48,8 @@ class UssdRecordService {
     return records.length;
   }
 
-  static Future<List<UssdRecord>> getRecordsByDateRange(DateTime start, DateTime end) async {
+  static Future<List<UssdRecord>> getRecordsByDateRange(
+      DateTime start, DateTime end) async {
     final records = await getUssdRecords();
     return records.where((record) {
       return record.timestamp.isAfter(start) && record.timestamp.isBefore(end);
@@ -81,10 +83,12 @@ class UssdRecordService {
     final prefs = await SharedPreferences.getInstance();
     final existingRecords = await getUssdRecords();
 
-    final index = existingRecords.indexWhere((record) => record.id == updatedRecord.id);
+    final index =
+        existingRecords.indexWhere((record) => record.id == updatedRecord.id);
     if (index != -1) {
       existingRecords[index] = updatedRecord;
-      final recordsJson = jsonEncode(existingRecords.map((r) => r.toJson()).toList());
+      final recordsJson =
+          jsonEncode(existingRecords.map((r) => r.toJson()).toList());
       await prefs.setString(_ussdRecordsKey, recordsJson);
     }
   }
@@ -94,7 +98,8 @@ class UssdRecordService {
     final existingRecords = await getUssdRecords();
 
     existingRecords.removeWhere((record) => record.id == recordId);
-    final recordsJson = jsonEncode(existingRecords.map((r) => r.toJson()).toList());
+    final recordsJson =
+        jsonEncode(existingRecords.map((r) => r.toJson()).toList());
     await prefs.setString(_ussdRecordsKey, recordsJson);
   }
 
@@ -105,5 +110,36 @@ class UssdRecordService {
     } catch (e) {
       return null;
     }
+  }
+
+  // Return a sorted list of unique non-empty reasons (most recent first)
+  static Future<List<String>> getUniqueReasons() async {
+    final records = await getUssdRecords();
+    final Set<String> reasons = {};
+    // iterate newest first
+    for (final r in records.reversed) {
+      if (r.reason != null && r.reason!.trim().isNotEmpty) {
+        reasons.add(r.reason!.trim());
+      }
+    }
+    return reasons.toList();
+  }
+
+  // Get total amount for a given reason across all records
+  static Future<double> getTotalByReason(String reason) async {
+    final records = await getUssdRecords();
+    return records
+        .where((r) => r.reason != null && r.reason!.trim() == reason.trim())
+        .fold<double>(0.0, (double sum, r) => sum + r.amount);
+  }
+
+  // Get total amount for a given reason in a specific month (year, month)
+  static Future<double> getTotalByReasonForMonth(
+      String reason, int year, int month) async {
+    final records = await getUssdRecords();
+    return records
+        .where((r) => r.reason != null && r.reason!.trim() == reason.trim())
+        .where((r) => r.timestamp.year == year && r.timestamp.month == month)
+        .fold<double>(0.0, (double sum, r) => sum + r.amount);
   }
 }

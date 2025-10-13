@@ -41,6 +41,11 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
   List<Contact> deviceContacts = [];
   bool contactsLoaded = false;
   Map<String, String> contactNameCache = {}; // phone -> name mapping
+  // Reason filter state
+  List<String> availableReasons = [];
+  String? selectedReason;
+  double selectedReasonTotalAllTime = 0.0;
+  double selectedReasonTotalCurrentMonth = 0.0;
 
   @override
   void initState() {
@@ -171,6 +176,9 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
         isLoading = false;
       });
 
+      // Load available reasons for filters
+      _loadAvailableReasons();
+
       // Calculate months with data AFTER records are set
       _calculateMonthsWithData(loadedRecords);
 
@@ -186,6 +194,13 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
         );
       }
     }
+  }
+
+  Future<void> _loadAvailableReasons() async {
+    final reasons = await UssdRecordService.getUniqueReasons();
+    setState(() {
+      availableReasons = reasons;
+    });
   }
 
   void _calculateMonthsWithData(List<UssdRecord> allRecords) {
@@ -343,6 +358,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                   children: [
                     _buildSummaryCards(theme),
                     _buildSearchBar(theme),
+                    _buildReasonFilters(theme),
                     Expanded(child: _buildRecordsList(theme)),
                   ],
                 ),
@@ -393,6 +409,69 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
           ),
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        ),
+      ),
+    );
+  }
+
+  // Build reason filter chips beneath search bar
+  Widget _buildReasonFilters(ThemeData theme) {
+    if (availableReasons.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            const SizedBox(width: 4),
+            ...availableReasons.map((r) {
+              final isSelected = selectedReason == r;
+              return Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: ChoiceChip(
+                  label: Text(r),
+                  selected: isSelected,
+                  onSelected: (sel) async {
+                    setState(() {
+                      selectedReason = sel ? r : null;
+                    });
+
+                    if (selectedReason != null) {
+                      // compute totals for selected reason
+                      selectedReasonTotalAllTime =
+                          await UssdRecordService.getTotalByReason(r);
+                      // current month totals
+                      if (monthsWithData.isNotEmpty) {
+                        final cur = monthsWithData[currentMonthIndex];
+                        selectedReasonTotalCurrentMonth =
+                            await UssdRecordService.getTotalByReasonForMonth(
+                                r, cur.year, cur.month);
+                      } else {
+                        selectedReasonTotalCurrentMonth = 0.0;
+                      }
+                    } else {
+                      selectedReasonTotalAllTime = 0.0;
+                      selectedReasonTotalCurrentMonth = 0.0;
+                    }
+                    setState(() {});
+                  },
+                ),
+              );
+            }).toList(),
+            const SizedBox(width: 8),
+            if (selectedReason != null)
+              TextButton(
+                onPressed: () {
+                  setState(() {
+                    selectedReason = null;
+                    selectedReasonTotalAllTime = 0.0;
+                    selectedReasonTotalCurrentMonth = 0.0;
+                  });
+                },
+                child: const Text('Clear reason filter'),
+              ),
+          ],
         ),
       ),
     );
@@ -719,6 +798,13 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
         : records
             .where((record) => record.recipientType == activeFilter)
             .toList();
+
+    // Filter by selected reason if any
+    if (selectedReason != null) {
+      filteredRecords = filteredRecords
+          .where((r) => r.reason != null && r.reason!.trim() == selectedReason)
+          .toList();
+    }
 
     // Apply search filter
     if (searchQuery.isNotEmpty) {

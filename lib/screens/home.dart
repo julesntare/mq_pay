@@ -966,17 +966,46 @@ class _HomeState extends State<Home> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                // Optional reason field
-                TextField(
-                  controller: reasonController,
-                  decoration: InputDecoration(
-                    labelText: 'Reason (optional)',
-                    hintText: 'Why are you sending this money?',
-                    prefixIcon: Icon(Icons.note_rounded),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
+                // Optional reason field with suggestions
+                FutureBuilder<List<String>>(
+                  future: UssdRecordService.getUniqueReasons(),
+                  builder: (context, snapshot) {
+                    final options = snapshot.data ?? [];
+                    return Autocomplete<String>(
+                      optionsBuilder: (TextEditingValue textEditingValue) {
+                        if (textEditingValue.text == '') {
+                          return const Iterable<String>.empty();
+                        }
+                        return options.where((String option) {
+                          return option
+                              .toLowerCase()
+                              .contains(textEditingValue.text.toLowerCase());
+                        });
+                      },
+                      onSelected: (String selection) {
+                        reasonController.text = selection;
+                      },
+                      fieldViewBuilder:
+                          (context, controller, focusNode, onFieldSubmitted) {
+                        controller.text = reasonController.text;
+                        controller.selection = TextSelection.fromPosition(
+                            TextPosition(offset: controller.text.length));
+                        return TextField(
+                          controller: controller,
+                          focusNode: focusNode,
+                          decoration: InputDecoration(
+                            labelText: 'Reason (optional)',
+                            hintText: 'Why are you sending this money?',
+                            prefixIcon: Icon(Icons.note_rounded),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          onChanged: (v) => reasonController.text = v,
+                        );
+                      },
+                    );
+                  },
                 ),
               ],
             ),
