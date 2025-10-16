@@ -32,6 +32,13 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
 
   // Filter state
   String? activeFilter; // null = no filter, 'phone', 'momo', 'misc'
+  // Advanced filter controls
+  String? recipientTypeFilter; // 'phone' | 'momo' | 'misc' | null
+  DateTime? filterStartDate;
+  DateTime? filterEndDate;
+  double filteredTotal = 0.0;
+  double filteredFailedTotal = 0.0;
+  double failedTotal = 0.0; // overall failed amount
 
   // Search state
   final TextEditingController searchController = TextEditingController();
@@ -164,15 +171,39 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
 
     try {
       final loadedRecords = await UssdRecordService.getUssdRecords();
-      final total = await UssdRecordService.getTotalAmount();
-      final count = await UssdRecordService.getTotalRecordsCount();
-      final typeAmounts = await UssdRecordService.getAmountByRecipientType();
+      // Compute totals locally so we can exclude failed records from totals
+      final allRecords = loadedRecords;
+      final successRecords = allRecords.where((r) => !r.failed).toList();
+      final count = successRecords.length;
+      final total = successRecords.fold<double>(0.0, (s, r) => s + r.amount);
+
+      final typeAmounts = <String, double>{
+        'phone': 0.0,
+        'momo': 0.0,
+        'misc': 0.0
+      };
+      for (final r in successRecords) {
+        if (r.recipientType == 'phone') {
+          typeAmounts['phone'] = (typeAmounts['phone'] ?? 0) + r.amount;
+        } else if (r.recipientType == 'momo') {
+          typeAmounts['momo'] = (typeAmounts['momo'] ?? 0) + r.amount;
+        } else {
+          typeAmounts['misc'] = (typeAmounts['misc'] ?? 0) + r.amount;
+        }
+      }
+
+      // compute failed total (all failed records)
+      final fTotal = allRecords
+          .where((r) => r.failed)
+          .fold<double>(0.0, (s, r) => s + r.amount);
 
       setState(() {
-        records = loadedRecords.reversed.toList(); // Show newest first
-        totalAmount = total;
-        totalRecords = count;
+        records = allRecords.reversed
+            .toList(); // Show newest first (including failed in list)
+        totalAmount = total; // excludes failed
+        totalRecords = count; // excludes failed
         amountByType = typeAmounts;
+        failedTotal = fTotal;
         isLoading = false;
       });
 
@@ -247,17 +278,20 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
             DateFormat('yyyy-MM').format(record.timestamp) == monthKey)
         .toList();
 
-    final total = monthRecords.fold(0.0, (sum, record) => sum + record.amount);
+    // Exclude failed records from the displayed month total
+    final successMonthRecords = monthRecords.where((r) => !r.failed).toList();
+    final total =
+        successMonthRecords.fold(0.0, (sum, record) => sum + record.amount);
 
-    // Calculate monthly amounts by type
+    // Calculate monthly amounts by type (excluding failed)
     final amountsByType = {
-      'phone': monthRecords
+      'phone': successMonthRecords
           .where((r) => r.recipientType == 'phone')
           .fold(0.0, (sum, r) => sum + r.amount),
-      'momo': monthRecords
+      'momo': successMonthRecords
           .where((r) => r.recipientType == 'momo')
           .fold(0.0, (sum, r) => sum + r.amount),
-      'misc': monthRecords
+      'misc': successMonthRecords
           .where((r) => r.recipientType == 'misc')
           .fold(0.0, (sum, r) => sum + r.amount),
     };
@@ -356,9 +390,42 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
               ? _buildEmptyState(theme)
               : Column(
                   children: [
-                    _buildSummaryCards(theme),
-                    _buildSearchBar(theme),
-                    _buildReasonFilters(theme),
+                    // Make header region scrollable when vertical space is tight
+                    Flexible(
+                      child: SingleChildScrollView(
+                        child: Column(
+                          children: [
+                            _buildSummaryCards(theme),
+                            _buildSearchBar(theme),
+                            // Filtered total badge
+                            if (recipientTypeFilter != null ||
+                                selectedReason != null ||
+                                filterStartDate != null ||
+                                filterEndDate != null ||
+                                searchQuery.isNotEmpty)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 20, vertical: 6),
+                                alignment: Alignment.centerLeft,
+                                child: Chip(
+                                  label: filteredFailedTotal > 0
+                                      ? Text(
+                                          'Filtered: ${NumberFormat.currency(locale: 'en_RW', symbol: 'RWF ', decimalDigits: 0).format(filteredTotal)}  •  Failed: ${NumberFormat.currency(locale: 'en_RW', symbol: 'RWF ', decimalDigits: 0).format(filteredFailedTotal)}')
+                                      : Text(NumberFormat.currency(
+                                              locale: 'en_RW',
+                                              symbol: 'RWF ',
+                                              decimalDigits: 0)
+                                          .format(filteredTotal)),
+                                  backgroundColor: theme.colorScheme.primary
+                                      .withValues(alpha: 0.12),
+                                ),
+                              ),
+                            _buildReasonFilters(theme),
+                          ],
+                        ),
+                      ),
+                    ),
+                    // The main list takes remaining space
                     Expanded(child: _buildRecordsList(theme)),
                   ],
                 ),
@@ -374,12 +441,30 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
           setState(() {
             searchQuery = value.toLowerCase();
           });
+          _computeFilteredTotal();
         },
         decoration: InputDecoration(
           hintText: 'Search by name, number, amount...',
           prefixIcon: Icon(Icons.search, color: theme.colorScheme.primary),
-          suffixIcon: searchQuery.isNotEmpty
-              ? IconButton(
+          suffixIcon: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Filter icon
+              IconButton(
+                icon: Icon(Icons.filter_list,
+                    color: filterStartDate != null ||
+                            recipientTypeFilter != null ||
+                            selectedReason != null
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+                onPressed: () async {
+                  await _showFilterSheet();
+                },
+                tooltip: 'Filters',
+              ),
+              // Clear search
+              if (searchQuery.isNotEmpty)
+                IconButton(
                   icon: Icon(Icons.clear,
                       color:
                           theme.colorScheme.onSurface.withValues(alpha: 0.5)),
@@ -389,8 +474,9 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                       searchQuery = '';
                     });
                   },
-                )
-              : null,
+                ),
+            ],
+          ),
           filled: true,
           fillColor: theme.colorScheme.surface,
           border: OutlineInputBorder(
@@ -412,6 +498,183 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _showFilterSheet() async {
+    final theme = Theme.of(context);
+
+    await showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        String? localRecipientType = recipientTypeFilter;
+        DateTime? localStart = filterStartDate;
+        DateTime? localEnd = filterEndDate;
+        String? localReason = selectedReason;
+
+        return StatefulBuilder(builder: (context, setLocalState) {
+          void applyLocal() {
+            setState(() {
+              recipientTypeFilter = localRecipientType;
+              // Normalize start to start of day and end to end of day (inclusive)
+              if (localStart != null) {
+                filterStartDate = DateTime(localStart!.year, localStart!.month,
+                    localStart!.day, 0, 0, 0);
+              } else {
+                filterStartDate = null;
+              }
+              if (localEnd != null) {
+                filterEndDate = DateTime(localEnd!.year, localEnd!.month,
+                    localEnd!.day, 23, 59, 59, 999);
+              } else {
+                filterEndDate = null;
+              }
+              selectedReason = localReason;
+            });
+            _computeFilteredTotal();
+            Navigator.of(context).pop();
+          }
+
+          return Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Filters', style: theme.textTheme.headlineSmall),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Flexible(
+                      child: DropdownButtonFormField<String?>(
+                        isExpanded: true,
+                        value: localRecipientType,
+                        decoration: const InputDecoration(
+                            labelText: 'Type', isDense: true),
+                        items: [
+                          const DropdownMenuItem(
+                              value: null, child: Text('All')),
+                          const DropdownMenuItem(
+                              value: 'phone', child: Text('Phone')),
+                          const DropdownMenuItem(
+                              value: 'momo', child: Text('MoCode')),
+                          const DropdownMenuItem(
+                              value: 'misc', child: Text('Misc')),
+                        ],
+                        onChanged: (v) =>
+                            setLocalState(() => localRecipientType = v),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Flexible(
+                      child: DropdownButtonFormField<String?>(
+                        isExpanded: true,
+                        value: localReason,
+                        decoration: const InputDecoration(
+                            labelText: 'Reason', isDense: true),
+                        items: [
+                          const DropdownMenuItem(
+                              value: null, child: Text('Any')),
+                          ...availableReasons.map((r) =>
+                              DropdownMenuItem(value: r, child: Text(r))),
+                        ],
+                        onChanged: (v) => setLocalState(() => localReason = v),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: localStart ?? DateTime.now(),
+                            firstDate: DateTime(2000),
+                            lastDate: DateTime.now(),
+                          );
+                          if (picked != null)
+                            setLocalState(() => localStart = picked);
+                        },
+                        child: Text(localStart == null
+                            ? 'Start date'
+                            : DateFormat('yyyy-MM-dd').format(localStart!)),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: localEnd ?? DateTime.now(),
+                            firstDate: DateTime(2000),
+                            lastDate: DateTime.now(),
+                          );
+                          if (picked != null)
+                            setLocalState(() => localEnd = picked);
+                        },
+                        child: Text(localEnd == null
+                            ? 'End date'
+                            : DateFormat('yyyy-MM-dd').format(localEnd!)),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    ElevatedButton(
+                      onPressed: () {
+                        setLocalState(() {
+                          localRecipientType = null;
+                          localStart = null;
+                          localEnd = null;
+                          localReason = null;
+                        });
+                      },
+                      child: const Text('Clear'),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(child: Container()),
+                    ElevatedButton(
+                        onPressed: applyLocal, child: const Text('Apply')),
+                  ],
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          );
+        });
+      },
+    );
+  }
+
+  void _computeFilteredTotal() {
+    double total = 0.0;
+    double failed = 0.0;
+    for (final r in records) {
+      if (recipientTypeFilter != null && r.recipientType != recipientTypeFilter)
+        continue;
+      if (selectedReason != null &&
+          (r.reason == null || r.reason!.trim() != selectedReason)) continue;
+      if (filterStartDate != null && r.timestamp.isBefore(filterStartDate!))
+        continue;
+      if (filterEndDate != null && r.timestamp.isAfter(filterEndDate!))
+        continue;
+      if (r.failed) {
+        failed += r.amount;
+      } else {
+        total += r.amount;
+      }
+    }
+    setState(() {
+      filteredTotal = total;
+      filteredFailedTotal = failed;
+    });
   }
 
   // Build reason filter chips beneath search bar
@@ -670,6 +933,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                                 activeFilter = tabKey; // Turn on filter
                               }
                             });
+                            _computeFilteredTotal();
                           },
                           child: Container(
                             margin: EdgeInsets.only(
@@ -792,19 +1056,21 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
   }
 
   Widget _buildRecordsList(ThemeData theme) {
-    // Filter records by type if activeFilter is set
-    var filteredRecords = activeFilter == null
-        ? records
-        : records
-            .where((record) => record.recipientType == activeFilter)
-            .toList();
-
-    // Filter by selected reason if any
-    if (selectedReason != null) {
-      filteredRecords = filteredRecords
-          .where((r) => r.reason != null && r.reason!.trim() == selectedReason)
-          .toList();
-    }
+    // Apply combined filters: activeFilter (tab), recipientTypeFilter (advanced), reason, date range
+    var filteredRecords = records.where((record) {
+      if (activeFilter != null && record.recipientType != activeFilter)
+        return false;
+      if (recipientTypeFilter != null &&
+          record.recipientType != recipientTypeFilter) return false;
+      if (selectedReason != null &&
+          (record.reason == null || record.reason!.trim() != selectedReason))
+        return false;
+      if (filterStartDate != null &&
+          record.timestamp.isBefore(filterStartDate!)) return false;
+      if (filterEndDate != null && record.timestamp.isAfter(filterEndDate!))
+        return false;
+      return true;
+    }).toList();
 
     // Apply search filter
     if (searchQuery.isNotEmpty) {
