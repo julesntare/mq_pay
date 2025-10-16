@@ -1288,8 +1288,8 @@ class _HomeState extends State<Home> {
     }
   }
 
-  // Filter contacts based on search query (supports both name and phone number search)
-  void _filterContacts(String query) {
+  // Filter contacts and recent USSD records based on search query
+  Future<void> _filterContacts(String query) async {
     if (query.isEmpty) {
       setState(() {
         filteredContacts = [];
@@ -1303,48 +1303,90 @@ class _HomeState extends State<Home> {
     }
 
     final queryLower = query.toLowerCase();
-    // Remove spaces and special characters from query for phone number matching
     final queryDigits = query.replaceAll(RegExp(r'[^0-9]'), '');
     List<ContactSuggestion> suggestions = [];
-    Set<String> addedContacts = {}; // Track added contacts to avoid duplicates
+    Set<String> addedKeys = {}; // Track added suggestions to avoid duplicates
 
+    // First: suggest matching device contacts
     for (var contact in allContacts) {
-      String displayName = contact.displayName;
-
-      // Get phone numbers
+      final displayName = contact.displayName;
       if (contact.phones.isNotEmpty) {
         for (var phone in contact.phones) {
-          String phoneNumber = phone.number;
-          if (phoneNumber.isNotEmpty) {
-            // Format and validate phone number
-            String formatted = _formatPhoneNumber(phoneNumber);
-            if (formatted.isNotEmpty) {
-              // Check if name matches OR phone number matches
-              bool nameMatches = displayName.toLowerCase().contains(queryLower);
-              bool phoneMatches = queryDigits.isNotEmpty &&
-                  (phoneNumber.contains(queryDigits) ||
-                      formatted.contains(queryDigits));
+          final phoneNumber = phone.number;
+          if (phoneNumber.isEmpty) continue;
+          final formatted = _formatPhoneNumber(phoneNumber);
+          if (formatted.isEmpty) continue;
 
-              // Create unique key to prevent duplicates
-              String uniqueKey = '$displayName-$formatted';
+          final nameMatches = displayName.toLowerCase().contains(queryLower);
+          final phoneMatches = queryDigits.isNotEmpty &&
+              (phoneNumber.contains(queryDigits) ||
+                  formatted.contains(queryDigits));
 
-              if ((nameMatches || phoneMatches) &&
-                  !addedContacts.contains(uniqueKey)) {
-                suggestions.add(ContactSuggestion(
-                  name: displayName,
-                  phoneNumber: formatted,
-                  originalPhone: phoneNumber,
-                ));
-                addedContacts.add(uniqueKey);
-              }
-            }
+          final key = 'contact-${displayName}-$formatted';
+          if ((nameMatches || phoneMatches) && !addedKeys.contains(key)) {
+            suggestions.add(ContactSuggestion(
+              name: displayName,
+              phoneNumber: formatted,
+              originalPhone: phoneNumber,
+            ));
+            addedKeys.add(key);
+            if (suggestions.length >= 5) break;
           }
         }
+        if (suggestions.length >= 5) break;
       }
     }
 
+    // Second: include recent USSD records (most recent first) for momo codes or unsaved numbers
+    try {
+      final records = await UssdRecordService.getUssdRecords();
+      for (var r in records.reversed) {
+        if (suggestions.length >= 5) break;
+        final recipient = r.recipient;
+        final type = r.recipientType;
+
+        // Decide a display name and phone/code to show
+        String displayName;
+        String showNumber;
+
+        if (r.contactName != null && r.contactName!.trim().isNotEmpty) {
+          displayName = r.contactName!;
+        } else if (type == 'momo') {
+          displayName = 'MoMo: $recipient';
+        } else if (type == 'misc') {
+          displayName = 'Code: $recipient';
+        } else {
+          displayName = r.maskedRecipient ?? recipient;
+        }
+
+        if (type == 'phone') {
+          final formatted = _formatPhoneNumber(recipient);
+          if (formatted.isEmpty) continue;
+          showNumber = formatted;
+        } else {
+          showNumber = recipient;
+        }
+
+        // Match against query
+        final matchesQuery =
+            (queryDigits.isNotEmpty && showNumber.contains(queryDigits)) ||
+                displayName.toLowerCase().contains(queryLower);
+        final key = 'record-${type}-$recipient';
+        if (matchesQuery && !addedKeys.contains(key)) {
+          suggestions.add(ContactSuggestion(
+            name: displayName,
+            phoneNumber: showNumber,
+            originalPhone: recipient,
+          ));
+          addedKeys.add(key);
+        }
+      }
+    } catch (e) {
+      // ignore errors reading records
+    }
+
     setState(() {
-      filteredContacts = suggestions.take(5).toList(); // Limit to 5 suggestions
+      filteredContacts = suggestions.take(5).toList();
     });
   }
 
