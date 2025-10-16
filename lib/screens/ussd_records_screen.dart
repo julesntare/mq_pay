@@ -512,26 +512,41 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
         String? localRecipientType = recipientTypeFilter;
         DateTime? localStart = filterStartDate;
         DateTime? localEnd = filterEndDate;
+        // Default to single-date mode as requested
+        bool singleDateMode = true;
         String? localReason = selectedReason;
 
         return StatefulBuilder(builder: (context, setLocalState) {
           void applyLocal() {
             setState(() {
               recipientTypeFilter = localRecipientType;
-              // Normalize start to start of day and end to end of day (inclusive)
-              if (localStart != null) {
-                filterStartDate = DateTime(localStart!.year, localStart!.month,
-                    localStart!.day, 0, 0, 0);
-              } else {
-                filterStartDate = null;
-              }
-              if (localEnd != null) {
-                filterEndDate = DateTime(localEnd!.year, localEnd!.month,
-                    localEnd!.day, 23, 59, 59, 999);
-              } else {
-                filterEndDate = null;
-              }
               selectedReason = localReason;
+
+              if (singleDateMode) {
+                if (localStart != null) {
+                  // single date -> set start to 00:00 and end to end of day
+                  filterStartDate = DateTime(localStart!.year,
+                      localStart!.month, localStart!.day, 0, 0, 0);
+                  filterEndDate = DateTime(localStart!.year, localStart!.month,
+                      localStart!.day, 23, 59, 59, 999);
+                } else {
+                  filterStartDate = null;
+                  filterEndDate = null;
+                }
+              } else {
+                if (localStart != null) {
+                  filterStartDate = DateTime(localStart!.year,
+                      localStart!.month, localStart!.day, 0, 0, 0);
+                } else {
+                  filterStartDate = null;
+                }
+                if (localEnd != null) {
+                  filterEndDate = DateTime(localEnd!.year, localEnd!.month,
+                      localEnd!.day, 23, 59, 59, 999);
+                } else {
+                  filterEndDate = null;
+                }
+              }
             });
             _computeFilteredTotal();
             Navigator.of(context).pop();
@@ -585,46 +600,112 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                   ],
                 ),
                 const SizedBox(height: 12),
+                // Single date or range toggle
                 Row(
                   children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () async {
-                          final picked = await showDatePicker(
-                            context: context,
-                            initialDate: localStart ?? DateTime.now(),
-                            firstDate: DateTime(2000),
-                            lastDate: DateTime.now(),
-                          );
-                          if (picked != null)
-                            setLocalState(() => localStart = picked);
-                        },
-                        child: Text(localStart == null
-                            ? 'Start date'
-                            : DateFormat('yyyy-MM-dd').format(localStart!)),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () async {
-                          final picked = await showDatePicker(
-                            context: context,
-                            initialDate: localEnd ?? DateTime.now(),
-                            firstDate: DateTime(2000),
-                            lastDate: DateTime.now(),
-                          );
-                          if (picked != null)
-                            setLocalState(() => localEnd = picked);
-                        },
-                        child: Text(localEnd == null
-                            ? 'End date'
-                            : DateFormat('yyyy-MM-dd').format(localEnd!)),
-                      ),
+                    ToggleButtons(
+                      isSelected: [singleDateMode, !singleDateMode],
+                      onPressed: (i) =>
+                          setLocalState(() => singleDateMode = i == 0),
+                      children: const [
+                        Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 12),
+                            child: Text('Single')),
+                        Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 12),
+                            child: Text('Range'))
+                      ],
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
+                // Replace date buttons with inline date fields (tappable InputDecorator)
+                if (singleDateMode)
+                  Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () async {
+                            final picked = await showDatePicker(
+                              context: context,
+                              initialDate: localStart ?? DateTime.now(),
+                              firstDate: DateTime(2000),
+                              lastDate: DateTime.now(),
+                            );
+                            if (picked != null)
+                              setLocalState(() => localStart = picked);
+                          },
+                          child: InputDecorator(
+                            decoration: InputDecoration(
+                              labelText: 'Date',
+                              isDense: true,
+                              border: OutlineInputBorder(),
+                            ),
+                            child: Text(localStart == null
+                                ? ''
+                                : DateFormat('yyyy-MM-dd').format(localStart!)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                else
+                  Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () async {
+                            final picked = await showDatePicker(
+                              context: context,
+                              initialDate: localStart ?? DateTime.now(),
+                              firstDate: DateTime(2000),
+                              lastDate: DateTime.now(),
+                            );
+                            if (picked != null)
+                              setLocalState(() => localStart = picked);
+                          },
+                          child: InputDecorator(
+                            decoration: InputDecoration(
+                              labelText: 'Start date',
+                              isDense: true,
+                              border: OutlineInputBorder(),
+                            ),
+                            child: Text(localStart == null
+                                ? ''
+                                : DateFormat('yyyy-MM-dd').format(localStart!)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () async {
+                            final picked = await showDatePicker(
+                              context: context,
+                              initialDate: localEnd ?? DateTime.now(),
+                              firstDate: DateTime(2000),
+                              lastDate: DateTime.now(),
+                            );
+                            if (picked != null)
+                              setLocalState(() => localEnd = picked);
+                          },
+                          child: InputDecorator(
+                            decoration: InputDecoration(
+                              labelText: 'End date',
+                              isDense: true,
+                              border: OutlineInputBorder(),
+                            ),
+                            child: Text(localEnd == null
+                                ? ''
+                                : DateFormat('yyyy-MM-dd').format(localEnd!)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                const SizedBox(height: 12),
+                // Clear and Apply actions
                 Row(
                   children: [
                     ElevatedButton(
@@ -634,17 +715,20 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                           localStart = null;
                           localEnd = null;
                           localReason = null;
+                          singleDateMode = false;
                         });
                       },
                       child: const Text('Clear'),
                     ),
                     const SizedBox(width: 12),
-                    Expanded(child: Container()),
+                    const Spacer(),
                     ElevatedButton(
-                        onPressed: applyLocal, child: const Text('Apply')),
+                      onPressed: applyLocal,
+                      child: const Text('Apply'),
+                    ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                // end of sheet content
               ],
             ),
           );
@@ -656,6 +740,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
   void _computeFilteredTotal() {
     double total = 0.0;
     double failed = 0.0;
+
     for (final r in records) {
       if (recipientTypeFilter != null && r.recipientType != recipientTypeFilter)
         continue;
@@ -671,6 +756,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
         total += r.amount;
       }
     }
+
     setState(() {
       filteredTotal = total;
       filteredFailedTotal = failed;
