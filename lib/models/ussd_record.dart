@@ -8,6 +8,7 @@ class UssdRecord {
   final String? maskedRecipient;
   final String? contactName;
   final String? reason;
+  final bool failed;
 
   UssdRecord({
     required this.id,
@@ -19,6 +20,7 @@ class UssdRecord {
     this.maskedRecipient,
     this.contactName,
     this.reason,
+    this.failed = false,
   });
 
   Map<String, dynamic> toJson() {
@@ -32,6 +34,7 @@ class UssdRecord {
       'maskedRecipient': maskedRecipient,
       'contactName': contactName,
       'reason': reason,
+      'failed': failed,
     };
   }
 
@@ -46,6 +49,7 @@ class UssdRecord {
       maskedRecipient: json['maskedRecipient'] as String?,
       contactName: json['contactName'] as String?,
       reason: json['reason'] as String?,
+      failed: json['failed'] == null ? false : (json['failed'] as bool),
     );
   }
 
@@ -59,6 +63,7 @@ class UssdRecord {
     String? maskedRecipient,
     String? contactName,
     String? reason,
+    bool? failed,
   }) {
     return UssdRecord(
       id: id ?? this.id,
@@ -70,6 +75,7 @@ class UssdRecord {
       maskedRecipient: maskedRecipient ?? this.maskedRecipient,
       contactName: contactName ?? this.contactName,
       reason: reason ?? this.reason,
+      failed: failed ?? this.failed,
     );
   }
 }

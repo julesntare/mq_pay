@@ -20,6 +20,7 @@ class _EditUssdRecordDialogState extends State<EditUssdRecordDialog> {
   late TextEditingController reasonController;
   String recipientType = 'phone';
   bool isLoading = false;
+  bool failed = false;
 
   @override
   void initState() {
@@ -29,6 +30,7 @@ class _EditUssdRecordDialogState extends State<EditUssdRecordDialog> {
     recipientController = TextEditingController(text: widget.record.recipient);
     reasonController = TextEditingController(text: widget.record.reason ?? '');
     recipientType = widget.record.recipientType;
+    failed = widget.record.failed;
   }
 
   @override
@@ -189,6 +191,7 @@ class _EditUssdRecordDialogState extends State<EditUssdRecordDialog> {
         reason: reasonController.text.trim().isEmpty
             ? null
             : reasonController.text.trim(),
+        failed: failed,
       );
 
       await UssdRecordService.updateUssdRecord(updatedRecord);
@@ -325,6 +328,18 @@ class _EditUssdRecordDialogState extends State<EditUssdRecordDialog> {
                   ),
                   hintText: 'Optional note about this transaction',
                 ),
+              ),
+              const SizedBox(height: 12),
+              // Failed checkbox
+              CheckboxListTile(
+                value: failed,
+                onChanged: (v) {
+                  setState(() {
+                    failed = v ?? false;
+                  });
+                },
+                title: const Text('Mark as failed'),
+                controlAffinity: ListTileControlAffinity.leading,
               ),
             ],
           ),

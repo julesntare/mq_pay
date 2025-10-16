@@ -31,6 +31,9 @@ class UssdRecordService {
     final recordsJson =
         jsonEncode(existingRecords.map((r) => r.toJson()).toList());
     await prefs.setString(_ussdRecordsKey, recordsJson);
+
+    // After saving, run duplicate detection and mark failures if needed
+    await _detectAndMarkFailed(existingRecords);
   }
 
   static Future<void> clearUssdRecords() async {
@@ -90,6 +93,50 @@ class UssdRecordService {
       final recordsJson =
           jsonEncode(existingRecords.map((r) => r.toJson()).toList());
       await prefs.setString(_ussdRecordsKey, recordsJson);
+      // Re-run duplicate detection after update
+      await _detectAndMarkFailed(existingRecords);
+    }
+  }
+
+  // Mark a record as failed by id
+  static Future<void> markRecordFailed(String recordId, bool failed) async {
+    final prefs = await SharedPreferences.getInstance();
+    final existingRecords = await getUssdRecords();
+
+    final index = existingRecords.indexWhere((r) => r.id == recordId);
+    if (index != -1) {
+      final updated = existingRecords[index].copyWith(failed: failed);
+      existingRecords[index] = updated;
+      final recordsJson =
+          jsonEncode(existingRecords.map((r) => r.toJson()).toList());
+      await prefs.setString(_ussdRecordsKey, recordsJson);
+    }
+  }
+
+  // Detect two consecutive transactions with same number, same amount, and timestamps within 30s.
+  // If found, mark the earlier one as failed.
+  static Future<void> _detectAndMarkFailed(List<UssdRecord> allRecords) async {
+    if (allRecords.length < 2) return;
+
+    // Sort by timestamp ascending to find consecutive transactions
+    final sorted = List<UssdRecord>.from(allRecords)
+      ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+
+    for (var i = 0; i < sorted.length - 1; i++) {
+      final first = sorted[i];
+      final second = sorted[i + 1];
+
+      final sameRecipient = first.recipient == second.recipient;
+      final sameAmount = first.amount == second.amount;
+      final timeDiff =
+          second.timestamp.difference(first.timestamp).inSeconds.abs();
+
+      if (sameRecipient && sameAmount && timeDiff <= 30) {
+        // mark first as failed
+        if (!first.failed) {
+          await markRecordFailed(first.id, true);
+        }
+      }
     }
   }
 

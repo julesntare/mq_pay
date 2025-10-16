@@ -1137,23 +1137,40 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                         ),
                         Row(
                           children: [
-                            Icon(
-                              Icons.refresh_rounded,
-                              size: 16,
-                              color: AppTheme.successColor,
-                            ),
-                            const SizedBox(width: 4),
-                            Icon(
-                              Icons.edit_rounded,
-                              size: 16,
-                              color: theme.colorScheme.primary,
-                            ),
-                            const SizedBox(width: 4),
-                            Icon(
-                              Icons.more_vert_rounded,
-                              size: 16,
-                              color: theme.colorScheme.onSurface
-                                  .withValues(alpha: 0.5),
+                            // Manual failed checkbox
+                            Row(
+                              children: [
+                                if (record.failed)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.red.withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                          color: Colors.red
+                                              .withValues(alpha: 0.2)),
+                                    ),
+                                    child: Text(
+                                      'Failed',
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(color: Colors.red),
+                                    ),
+                                  ),
+                                const SizedBox(width: 8),
+                                Icon(
+                                  Icons.edit_rounded,
+                                  size: 16,
+                                  color: theme.colorScheme.primary,
+                                ),
+                                const SizedBox(width: 4),
+                                Icon(
+                                  Icons.more_vert_rounded,
+                                  size: 16,
+                                  color: theme.colorScheme.onSurface
+                                      .withValues(alpha: 0.5),
+                                ),
+                              ],
                             ),
                           ],
                         ),
