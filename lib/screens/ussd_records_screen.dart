@@ -1100,7 +1100,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                               record.maskedRecipient ?? record.recipient;
                           final contactName =
                               _getContactNameForPhone(record.recipient);
-                          return 'To: $phoneDisplay${contactName != null && contactName.isNotEmpty ? ' ($contactName)' : ''}';
+                          return 'To: ${contactName != null && contactName.isNotEmpty ? contactName : phoneDisplay}';
                         } else if (isMiscCode) {
                           return 'Code: ${record.recipient}';
                         } else {
