@@ -24,6 +24,7 @@ class _HomeState extends State<Home> {
   final TextEditingController amountController = TextEditingController();
   final TextEditingController reasonController = TextEditingController();
   final TextEditingController mobileController = TextEditingController();
+  final TextEditingController recipientNameController = TextEditingController();
   final TextEditingController manualMobileController = TextEditingController();
   final TextEditingController momoCodeController = TextEditingController();
   final FlutterNativeContactPicker _contactPicker =
@@ -239,6 +240,7 @@ class _HomeState extends State<Home> {
     amountController.dispose();
     reasonController.dispose();
     mobileController.dispose();
+    recipientNameController.dispose();
     manualMobileController.dispose();
     momoCodeController.dispose();
     amountFocusNode.dispose();
@@ -705,6 +707,44 @@ class _HomeState extends State<Home> {
                   },
                 ),
               ),
+            // Name field (optional)
+            TextField(
+              controller: recipientNameController,
+              keyboardType: TextInputType.text,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w500,
+              ),
+              decoration: InputDecoration(
+                labelText: 'Recipient Name (Optional)',
+                hintText: 'Enter name for this recipient',
+                prefixIcon: Icon(Icons.person_rounded),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(15),
+                  borderSide: BorderSide(
+                    color: theme.colorScheme.primary,
+                    width: 2,
+                  ),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 20,
+                ),
+              ),
+              onChanged: (value) {
+                // Update selectedName when user types in the name field
+                setState(() {
+                  selectedName = value.trim().isEmpty ? null : value.trim();
+                });
+                // Also filter contacts based on name
+                _filterContacts(value);
+              },
+            ),
+            const SizedBox(height: 16),
+            // Phone number or momo code field
             TextField(
               controller: mobileController,
               focusNode: phoneFocusNode,
@@ -715,7 +755,7 @@ class _HomeState extends State<Home> {
               ),
               decoration: InputDecoration(
                 labelText: 'Phone Number or Momo Code',
-                hintText: 'Type name or 078xxxxxxx',
+                hintText: 'Type name, phone or momo code',
                 prefixIcon: Icon(Icons.phone_rounded),
                 suffixIcon: isLoadingContacts
                     ? Padding(
@@ -738,6 +778,7 @@ class _HomeState extends State<Home> {
                                 mobileController.clear();
                                 filteredContacts = [];
                                 selectedName = null;
+                                recipientNameController.clear(); // Also clear name field
                               });
                             },
                             tooltip: 'Clear',
@@ -855,6 +896,11 @@ class _HomeState extends State<Home> {
     String input = mobileController.text.trim();
     String ussdCode;
 
+    // Update selectedName with the value from the name field if provided
+    if (recipientNameController.text.trim().isNotEmpty) {
+      selectedName = recipientNameController.text.trim();
+    }
+
     // Determine if input is phone number or momo code
     if (_isValidPhoneNumber(input)) {
       // Process as phone number
@@ -920,8 +966,10 @@ class _HomeState extends State<Home> {
                 ),
                 SizedBox(height: 10),
                 Text('Amount: ${amountController.text} RWF'),
+                if (selectedName != null && selectedName!.isNotEmpty)
+                  Text('To: $selectedName'),
                 Text(isPhoneNumber
-                    ? 'To: ${_maskPhoneNumber(paymentInfo)}'
+                    ? 'Phone: ${_maskPhoneNumber(paymentInfo)}'
                     : 'Momo Code: ${paymentInfo.length > 3 ? paymentInfo.substring(0, 3) + "***" : paymentInfo}'),
                 SizedBox(height: 20),
                 Text(
@@ -1394,6 +1442,7 @@ class _HomeState extends State<Home> {
   void _selectContactSuggestion(ContactSuggestion suggestion) {
     setState(() {
       mobileController.text = suggestion.phoneNumber;
+      recipientNameController.text = suggestion.name;
       filteredContacts = [];
       selectedName = suggestion.name;
     });

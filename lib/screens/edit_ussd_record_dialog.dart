@@ -17,6 +17,7 @@ class EditUssdRecordDialog extends StatefulWidget {
 class _EditUssdRecordDialogState extends State<EditUssdRecordDialog> {
   late TextEditingController amountController;
   late TextEditingController recipientController;
+  late TextEditingController contactNameController;
   late TextEditingController reasonController;
   String recipientType = 'phone';
   bool isLoading = false;
@@ -28,6 +29,7 @@ class _EditUssdRecordDialogState extends State<EditUssdRecordDialog> {
     amountController =
         TextEditingController(text: widget.record.amount.toStringAsFixed(0));
     recipientController = TextEditingController(text: widget.record.recipient);
+    contactNameController = TextEditingController(text: widget.record.contactName ?? '');
     reasonController = TextEditingController(text: widget.record.reason ?? '');
     recipientType = widget.record.recipientType;
     failed = widget.record.failed;
@@ -37,6 +39,7 @@ class _EditUssdRecordDialogState extends State<EditUssdRecordDialog> {
   void dispose() {
     amountController.dispose();
     recipientController.dispose();
+    contactNameController.dispose();
     reasonController.dispose();
     super.dispose();
   }
@@ -186,6 +189,9 @@ class _EditUssdRecordDialogState extends State<EditUssdRecordDialog> {
         recipient: recipient,
         recipientType: recipientType,
         ussdCode: _generateUssdCode(),
+        contactName: contactNameController.text.trim().isEmpty
+            ? null
+            : contactNameController.text.trim(),
         maskedRecipient:
             recipientType == 'phone' ? _maskPhoneNumber(recipient) : null,
         reason: reasonController.text.trim().isEmpty
@@ -287,6 +293,21 @@ class _EditUssdRecordDialogState extends State<EditUssdRecordDialog> {
                 ),
               ),
               const SizedBox(height: 16),
+
+              // Contact Name Field (optional)
+              TextField(
+                controller: contactNameController,
+                keyboardType: TextInputType.text,
+                decoration: InputDecoration(
+                  labelText: 'Contact Name (Optional)',
+                  prefixIcon: Icon(Icons.person_rounded),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  hintText: 'Enter name for this contact',
+                ),
+              ),
+              const SizedBox(height: 12),
 
               // Recipient Field
               TextField(

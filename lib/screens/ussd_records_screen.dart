@@ -1454,9 +1454,17 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                               _getContactNameForPhone(record.recipient);
                           return 'To: ${contactName != null && contactName.isNotEmpty ? contactName : phoneDisplay}';
                         } else if (isMiscCode) {
-                          return 'Code: ${record.recipient}';
+                          // Check if there's a contact name for misc codes too
+                          final contactName = record.contactName;
+                          return contactName != null && contactName.isNotEmpty
+                              ? 'To: $contactName'
+                              : 'Code: ${record.recipient}';
                         } else {
-                          return 'Momo Code: ${record.recipient}';
+                          // Check if there's a contact name for momo codes
+                          final contactName = record.contactName;
+                          return contactName != null && contactName.isNotEmpty
+                              ? 'To: $contactName'
+                              : 'Momo Code: ${record.recipient}';
                         }
                       }(),
                       style: theme.textTheme.bodyMedium?.copyWith(
