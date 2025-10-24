@@ -1286,18 +1286,37 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
     return entries;
   }
 
+  // Helper: format amount with k suffix where applicable
+  String _formatAmountWithK(double amount) {
+    if (amount >= 1000) {
+      final kAmount = amount / 1000;
+      // If it's a whole number of thousands, don't show decimals
+      if (kAmount == kAmount.floor()) {
+        return '${kAmount.toInt()}k';
+      }
+      // Otherwise show one decimal place
+      return '${kAmount.toStringAsFixed(1)}k';
+    }
+    // For amounts less than 1000, show as-is without decimals
+    return amount.toInt().toString();
+  }
+
   // Build a day group row with a left vertical date bracket and stacked records
   Widget _buildDayGroup(
       ThemeData theme, DateTime dateObj, List<UssdRecord> dayRecords) {
     final dayLabel = DateFormat('dd').format(dateObj); // 09
     final monthLabel = DateFormat('MMM').format(dateObj); // Oct
 
+    // Calculate total amount for this day
+    final dayTotal = dayRecords.fold<double>(0, (sum, record) => sum + record.amount);
+    final dayTotalFormatted = _formatAmountWithK(dayTotal);
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Left bracket with vertical date
         Container(
-          width: 64,
+          width: 72,
           padding: const EdgeInsets.only(right: 8),
           child: Column(
             children: [
@@ -1333,6 +1352,16 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                       style: theme.textTheme.bodySmall?.copyWith(
                         color:
                             theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    // Total amount for the day
+                    Text(
+                      dayTotalFormatted,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: theme.colorScheme.primary,
+                        fontSize: 12,
                       ),
                     ),
                   ],
