@@ -52,6 +52,9 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
   double selectedReasonTotalAllTime = 0.0;
   double selectedReasonTotalCurrentMonth = 0.0;
 
+  // Collapsible groups state - tracks which date groups are expanded
+  Set<String> expandedGroups = {}; // Set of date keys 'yyyy-MM-dd'
+
   @override
   void initState() {
     super.initState();
@@ -1263,113 +1266,156 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
     return entries;
   }
 
-  // Helper: format amount with k suffix where applicable
-  String _formatAmountWithK(double amount) {
-    if (amount >= 1000) {
-      final kAmount = amount / 1000;
-      // If it's a whole number of thousands, don't show decimals
-      if (kAmount == kAmount.floor()) {
-        return '${kAmount.toInt()}k';
-      }
-      // Otherwise show one decimal place
-      return '${kAmount.toStringAsFixed(1)}k';
-    }
-    // For amounts less than 1000, show as-is without decimals
-    return amount.toInt().toString();
-  }
-
-  // Build a day group row with a left vertical date bracket and stacked records
   Widget _buildDayGroup(
       ThemeData theme, DateTime dateObj, List<UssdRecord> dayRecords) {
-    final dayLabel = DateFormat('dd').format(dateObj); // 09
-    final monthLabel = DateFormat('MMM').format(dateObj); // Oct
+    final dateKey = DateFormat('yyyy-MM-dd').format(dateObj);
+    final isExpanded = expandedGroups.contains(dateKey);
 
     // Calculate total amount for this day
     final dayTotal = dayRecords.fold<double>(0, (sum, record) => sum + record.amount);
-    final dayTotalFormatted = _formatAmountWithK(dayTotal);
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    // Format date labels
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final recordDate = DateTime(dateObj.year, dateObj.month, dateObj.day);
+
+    String dateLabel;
+    if (recordDate == today) {
+      dateLabel = 'Today';
+    } else if (recordDate == yesterday) {
+      dateLabel = 'Yesterday';
+    } else {
+      dateLabel = DateFormat('EEEE, MMM dd, yyyy').format(dateObj);
+    }
+
+    return Column(
       children: [
-        // Left bracket with vertical date
-        Container(
-          width: 72,
-          padding: const EdgeInsets.only(right: 8),
-          child: Column(
-            children: [
-              // Decorative bracket using left border and small caps
-              Container(
-                height: 12,
-                width: 18,
-                alignment: Alignment.centerLeft,
-                decoration: BoxDecoration(
-                  border: Border(
-                    left:
-                        BorderSide(color: theme.colorScheme.primary, width: 4),
-                  ),
-                  borderRadius: BorderRadius.circular(4),
-                ),
+        // Horizontal header with date, total, and expand/collapse button
+        InkWell(
+          onTap: () {
+            setState(() {
+              if (isExpanded) {
+                expandedGroups.remove(dateKey);
+              } else {
+                expandedGroups.add(dateKey);
+              }
+            });
+          },
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  theme.colorScheme.primary.withValues(alpha: 0.08),
+                  theme.colorScheme.primary.withValues(alpha: 0.03),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
-              const SizedBox(height: 8),
-              // Rotated vertical date
-              RotatedBox(
-                quarterTurns: 3,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: theme.colorScheme.primary.withValues(alpha: 0.15),
+                width: 1.5,
+              ),
+            ),
+            child: Row(
+              children: [
+                // Date icon and label
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.calendar_today_rounded,
+                    color: theme.colorScheme.primary,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                // Date and count
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        dateLabel,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${dayRecords.length} transaction${dayRecords.length != 1 ? 's' : ''}',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Total amount
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      dayLabel,
-                      style: theme.textTheme.bodyLarge?.copyWith(
+                      NumberFormat.currency(
+                        locale: 'en_RW',
+                        symbol: 'RWF ',
+                        decimalDigits: 0,
+                      ).format(dayTotal),
+                      style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: theme.colorScheme.onSurface,
-                      ),
-                    ),
-                    Text(
-                      monthLabel,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color:
-                            theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    // Total amount for the day
-                    Text(
-                      dayTotalFormatted,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        fontWeight: FontWeight.w600,
                         color: theme.colorScheme.primary,
-                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Total',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                       ),
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 8),
-              Container(
-                height: 12,
-                width: 18,
-                alignment: Alignment.centerLeft,
-                decoration: BoxDecoration(
-                  border: Border(
-                    left:
-                        BorderSide(color: theme.colorScheme.primary, width: 4),
+                const SizedBox(width: 12),
+                // Expand/collapse icon
+                AnimatedRotation(
+                  turns: isExpanded ? 0.5 : 0,
+                  duration: const Duration(milliseconds: 200),
+                  child: Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    color: theme.colorScheme.primary,
+                    size: 28,
                   ),
-                  borderRadius: BorderRadius.circular(4),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-        // Right: records for this day
-        Expanded(
-          child: Column(
-            children: dayRecords
-                .map((r) => Padding(
-                      padding: const EdgeInsets.only(bottom: 8.0),
-                      child: _buildRecordCard(theme, r),
-                    ))
-                .toList(),
+        // Collapsible content
+        AnimatedCrossFade(
+          firstChild: const SizedBox.shrink(),
+          secondChild: Padding(
+            padding: const EdgeInsets.only(top: 8, left: 8, right: 8),
+            child: Column(
+              children: dayRecords
+                  .map((r) => Padding(
+                        padding: const EdgeInsets.only(bottom: 8.0),
+                        child: _buildRecordCard(theme, r),
+                      ))
+                  .toList(),
+            ),
           ),
+          crossFadeState: isExpanded
+              ? CrossFadeState.showSecond
+              : CrossFadeState.showFirst,
+          duration: const Duration(milliseconds: 300),
+          sizeCurve: Curves.easeInOut,
         ),
       ],
     );
