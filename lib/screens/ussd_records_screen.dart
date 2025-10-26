@@ -37,8 +37,6 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
   DateTime? filterStartDate;
   DateTime? filterEndDate;
   double filteredTotal = 0.0;
-  double filteredFailedTotal = 0.0;
-  double failedTotal = 0.0; // overall failed amount
 
   // Search state
   final TextEditingController searchController = TextEditingController();
@@ -171,18 +169,16 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
 
     try {
       final loadedRecords = await UssdRecordService.getUssdRecords();
-      // Compute totals locally so we can exclude failed records from totals
       final allRecords = loadedRecords;
-      final successRecords = allRecords.where((r) => !r.failed).toList();
-      final count = successRecords.length;
-      final total = successRecords.fold<double>(0.0, (s, r) => s + r.amount);
+      final count = allRecords.length;
+      final total = allRecords.fold<double>(0.0, (s, r) => s + r.amount);
 
       final typeAmounts = <String, double>{
         'phone': 0.0,
         'momo': 0.0,
         'misc': 0.0
       };
-      for (final r in successRecords) {
+      for (final r in allRecords) {
         if (r.recipientType == 'phone') {
           typeAmounts['phone'] = (typeAmounts['phone'] ?? 0) + r.amount;
         } else if (r.recipientType == 'momo') {
@@ -192,18 +188,11 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
         }
       }
 
-      // compute failed total (all failed records)
-      final fTotal = allRecords
-          .where((r) => r.failed)
-          .fold<double>(0.0, (s, r) => s + r.amount);
-
       setState(() {
-        records = allRecords.reversed
-            .toList(); // Show newest first (including failed in list)
-        totalAmount = total; // excludes failed
-        totalRecords = count; // excludes failed
+        records = allRecords.reversed.toList(); // Show newest first
+        totalAmount = total;
+        totalRecords = count;
         amountByType = typeAmounts;
-        failedTotal = fTotal;
         isLoading = false;
       });
 
@@ -278,20 +267,17 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
             DateFormat('yyyy-MM').format(record.timestamp) == monthKey)
         .toList();
 
-    // Exclude failed records from the displayed month total
-    final successMonthRecords = monthRecords.where((r) => !r.failed).toList();
-    final total =
-        successMonthRecords.fold(0.0, (sum, record) => sum + record.amount);
+    final total = monthRecords.fold(0.0, (sum, record) => sum + record.amount);
 
-    // Calculate monthly amounts by type (excluding failed)
+    // Calculate monthly amounts by type
     final amountsByType = {
-      'phone': successMonthRecords
+      'phone': monthRecords
           .where((r) => r.recipientType == 'phone')
           .fold(0.0, (sum, r) => sum + r.amount),
-      'momo': successMonthRecords
+      'momo': monthRecords
           .where((r) => r.recipientType == 'momo')
           .fold(0.0, (sum, r) => sum + r.amount),
-      'misc': successMonthRecords
+      'misc': monthRecords
           .where((r) => r.recipientType == 'misc')
           .fold(0.0, (sum, r) => sum + r.amount),
     };
@@ -408,10 +394,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                                     horizontal: 20, vertical: 6),
                                 alignment: Alignment.centerLeft,
                                 child: Chip(
-                                  label: filteredFailedTotal > 0
-                                      ? Text(
-                                          'Filtered: ${NumberFormat.currency(locale: 'en_RW', symbol: 'RWF ', decimalDigits: 0).format(filteredTotal)}  •  Failed: ${NumberFormat.currency(locale: 'en_RW', symbol: 'RWF ', decimalDigits: 0).format(filteredFailedTotal)}')
-                                      : Text(NumberFormat.currency(
+                                  label: Text(NumberFormat.currency(
                                               locale: 'en_RW',
                                               symbol: 'RWF ',
                                               decimalDigits: 0)
@@ -739,7 +722,6 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
 
   void _computeFilteredTotal() {
     double total = 0.0;
-    double failed = 0.0;
 
     for (final r in records) {
       if (recipientTypeFilter != null && r.recipientType != recipientTypeFilter)
@@ -750,16 +732,11 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
         continue;
       if (filterEndDate != null && r.timestamp.isAfter(filterEndDate!))
         continue;
-      if (r.failed) {
-        failed += r.amount;
-      } else {
-        total += r.amount;
-      }
+      total += r.amount;
     }
 
     setState(() {
       filteredTotal = total;
-      filteredFailedTotal = failed;
     });
   }
 
@@ -1524,45 +1501,6 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                                 .withValues(alpha: 0.5),
                           ),
                         ),
-                        Row(
-                          children: [
-                            // Manual failed checkbox
-                            Row(
-                              children: [
-                                if (record.failed)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.red.withValues(alpha: 0.1),
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(
-                                          color: Colors.red
-                                              .withValues(alpha: 0.2)),
-                                    ),
-                                    child: Text(
-                                      'Failed',
-                                      style: theme.textTheme.bodySmall
-                                          ?.copyWith(color: Colors.red),
-                                    ),
-                                  ),
-                                const SizedBox(width: 8),
-                                Icon(
-                                  Icons.edit_rounded,
-                                  size: 16,
-                                  color: theme.colorScheme.primary,
-                                ),
-                                const SizedBox(width: 4),
-                                Icon(
-                                  Icons.more_vert_rounded,
-                                  size: 16,
-                                  color: theme.colorScheme.onSurface
-                                      .withValues(alpha: 0.5),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
                       ],
                     ),
                   ],
@@ -1620,8 +1558,8 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
 
   Future<void> _deleteRecord(UssdRecord record) async {
     final confirmed = await _showConfirmationDialog(
-      'Delete Transaction',
-      'Are you sure you want to delete this transaction record?',
+      'Mark Transaction as Invalid',
+      'Are you sure you want to delete this transaction? Use this for failed or duplicate transactions.',
       confirmText: 'Delete',
     );
 
@@ -1630,7 +1568,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
       _loadRecords();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Transaction deleted successfully')),
+          const SnackBar(content: Text('Invalid transaction deleted successfully')),
         );
       }
     }
@@ -1699,9 +1637,9 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
             ),
             const SizedBox(height: 12),
             _buildActionTile(
-              icon: Icons.delete_rounded,
-              title: 'Delete',
-              subtitle: 'Remove this transaction',
+              icon: Icons.cancel_rounded,
+              title: 'Mark as Invalid',
+              subtitle: 'Delete failed or duplicate transaction',
               color: Colors.red,
               onTap: () {
                 Navigator.pop(context);
