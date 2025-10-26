@@ -397,11 +397,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                                     horizontal: 20, vertical: 6),
                                 alignment: Alignment.centerLeft,
                                 child: Chip(
-                                  label: Text(NumberFormat.currency(
-                                              locale: 'en_RW',
-                                              symbol: 'RWF ',
-                                              decimalDigits: 0)
-                                          .format(filteredTotal)),
+                                  label: Text(_formatCurrency(filteredTotal)),
                                   backgroundColor: theme.colorScheme.primary
                                       .withValues(alpha: 0.12),
                                 ),
@@ -897,11 +893,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                             ),
                           ),
                           Text(
-                            NumberFormat.currency(
-                              locale: 'en_RW',
-                              symbol: 'RWF ',
-                              decimalDigits: 0,
-                            ).format(totalAmount),
+                            _formatCurrency(totalAmount),
                             style: theme.textTheme.titleLarge?.copyWith(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
@@ -959,11 +951,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                               ],
                             ),
                             Text(
-                              NumberFormat.currency(
-                                locale: 'en_RW',
-                                symbol: 'RWF ',
-                                decimalDigits: 0,
-                              ).format(currentMonthTotal),
+                              _formatCurrency(currentMonthTotal),
                               style: theme.textTheme.titleMedium?.copyWith(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
@@ -1070,11 +1058,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                         ),
                       ),
                       Text(
-                        NumberFormat.currency(
-                          locale: 'en_RW',
-                          symbol: 'RWF ',
-                          decimalDigits: 0,
-                        ).format(totalTabAmount),
+                        _formatCurrency(totalTabAmount),
                         style: theme.textTheme.titleMedium?.copyWith(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -1100,11 +1084,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                           ),
                         ),
                         Text(
-                          NumberFormat.currency(
-                            locale: 'en_RW',
-                            symbol: 'RWF ',
-                            decimalDigits: 0,
-                          ).format(monthlyTabAmount),
+                          _formatCurrency(monthlyTabAmount),
                           style: theme.textTheme.titleSmall?.copyWith(
                             color: Colors.white,
                             fontWeight: FontWeight.w600,
@@ -1160,11 +1140,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
         final amountMatch = amountStr.contains(searchQuery);
 
         // Search in formatted amount
-        final formattedAmount = NumberFormat.currency(
-          locale: 'en_RW',
-          symbol: 'RWF ',
-          decimalDigits: 0,
-        ).format(record.amount).toLowerCase();
+        final formattedAmount = _formatCurrency(record.amount).toLowerCase();
         final formattedAmountMatch = formattedAmount.contains(searchQuery);
 
         // Search in date
@@ -1266,6 +1242,11 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
     return entries;
   }
 
+  // Helper: format currency with RWF suffix
+  String _formatCurrency(double amount) {
+    return '${NumberFormat('#,##0', 'en_RW').format(amount)} RWF';
+  }
+
   Widget _buildDayGroup(
       ThemeData theme, DateTime dateObj, List<UssdRecord> dayRecords) {
     final dateKey = DateFormat('yyyy-MM-dd').format(dateObj);
@@ -1363,11 +1344,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      NumberFormat.currency(
-                        locale: 'en_RW',
-                        symbol: 'RWF ',
-                        decimalDigits: 0,
-                      ).format(dayTotal),
+                      _formatCurrency(dayTotal),
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: theme.colorScheme.primary,
@@ -1484,11 +1461,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                           ),
                         ),
                         Text(
-                          NumberFormat.currency(
-                            locale: 'en_RW',
-                            symbol: 'RWF ',
-                            decimalDigits: 0,
-                          ).format(record.amount),
+                          _formatCurrency(record.amount),
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                             color: color,
@@ -1781,7 +1754,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-                'Amount: ${NumberFormat.currency(locale: 'en_RW', symbol: 'RWF ', decimalDigits: 0).format(record.amount)}'),
+                'Amount: ${_formatCurrency(record.amount)}'),
             Text(
                 'Date: ${DateFormat('MMM dd, yyyy • HH:mm').format(record.timestamp)}'),
             if (record.reason != null && record.reason!.isNotEmpty) ...[
