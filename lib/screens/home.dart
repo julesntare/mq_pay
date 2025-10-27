@@ -39,6 +39,7 @@ class _HomeState extends State<Home> {
   // Multistep form variables
   int currentStep = 0;
   bool isPhoneNumberMomo = false;
+  bool isRecordOnlyMode = false; // true = Record Only, false = Dial Now
 
   String? generatedUssdCode;
   bool showQrCode = false;
@@ -202,6 +203,7 @@ class _HomeState extends State<Home> {
       recipientNameController.clear();
       reasonController.clear();
       isPhoneNumberMomo = false;
+      isRecordOnlyMode = false; // Reset to Dial Now mode
       selectedName = null;
       filteredContacts = [];
     });
@@ -538,9 +540,13 @@ class _HomeState extends State<Home> {
                       onPressed: _getNextButtonAction(),
                       icon: Icon(currentStep == 0
                           ? Icons.arrow_forward_rounded
-                          : Icons.send_rounded),
+                          : (isRecordOnlyMode
+                              ? Icons.save_rounded
+                              : Icons.send_rounded)),
                       label: Text(
-                        currentStep == 0 ? 'Next' : 'Pay Now',
+                        currentStep == 0
+                            ? 'Next'
+                            : (isRecordOnlyMode ? 'Save Record' : 'Pay Now'),
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -583,6 +589,96 @@ class _HomeState extends State<Home> {
           'How much do you want to send?',
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+          ),
+        ),
+        const SizedBox(height: 24),
+
+        // Payment Mode Toggle
+        Container(
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => isRecordOnlyMode = false),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: !isRecordOnlyMode
+                          ? theme.colorScheme.primary
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.phone_rounded,
+                          size: 18,
+                          color: !isRecordOnlyMode
+                              ? Colors.white
+                              : theme.colorScheme.onSurface
+                                  .withValues(alpha: 0.6),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Dial',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: !isRecordOnlyMode
+                                ? Colors.white
+                                : theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.6),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => isRecordOnlyMode = true),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: isRecordOnlyMode
+                          ? theme.colorScheme.primary
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.save_rounded,
+                          size: 18,
+                          color: isRecordOnlyMode
+                              ? Colors.white
+                              : theme.colorScheme.onSurface
+                                  .withValues(alpha: 0.6),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Record Only',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: isRecordOnlyMode
+                                ? Colors.white
+                                : theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.6),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 24),
@@ -647,7 +743,9 @@ class _HomeState extends State<Home> {
         ),
         const SizedBox(height: 8),
         Text(
-          'Enter phone number or momo code',
+          isRecordOnlyMode
+              ? 'Enter recipient details (optional for side payments)'
+              : 'Enter phone number or momo code',
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
           ),
@@ -758,8 +856,12 @@ class _HomeState extends State<Home> {
                 fontWeight: FontWeight.w500,
               ),
               decoration: InputDecoration(
-                labelText: 'Phone Number or Momo Code',
-                hintText: 'Type name, phone or momo code',
+                labelText: isRecordOnlyMode
+                    ? 'Phone Number or Momo Code (Optional)'
+                    : 'Phone Number or Momo Code',
+                hintText: isRecordOnlyMode
+                    ? 'Optional - leave blank for side payments'
+                    : 'Type name, phone or momo code',
                 prefixIcon: Icon(Icons.phone_rounded),
                 suffixIcon: isLoadingContacts
                     ? Padding(
@@ -891,6 +993,12 @@ class _HomeState extends State<Home> {
   }
 
   bool _canProceedWithPayment() {
+    // In Record Only mode, recipient is optional
+    if (isRecordOnlyMode) {
+      return _isValidAmount();
+    }
+
+    // In Dial Now mode, recipient is required and must be valid
     return _isValidAmount() &&
         mobileController.text.isNotEmpty &&
         (_isValidPhoneNumber(mobileController.text) ||
@@ -898,13 +1006,20 @@ class _HomeState extends State<Home> {
   }
 
   void _processPayment(BuildContext context) {
-    String input = mobileController.text.trim();
-    String ussdCode;
-
     // Update selectedName with the value from the name field if provided
     if (recipientNameController.text.trim().isNotEmpty) {
       selectedName = recipientNameController.text.trim();
     }
+
+    // Handle Record Only mode
+    if (isRecordOnlyMode) {
+      _showRecordOnlyDialog(context);
+      return;
+    }
+
+    // Handle Dial Now mode (existing logic)
+    String input = mobileController.text.trim();
+    String ussdCode;
 
     // Determine if input is phone number or momo code
     if (_isValidPhoneNumber(input)) {
@@ -1093,6 +1208,199 @@ class _HomeState extends State<Home> {
                 _resetForm();
               },
               style: ElevatedButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _showRecordOnlyDialog(BuildContext context) async {
+    final theme = Theme.of(context);
+    String paymentInfo = mobileController.text.trim();
+
+    return showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Row(
+            children: [
+              Icon(
+                Icons.save_rounded,
+                color: theme.colorScheme.primary,
+              ),
+              SizedBox(width: 12),
+              Text(
+                'Save Payment Record',
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Payment Details:',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: 10),
+                Text(
+                  'Amount: ${amountController.text} RWF',
+                  style: theme.textTheme.bodyLarge,
+                ),
+                if (selectedName != null && selectedName!.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      'To: $selectedName',
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  ),
+                if (paymentInfo.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      _isValidPhoneNumber(paymentInfo)
+                          ? 'Phone: ${_maskPhoneNumber(paymentInfo)}'
+                          : _isValidMomoCode(paymentInfo)
+                              ? 'Momo Code: ${paymentInfo.length > 3 ? paymentInfo.substring(0, 3) + "***" : paymentInfo}'
+                              : 'Recipient: $paymentInfo',
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  ),
+                if (paymentInfo.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      'Type: Side Payment',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontStyle: FontStyle.italic,
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 16),
+                // Optional reason field with suggestions
+                FutureBuilder<List<String>>(
+                  future: UssdRecordService.getUniqueReasons(),
+                  builder: (context, snapshot) {
+                    final options = snapshot.data ?? [];
+                    return Autocomplete<String>(
+                      optionsBuilder: (TextEditingValue textEditingValue) {
+                        if (textEditingValue.text == '') {
+                          return const Iterable<String>.empty();
+                        }
+                        return options.where((String option) {
+                          return option
+                              .toLowerCase()
+                              .contains(textEditingValue.text.toLowerCase());
+                        });
+                      },
+                      onSelected: (String selection) {
+                        reasonController.text = selection;
+                      },
+                      fieldViewBuilder:
+                          (context, controller, focusNode, onFieldSubmitted) {
+                        controller.text = reasonController.text;
+                        controller.selection = TextSelection.fromPosition(
+                            TextPosition(offset: controller.text.length));
+                        return TextField(
+                          controller: controller,
+                          focusNode: focusNode,
+                          decoration: InputDecoration(
+                            labelText: 'Reason (optional)',
+                            hintText: 'Why was this payment made?',
+                            prefixIcon: Icon(Icons.note_rounded),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          onChanged: (v) => reasonController.text = v,
+                        );
+                      },
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: Text('Cancel'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            ElevatedButton.icon(
+              icon: Icon(Icons.save_rounded),
+              label: Text('Save Record'),
+              onPressed: () async {
+                Navigator.of(context).pop();
+
+                // Determine recipient type and value
+                String recipient;
+                String recipientType;
+
+                if (paymentInfo.isEmpty) {
+                  // Side payment or no specific recipient
+                  recipient = 'Side Payment';
+                  recipientType = 'misc';
+                } else if (_isValidPhoneNumber(paymentInfo)) {
+                  recipient = paymentInfo;
+                  recipientType = 'phone';
+                } else if (_isValidMomoCode(paymentInfo)) {
+                  recipient = paymentInfo;
+                  recipientType = 'momo';
+                } else {
+                  // Any other text input
+                  recipient = paymentInfo;
+                  recipientType = 'misc';
+                }
+
+                double amount = double.tryParse(amountController.text) ?? 0.0;
+                final reason = reasonController.text.trim().isEmpty
+                    ? null
+                    : reasonController.text.trim();
+
+                // Generate a placeholder USSD code for record-only mode
+                String ussdCode =
+                    'RECORD-ONLY-${DateTime.now().millisecondsSinceEpoch}';
+
+                await _saveUssdRecord(
+                    ussdCode, recipient, recipientType, amount, reason);
+
+                // Show success message
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Payment record saved successfully!'),
+                      backgroundColor: Colors.green,
+                      duration: const Duration(seconds: 2),
+                    ),
+                  );
+                }
+
+                // Reset the form for next payment
+                _resetForm();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: theme.colorScheme.primary,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
