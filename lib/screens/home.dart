@@ -199,7 +199,11 @@ class _HomeState extends State<Home> {
       currentStep = 0;
       amountController.clear();
       mobileController.clear();
+      recipientNameController.clear();
+      reasonController.clear();
       isPhoneNumberMomo = false;
+      selectedName = null;
+      filteredContacts = [];
     });
     Future.delayed(const Duration(milliseconds: 350), () {
       amountFocusNode.requestFocus();
@@ -778,7 +782,8 @@ class _HomeState extends State<Home> {
                                 mobileController.clear();
                                 filteredContacts = [];
                                 selectedName = null;
-                                recipientNameController.clear(); // Also clear name field
+                                recipientNameController
+                                    .clear(); // Also clear name field
                               });
                             },
                             tooltip: 'Clear',
@@ -1063,8 +1068,6 @@ class _HomeState extends State<Home> {
               child: Text('Close'),
               onPressed: () {
                 Navigator.of(context).pop();
-                // Reset the form for next payment
-                _resetForm();
               },
             ),
             ElevatedButton.icon(
