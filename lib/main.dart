@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'screens/home.dart';
-import 'screens/several_codes.dart';
-import 'screens/simple_nearest_stores.dart';
 import 'screens/settings.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -96,20 +94,11 @@ class _MainWrapperState extends State<MainWrapper> {
 
     _pages = <Widget>[
       const Home(),
-      CodesPage(),
-      SimpleNearestStoresPage(),
       SettingsPage(
           initialMobile: mobileNumber,
           initialMomoCode: momoCode,
           selectedLanguage: selectedLanguage!),
     ];
-  }
-
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-    Navigator.pop(context); // Close the drawer
   }
 
   @override
@@ -120,261 +109,26 @@ class _MainWrapperState extends State<MainWrapper> {
       backgroundColor: theme.colorScheme.background,
       appBar: AppBar(
         title: Text(
-          ['Home', 'Misc. USSDs', 'Nearby Stores', 'Settings'][_selectedIndex],
+          ['MQ Pay', 'Settings'][_selectedIndex],
           style: theme.textTheme.headlineMedium?.copyWith(
             fontWeight: FontWeight.w700,
           ),
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: Builder(
-          builder: (context) => Container(
-            margin: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: IconButton(
-              icon: Icon(
-                Icons.menu_rounded,
-                color: theme.colorScheme.primary,
-              ),
-              onPressed: () => Scaffold.of(context).openDrawer(),
-            ),
-          ),
-        ),
-        actions: [
-          Container(
-            margin: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: IconButton(
-              icon: Icon(
-                Icons.notifications_rounded,
-                color: theme.colorScheme.primary,
-              ),
-              onPressed: () {
-                // Add notification functionality
-              },
-            ),
-          ),
-        ],
       ),
-      drawer: _buildModernDrawer(context, theme),
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              theme.colorScheme.primary.withOpacity(0.02),
+              theme.colorScheme.primary.withValues(alpha: 0.02),
               theme.colorScheme.background,
             ],
           ),
         ),
         child: _pages[_selectedIndex],
-      ),
-    );
-  }
-
-  Widget _buildModernDrawer(BuildContext context, ThemeData theme) {
-    return Drawer(
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              theme.colorScheme.surface,
-              theme.colorScheme.surface.withOpacity(0.8),
-            ],
-          ),
-        ),
-        child: Column(
-          children: [
-            // Modern Drawer Header
-            Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                gradient: AppTheme.primaryGradient,
-                borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(30),
-                  bottomRight: Radius.circular(30),
-                ),
-              ),
-              child: SafeArea(
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(vertical: 30, horizontal: 20),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(50),
-                        ),
-                        child: const Icon(
-                          Icons.account_balance_wallet_rounded,
-                          size: 32,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'MQ Pay',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Mobile Payment Solution',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-            // Navigation Items
-            Expanded(
-              child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                child: Column(
-                  children: [
-                    _buildDrawerItem(
-                      context: context,
-                      icon: Icons.home_rounded,
-                      title: 'Home',
-                      index: 0,
-                      theme: theme,
-                    ),
-                    const SizedBox(height: 4),
-                    _buildDrawerItem(
-                      context: context,
-                      icon: Icons.qr_code_rounded,
-                      title: 'Misc. USSDs',
-                      index: 1,
-                      theme: theme,
-                    ),
-                    const SizedBox(height: 4),
-                    _buildDrawerItem(
-                      context: context,
-                      icon: Icons.location_on_rounded,
-                      title: 'Nearby Stores',
-                      index: 2,
-                      theme: theme,
-                    ),
-                    const Spacer(),
-                    const Divider(),
-                    const SizedBox(height: 4),
-
-                    // Theme Toggle
-                    Consumer<ThemeProvider>(
-                      builder: (context, themeProvider, child) {
-                        return Container(
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.surface.withOpacity(0.5),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: ListTile(
-                            leading: Icon(
-                              themeProvider.themeIcon,
-                              color: theme.colorScheme.primary,
-                              size: 24,
-                            ),
-                            title: Text(
-                              '${themeProvider.themeModeString} Theme',
-                              style: TextStyle(
-                                color: theme.colorScheme.onSurface,
-                                fontWeight: FontWeight.w500,
-                                fontSize: 16,
-                              ),
-                            ),
-                            onTap: () => themeProvider.toggleTheme(),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 20, vertical: 8),
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 4),
-
-                    _buildDrawerItem(
-                      context: context,
-                      icon: Icons.settings_rounded,
-                      title: 'Settings',
-                      index: 3,
-                      theme: theme,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDrawerItem({
-    required BuildContext context,
-    required IconData icon,
-    required String title,
-    required int index,
-    required ThemeData theme,
-  }) {
-    final isSelected = _selectedIndex == index;
-
-    return Container(
-      decoration: BoxDecoration(
-        gradient: isSelected ? AppTheme.primaryGradient : null,
-        color: isSelected ? null : Colors.transparent,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: isSelected
-            ? [
-                BoxShadow(
-                  color: theme.colorScheme.primary.withOpacity(0.3),
-                  blurRadius: 8,
-                  offset: const Offset(0, 4),
-                ),
-              ]
-            : null,
-      ),
-      child: ListTile(
-        leading: Icon(
-          icon,
-          color: isSelected ? Colors.white : theme.colorScheme.primary,
-          size: 24,
-        ),
-        title: Text(
-          title,
-          style: TextStyle(
-            color: isSelected ? Colors.white : theme.colorScheme.onSurface,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-            fontSize: 16,
-          ),
-        ),
-        onTap: () => _onItemTapped(index),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       ),
     );
   }

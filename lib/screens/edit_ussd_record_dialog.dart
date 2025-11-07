@@ -28,7 +28,8 @@ class _EditUssdRecordDialogState extends State<EditUssdRecordDialog> {
     amountController =
         TextEditingController(text: widget.record.amount.toStringAsFixed(0));
     recipientController = TextEditingController(text: widget.record.recipient);
-    contactNameController = TextEditingController(text: widget.record.contactName ?? '');
+    contactNameController =
+        TextEditingController(text: widget.record.contactName ?? '');
     reasonController = TextEditingController(text: widget.record.reason ?? '');
     recipientType = widget.record.recipientType;
   }

@@ -1253,7 +1253,8 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
     final isExpanded = expandedGroups.contains(dateKey);
 
     // Calculate total amount for this day
-    final dayTotal = dayRecords.fold<double>(0, (sum, record) => sum + record.amount);
+    final dayTotal =
+        dayRecords.fold<double>(0, (sum, record) => sum + record.amount);
 
     // Format date labels
     final now = DateTime.now();
@@ -1333,7 +1334,8 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                       Text(
                         '${dayRecords.length} transaction${dayRecords.length != 1 ? 's' : ''}',
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.6),
                         ),
                       ),
                     ],
@@ -1354,7 +1356,8 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                     Text(
                       'Total',
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.5),
                       ),
                     ),
                   ],
@@ -1388,9 +1391,8 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                   .toList(),
             ),
           ),
-          crossFadeState: isExpanded
-              ? CrossFadeState.showSecond
-              : CrossFadeState.showFirst,
+          crossFadeState:
+              isExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
           duration: const Duration(milliseconds: 300),
           sizeCurve: Curves.easeInOut,
         ),
@@ -1587,7 +1589,8 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
       _loadRecords();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Invalid transaction deleted successfully')),
+          const SnackBar(
+              content: Text('Invalid transaction deleted successfully')),
         );
       }
     }
@@ -1753,8 +1756,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                   ?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            Text(
-                'Amount: ${_formatCurrency(record.amount)}'),
+            Text('Amount: ${_formatCurrency(record.amount)}'),
             Text(
                 'Date: ${DateFormat('MMM dd, yyyy • HH:mm').format(record.timestamp)}'),
             if (record.reason != null && record.reason!.isNotEmpty) ...[
