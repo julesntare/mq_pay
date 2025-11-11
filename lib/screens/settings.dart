@@ -68,6 +68,10 @@ class _SettingsPageState extends State<SettingsPage> {
   String _selectedType = 'mobile';
   String _selectedProvider = 'MTN';
 
+  // Auto-backup settings
+  bool _autoBackupEnabled = false;
+  String _autoBackupFrequency = 'daily'; // daily, weekly, monthly
+
   @override
   void initState() {
     super.initState();
@@ -75,6 +79,7 @@ class _SettingsPageState extends State<SettingsPage> {
     momoCodeController = TextEditingController(text: widget.initialMomoCode);
     selectedLanguage = widget.selectedLanguage;
     _loadPaymentMethods();
+    _loadAutoBackupSettings();
   }
 
   Future<void> _loadPaymentMethods() async {
@@ -91,6 +96,31 @@ class _SettingsPageState extends State<SettingsPage> {
         _migrateOldPaymentMethods();
       }
     });
+  }
+
+  Future<void> _loadAutoBackupSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _autoBackupEnabled = prefs.getBool('autoBackupEnabled') ?? false;
+      _autoBackupFrequency = prefs.getString('autoBackupFrequency') ?? 'daily';
+    });
+  }
+
+  Future<void> _saveAutoBackupSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('autoBackupEnabled', _autoBackupEnabled);
+    await prefs.setString('autoBackupFrequency', _autoBackupFrequency);
+
+    // If enabled, create an initial auto-backup
+    if (_autoBackupEnabled) {
+      try {
+        await BackupService.createAutoBackup();
+        await prefs.setInt(
+            'lastAutoBackupTimestamp', DateTime.now().millisecondsSinceEpoch);
+      } catch (e) {
+        // Ignore errors during initial backup
+      }
+    }
   }
 
   void _migrateOldPaymentMethods() {
@@ -181,6 +211,10 @@ class _SettingsPageState extends State<SettingsPage> {
 
                 // Backup & Restore
                 _buildBackupSection(context, theme),
+                const SizedBox(height: 20),
+
+                // Auto-Backup Settings
+                _buildAutoBackupSection(context, theme),
                 const SizedBox(height: 20),
 
                 // App Information
@@ -1101,6 +1135,207 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                   ],
                 ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAutoBackupSection(BuildContext context, ThemeData theme) {
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.autorenew_rounded,
+                  color: theme.colorScheme.primary,
+                  size: 24,
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'Auto-Backup',
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Automatically backup your data periodically',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withOpacity(0.7),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Enable/Disable Auto-Backup
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Enable Auto-Backup',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Backup data automatically in the background',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Switch(
+                    value: _autoBackupEnabled,
+                    onChanged: (value) {
+                      setState(() {
+                        _autoBackupEnabled = value;
+                      });
+                      _saveAutoBackupSettings();
+                    },
+                    activeColor: theme.colorScheme.primary,
+                  ),
+                ],
+              ),
+            ),
+
+            // Frequency Selection (only show when enabled)
+            if (_autoBackupEnabled) ...[
+              const SizedBox(height: 16),
+              Text(
+                'Backup Frequency',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildFrequencyOption(
+                      'Daily',
+                      'daily',
+                      Icons.today_rounded,
+                      theme,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildFrequencyOption(
+                      'Weekly',
+                      'weekly',
+                      Icons.calendar_view_week_rounded,
+                      theme,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildFrequencyOption(
+                      'Monthly',
+                      'monthly',
+                      Icons.calendar_month_rounded,
+                      theme,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: Colors.blue.shade200,
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      color: Colors.blue.shade700,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Auto-backups are stored locally. Use manual export to save externally.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: Colors.blue.shade700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFrequencyOption(
+      String label, String value, IconData icon, ThemeData theme) {
+    final isSelected = _autoBackupFrequency == value;
+    return InkWell(
+      onTap: () {
+        setState(() {
+          _autoBackupFrequency = value;
+        });
+        _saveAutoBackupSettings();
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? theme.colorScheme.primary
+              : theme.colorScheme.surfaceContainerHighest.withOpacity(0.3),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected
+                ? theme.colorScheme.primary
+                : theme.colorScheme.outline.withOpacity(0.2),
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Column(
+          children: [
+            Icon(
+              icon,
+              color: isSelected ? Colors.white : theme.colorScheme.onSurface,
+              size: 24,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color:
+                    isSelected ? Colors.white : theme.colorScheme.onSurface,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
           ],

@@ -467,4 +467,59 @@ class BackupService {
       throw Exception('Failed to export to Excel: $e');
     }
   }
+
+  /// Check if auto-backup should be triggered based on settings
+  static Future<bool> shouldTriggerAutoBackup() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // Check if auto-backup is enabled
+      final isEnabled = prefs.getBool('autoBackupEnabled') ?? false;
+      if (!isEnabled) return false;
+
+      // Get last backup timestamp
+      final lastBackupTimestamp =
+          prefs.getInt('lastAutoBackupTimestamp') ?? 0;
+      final lastBackupTime =
+          DateTime.fromMillisecondsSinceEpoch(lastBackupTimestamp);
+
+      // Get frequency setting
+      final frequency = prefs.getString('autoBackupFrequency') ?? 'daily';
+
+      // Calculate if backup is due
+      final now = DateTime.now();
+      final timeSinceLastBackup = now.difference(lastBackupTime);
+
+      switch (frequency) {
+        case 'daily':
+          return timeSinceLastBackup.inHours >= 24;
+        case 'weekly':
+          return timeSinceLastBackup.inDays >= 7;
+        case 'monthly':
+          return timeSinceLastBackup.inDays >= 30;
+        default:
+          return false;
+      }
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Perform auto-backup if needed
+  static Future<void> performAutoBackupIfNeeded() async {
+    try {
+      final shouldBackup = await shouldTriggerAutoBackup();
+
+      if (shouldBackup) {
+        await createAutoBackup();
+
+        // Update last backup timestamp
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setInt(
+            'lastAutoBackupTimestamp', DateTime.now().millisecondsSinceEpoch);
+      }
+    } catch (e) {
+      // Silently fail - auto-backup is not critical
+    }
+  }
 }

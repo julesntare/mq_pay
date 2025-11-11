@@ -8,6 +8,7 @@ import 'helpers/localProvider.dart';
 import 'helpers/app_theme.dart';
 import 'helpers/theme_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'services/backup_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,6 +17,9 @@ void main() async {
   final prefs = await SharedPreferences.getInstance();
 
   await localeProvider.loadLocale();
+
+  // Check and perform auto-backup if needed
+  BackupService.performAutoBackupIfNeeded();
 
   runApp(
     MultiProvider(
