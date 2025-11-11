@@ -55,9 +55,13 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
   // Collapsible groups state - tracks which date groups are expanded
   Set<String> expandedGroups = {}; // Set of date keys 'yyyy-MM-dd'
 
+  // PageController for swipeable tabs
+  late PageController _pageController;
+
   @override
   void initState() {
     super.initState();
+    _pageController = PageController(initialPage: selectedTab);
     _loadRecords();
     _loadContacts();
   }
@@ -304,6 +308,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
   @override
   void dispose() {
     searchController.dispose();
+    _pageController.dispose();
     super.dispose();
   }
 
@@ -386,6 +391,31 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                           children: [
                             _buildSummaryCards(theme),
                             _buildSearchBar(theme),
+                            // Active filter title
+                            if (activeFilter != null)
+                              Container(
+                                padding:
+                                    const EdgeInsets.fromLTRB(20, 8, 20, 4),
+                                alignment: Alignment.centerLeft,
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.filter_list_rounded,
+                                      size: 16,
+                                      color: theme.colorScheme.primary,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Filtered: ${_getFilterDisplayName(activeFilter!)}',
+                                      style:
+                                          theme.textTheme.titleSmall?.copyWith(
+                                        color: theme.colorScheme.primary,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             // Filtered total badge
                             if (recipientTypeFilter != null ||
                                 selectedReason != null ||
@@ -832,24 +862,37 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
     );
   }
 
+  String _getFilterDisplayName(String filterKey) {
+    switch (filterKey) {
+      case 'phone':
+        return 'Phone Number';
+      case 'momo':
+        return 'Momo Code';
+      case 'misc':
+        return 'Side Payments';
+      default:
+        return 'All';
+    }
+  }
+
   Widget _buildSummaryCards(ThemeData theme) {
     final tabData = [
       {
-        'title': 'Mobile',
+        'title': 'Phone Number',
         'icon': Icons.phone_rounded,
         'color': AppTheme.successColor,
         'key': 'phone'
       },
       {
-        'title': 'MoCode',
+        'title': 'Momo Code',
         'icon': Icons.qr_code_rounded,
         'color': AppTheme.warningColor,
         'key': 'momo'
       },
       {
-        'title': 'Misc',
+        'title': 'Side Payments',
         'icon': Icons.code_rounded,
-        'color': AppTheme.primaryColor,
+        'color': const Color(0xFF06B6D4), // Cyan for better contrast
         'key': 'misc'
       },
     ];
@@ -886,11 +929,25 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            'Total',
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              color: Colors.white70,
-                            ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Overall Total',
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'All recorded payments',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: Colors.white60,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ],
                           ),
                           Text(
                             _formatCurrency(totalAmount),
@@ -966,82 +1023,143 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
 
                 const Divider(color: Colors.white24, height: 1),
 
-                // Tab Bar
+                // Swipeable Tab Content with Navigation Arrows
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
                   child: Row(
-                    children: List.generate(tabData.length, (index) {
-                      final isSelected = selectedTab == index;
-                      final tab = tabData[index];
-                      final tabKey = tab['key'] as String;
-                      final isFiltered = activeFilter == tabKey;
-                      return Expanded(
-                        child: GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              selectedTab = index;
-                              // Toggle filter on/off
-                              if (activeFilter == tabKey) {
-                                activeFilter = null; // Turn off filter
-                              } else {
-                                activeFilter = tabKey; // Turn on filter
+                    children: [
+                      // Left Arrow
+                      IconButton(
+                        icon: Icon(
+                          Icons.chevron_left_rounded,
+                          color: selectedTab > 0
+                              ? Colors.white
+                              : Colors.white.withValues(alpha: 0.3),
+                          size: 32,
+                        ),
+                        onPressed: selectedTab > 0
+                            ? () {
+                                _pageController.previousPage(
+                                  duration: const Duration(milliseconds: 300),
+                                  curve: Curves.easeInOut,
+                                );
                               }
-                            });
-                            _computeFilteredTotal();
-                          },
-                          child: Container(
-                            margin: EdgeInsets.only(
-                                right: index < tabData.length - 1 ? 8 : 0),
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            decoration: BoxDecoration(
-                              color: isFiltered
-                                  ? Colors.white.withValues(alpha: 0.3)
-                                  : (isSelected
-                                      ? Colors.white.withValues(alpha: 0.2)
-                                      : Colors.transparent),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: isFiltered
-                                    ? Colors.white
-                                    : (isSelected
-                                        ? Colors.white.withValues(alpha: 0.3)
-                                        : Colors.transparent),
-                                width: isFiltered ? 2 : 1,
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  tab['icon'] as IconData,
-                                  color: Colors.white,
-                                  size: 16,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  tab['title'] as String,
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: Colors.white,
-                                    fontWeight: isFiltered || isSelected
-                                        ? FontWeight.bold
-                                        : FontWeight.normal,
-                                    fontSize: 11,
+                            : null,
+                      ),
+                      // PageView for swipeable tabs
+                      Expanded(
+                        child: SizedBox(
+                          height: 80,
+                          child: PageView.builder(
+                            controller: _pageController,
+                            onPageChanged: (index) {
+                              setState(() {
+                                selectedTab = index;
+                              });
+                            },
+                            itemCount: tabData.length,
+                            itemBuilder: (context, index) {
+                              final tab = tabData[index];
+                              final tabKey = tab['key'] as String;
+                              final isFiltered = activeFilter == tabKey;
+                              return GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    // Toggle filter on/off
+                                    if (activeFilter == tabKey) {
+                                      activeFilter = null; // Turn off filter
+                                    } else {
+                                      activeFilter = tabKey; // Turn on filter
+                                    }
+                                  });
+                                  _computeFilteredTotal();
+                                },
+                                child: Container(
+                                  margin: const EdgeInsets.symmetric(
+                                      horizontal: 12),
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 2, horizontal: 12),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            tab['icon'] as IconData,
+                                            color: tab['color'] as Color,
+                                            size: 24,
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Flexible(
+                                            child: Text(
+                                              tab['title'] as String,
+                                              style: theme.textTheme.titleMedium
+                                                  ?.copyWith(
+                                                color: tab['color'] as Color,
+                                                fontWeight: isFiltered
+                                                    ? FontWeight.bold
+                                                    : FontWeight.w600,
+                                              ),
+                                              textAlign: TextAlign.center,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          if (isFiltered)
+                                            Container(
+                                              padding: const EdgeInsets.all(2),
+                                              decoration: BoxDecoration(
+                                                color: Colors.white
+                                                    .withValues(alpha: 0.3),
+                                                shape: BoxShape.circle,
+                                              ),
+                                              child: Icon(
+                                                Icons.close_rounded,
+                                                color: Colors.white,
+                                                size: 16,
+                                              ),
+                                            )
+                                          else
+                                            Icon(
+                                              Icons.touch_app_rounded,
+                                              color: Colors.white
+                                                  .withValues(alpha: 0.5),
+                                              size: 18,
+                                            ),
+                                        ],
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                if (isFiltered) ...[
-                                  const SizedBox(width: 4),
-                                  Icon(
-                                    Icons.filter_alt,
-                                    color: Colors.white,
-                                    size: 12,
-                                  ),
-                                ],
-                              ],
-                            ),
+                              );
+                            },
                           ),
                         ),
-                      );
-                    }),
+                      ),
+                      // Right Arrow
+                      IconButton(
+                        icon: Icon(
+                          Icons.chevron_right_rounded,
+                          color: selectedTab < tabData.length - 1
+                              ? Colors.white
+                              : Colors.white.withValues(alpha: 0.3),
+                          size: 32,
+                        ),
+                        onPressed: selectedTab < tabData.length - 1
+                            ? () {
+                                _pageController.nextPage(
+                                  duration: const Duration(milliseconds: 300),
+                                  curve: Curves.easeInOut,
+                                );
+                              }
+                            : null,
+                      ),
+                    ],
                   ),
                 ),
 
@@ -1060,7 +1178,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                       Text(
                         _formatCurrency(totalTabAmount),
                         style: theme.textTheme.titleMedium?.copyWith(
-                          color: Colors.white,
+                          color: currentTab['color'] as Color,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -1086,7 +1204,8 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                         Text(
                           _formatCurrency(monthlyTabAmount),
                           style: theme.textTheme.titleSmall?.copyWith(
-                            color: Colors.white,
+                            color: (currentTab['color'] as Color)
+                                .withValues(alpha: 0.85),
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -1256,6 +1375,18 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
     final dayTotal =
         dayRecords.fold<double>(0, (sum, record) => sum + record.amount);
 
+    // Determine color based on active filter
+    Color totalColor = theme.colorScheme.onSurface;
+    if (activeFilter != null) {
+      if (activeFilter == 'phone') {
+        totalColor = AppTheme.successColor; // Green
+      } else if (activeFilter == 'momo') {
+        totalColor = AppTheme.warningColor; // Orange
+      } else if (activeFilter == 'misc') {
+        totalColor = const Color(0xFF06B6D4); // Cyan
+      }
+    }
+
     // Format date labels
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -1349,7 +1480,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                       _formatCurrency(dayTotal),
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: theme.colorScheme.primary,
+                        color: totalColor,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -1407,13 +1538,13 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
     IconData icon;
 
     if (isPhonePayment) {
-      color = AppTheme.successColor;
+      color = AppTheme.successColor; // Green for phone
       icon = Icons.phone_rounded;
     } else if (isMiscCode) {
-      color = AppTheme.primaryColor;
+      color = const Color(0xFF06B6D4); // Cyan for side payments
       icon = Icons.code_rounded;
     } else {
-      color = AppTheme.warningColor;
+      color = AppTheme.warningColor; // Orange for momo
       icon = Icons.qr_code_rounded;
     }
 
