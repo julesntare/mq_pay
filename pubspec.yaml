@@ -44,9 +44,7 @@ dependencies:
   intl: any
   flutter_native_contact_picker: ^0.0.10
   flutter_contacts: ^1.1.9
-  cloud_firestore: ^6.1.0
   geolocator: ^14.0.2
-  firebase_core: ^4.2.1
   flutter_direct_caller_plugin: ^0.0.3
   http: ^1.1.0
   connectivity_plus: ^7.0.0

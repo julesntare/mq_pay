@@ -8,18 +8,12 @@ import 'helpers/localProvider.dart';
 import 'helpers/app_theme.dart';
 import 'helpers/theme_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'firebase_options.dart';
-import 'package:firebase_core/firebase_core.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final localeProvider = LocaleProvider();
   final themeProvider = ThemeProvider();
   final prefs = await SharedPreferences.getInstance();
-
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
 
   await localeProvider.loadLocale();
 
