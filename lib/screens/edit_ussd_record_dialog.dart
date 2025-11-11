@@ -336,17 +336,46 @@ class _EditUssdRecordDialogState extends State<EditUssdRecordDialog> {
               ),
               const SizedBox(height: 12),
 
-              // Reason field (optional)
-              TextField(
-                controller: reasonController,
-                decoration: InputDecoration(
-                  labelText: 'Reason (optional)',
-                  prefixIcon: Icon(Icons.note_rounded),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  hintText: 'Optional note about this transaction',
-                ),
+              // Reason field (optional) with suggestions
+              FutureBuilder<List<String>>(
+                future: UssdRecordService.getUniqueReasons(),
+                builder: (context, snapshot) {
+                  final options = snapshot.data ?? [];
+                  return Autocomplete<String>(
+                    optionsBuilder: (TextEditingValue textEditingValue) {
+                      if (textEditingValue.text == '') {
+                        return const Iterable<String>.empty();
+                      }
+                      return options.where((String option) {
+                        return option
+                            .toLowerCase()
+                            .contains(textEditingValue.text.toLowerCase());
+                      });
+                    },
+                    onSelected: (String selection) {
+                      reasonController.text = selection;
+                    },
+                    fieldViewBuilder:
+                        (context, controller, focusNode, onFieldSubmitted) {
+                      controller.text = reasonController.text;
+                      controller.selection = TextSelection.fromPosition(
+                          TextPosition(offset: controller.text.length));
+                      return TextField(
+                        controller: controller,
+                        focusNode: focusNode,
+                        decoration: InputDecoration(
+                          labelText: 'Reason (optional)',
+                          hintText: 'Optional note about this transaction',
+                          prefixIcon: Icon(Icons.note_rounded),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onChanged: (v) => reasonController.text = v,
+                      );
+                    },
+                  );
+                },
               ),
               const SizedBox(height: 12),
             ],
