@@ -6,6 +6,7 @@ import '../helpers/app_theme.dart';
 import '../helpers/launcher.dart';
 import 'edit_ussd_record_dialog.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
+import '../widgets/scroll_indicator.dart';
 
 class UssdRecordsScreen extends StatefulWidget {
   const UssdRecordsScreen({super.key});
@@ -57,6 +58,9 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
 
   // PageController for swipeable tabs
   late PageController _pageController;
+
+  // ScrollController for scroll indicators
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -309,6 +313,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
   void dispose() {
     searchController.dispose();
     _pageController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -382,64 +387,72 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
           ? const Center(child: CircularProgressIndicator())
           : records.isEmpty
               ? _buildEmptyState(theme)
-              : Column(
-                  children: [
-                    // Make header region scrollable when vertical space is tight
-                    Flexible(
-                      child: SingleChildScrollView(
-                        child: Column(
-                          children: [
-                            _buildSummaryCards(theme),
-                            _buildSearchBar(theme),
-                            // Active filter title
-                            if (activeFilter != null)
-                              Container(
-                                padding:
-                                    const EdgeInsets.fromLTRB(20, 8, 20, 4),
-                                alignment: Alignment.centerLeft,
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.filter_list_rounded,
-                                      size: 16,
-                                      color: theme.colorScheme.primary,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'Filtered: ${_getFilterDisplayName(activeFilter!)}',
-                                      style:
-                                          theme.textTheme.titleSmall?.copyWith(
-                                        color: theme.colorScheme.primary,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            // Filtered total badge
-                            if (recipientTypeFilter != null ||
-                                selectedReason != null ||
-                                filterStartDate != null ||
-                                filterEndDate != null ||
-                                searchQuery.isNotEmpty)
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 20, vertical: 6),
-                                alignment: Alignment.centerLeft,
-                                child: Chip(
-                                  label: Text(_formatCurrency(filteredTotal)),
-                                  backgroundColor: theme.colorScheme.primary
-                                      .withValues(alpha: 0.12),
-                                ),
-                              ),
-                            _buildReasonFilters(theme),
-                          ],
-                        ),
+              : ScrollIndicatorWrapper(
+                  controller: _scrollController,
+                  showTopIndicator: true,
+                  showBottomIndicator: true,
+                  child: CustomScrollView(
+                    controller: _scrollController,
+                    slivers: [
+                      // Summary cards
+                      SliverToBoxAdapter(
+                        child: _buildSummaryCards(theme),
                       ),
-                    ),
-                    // The main list takes remaining space
-                    Expanded(child: _buildRecordsList(theme)),
-                  ],
+                      // Search bar
+                      SliverToBoxAdapter(
+                        child: _buildSearchBar(theme),
+                      ),
+                      // Active filter title
+                      if (activeFilter != null)
+                        SliverToBoxAdapter(
+                          child: Container(
+                            padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+                            alignment: Alignment.centerLeft,
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.filter_list_rounded,
+                                  size: 16,
+                                  color: theme.colorScheme.primary,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Filtered: ${_getFilterDisplayName(activeFilter!)}',
+                                  style: theme.textTheme.titleSmall?.copyWith(
+                                    color: theme.colorScheme.primary,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      // Filtered total badge
+                      if (recipientTypeFilter != null ||
+                          selectedReason != null ||
+                          filterStartDate != null ||
+                          filterEndDate != null ||
+                          searchQuery.isNotEmpty)
+                        SliverToBoxAdapter(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 20, vertical: 6),
+                            alignment: Alignment.centerLeft,
+                            child: Chip(
+                              label: Text(_formatCurrency(filteredTotal)),
+                              backgroundColor: theme.colorScheme.primary
+                                  .withValues(alpha: 0.12),
+                            ),
+                          ),
+                        ),
+                      // Reason filters
+                      SliverToBoxAdapter(
+                        child: _buildReasonFilters(theme),
+                      ),
+                      // Records list
+                      _buildRecordsListSliver(theme),
+                    ],
+                  ),
                 ),
     );
   }
@@ -1220,7 +1233,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
     );
   }
 
-  Widget _buildRecordsList(ThemeData theme) {
+  Widget _buildRecordsListSliver(ThemeData theme) {
     // Apply combined filters: activeFilter (tab), recipientTypeFilter (advanced), reason, date range
     var filteredRecords = records.where((record) {
       if (activeFilter != null && record.recipientType != activeFilter)
@@ -1289,34 +1302,37 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
 
     // Show empty state if no results
     if (filteredRecords.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              searchQuery.isNotEmpty ? Icons.search_off : Icons.filter_alt_off,
-              size: 60,
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              searchQuery.isNotEmpty
-                  ? 'No results for "$searchQuery"'
-                  : 'No ${activeFilter == 'phone' ? 'Mobile' : activeFilter == 'momo' ? 'MoCode' : 'Misc'} transactions',
-              style: theme.textTheme.titleMedium?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+      return SliverFillRemaining(
+        hasScrollBody: false,
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                searchQuery.isNotEmpty ? Icons.search_off : Icons.filter_alt_off,
+                size: 60,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              searchQuery.isNotEmpty
-                  ? 'Try different keywords'
-                  : 'Tap the filter again to view all',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+              const SizedBox(height: 16),
+              Text(
+                searchQuery.isNotEmpty
+                    ? 'No results for "$searchQuery"'
+                    : 'No ${activeFilter == 'phone' ? 'Mobile' : activeFilter == 'momo' ? 'MoCode' : 'Misc'} transactions',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 8),
+              Text(
+                searchQuery.isNotEmpty
+                    ? 'Try different keywords'
+                    : 'Tap the filter again to view all',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -1324,18 +1340,30 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
     // Group records by day (yyyy-MM-dd) with newest date first
     final grouped = _groupRecordsByDay(filteredRecords);
 
-    return ListView.separated(
+    return SliverPadding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      itemCount: grouped.length,
-      separatorBuilder: (context, index) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        final group = grouped[index];
-        final date = group.key; // 'yyyy-MM-dd'
-        final dayRecords = group.value;
-        // Parse date for display
-        final dateObj = DateTime.parse(date);
-        return _buildDayGroup(theme, dateObj, dayRecords);
-      },
+      sliver: SliverList(
+        delegate: SliverChildBuilderDelegate(
+          (context, index) {
+            if (index >= grouped.length * 2 - 1) return null;
+
+            // Separator on odd indices
+            if (index.isOdd) {
+              return const SizedBox(height: 12);
+            }
+
+            // Group item on even indices
+            final groupIndex = index ~/ 2;
+            final group = grouped[groupIndex];
+            final date = group.key; // 'yyyy-MM-dd'
+            final dayRecords = group.value;
+            // Parse date for display
+            final dateObj = DateTime.parse(date);
+            return _buildDayGroup(theme, dateObj, dayRecords);
+          },
+          childCount: grouped.length * 2 - 1,
+        ),
+      ),
     );
   }
 

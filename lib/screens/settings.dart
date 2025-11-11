@@ -7,6 +7,7 @@ import '../helpers/app_theme.dart';
 import '../helpers/theme_provider.dart';
 import '../services/backup_service.dart';
 import 'dart:convert';
+import '../widgets/scroll_indicator.dart';
 
 // Payment Method Model
 class PaymentMethod {
@@ -71,6 +72,9 @@ class _SettingsPageState extends State<SettingsPage> {
   // Auto-backup settings
   bool _autoBackupEnabled = false;
   String _autoBackupFrequency = 'daily'; // daily, weekly, monthly
+
+  // ScrollController for scroll indicators
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -187,10 +191,15 @@ class _SettingsPageState extends State<SettingsPage> {
     return Scaffold(
       backgroundColor: theme.colorScheme.background,
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
+        child: ScrollIndicatorWrapper(
+          controller: _scrollController,
+          showTopIndicator: true,
+          showBottomIndicator: true,
+          child: SingleChildScrollView(
+            controller: _scrollController,
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Header Section
@@ -224,6 +233,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 // Save Button
                 _buildSaveButton(context, theme),
               ],
+              ),
             ),
           ),
         ),
@@ -1973,6 +1983,7 @@ class _SettingsPageState extends State<SettingsPage> {
     mobileController.dispose();
     momoCodeController.dispose();
     _newPaymentController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 }

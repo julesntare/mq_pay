@@ -13,6 +13,7 @@ import '../models/ussd_record.dart';
 import '../services/ussd_record_service.dart';
 import 'dart:convert';
 import 'package:qr_flutter/qr_flutter.dart';
+import '../widgets/scroll_indicator.dart';
 
 class Home extends StatefulWidget {
   const Home({super.key});
@@ -382,31 +383,35 @@ class _HomeState extends State<Home> {
       backgroundColor: theme.colorScheme.surface,
       resizeToAvoidBottomInset: true,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: EdgeInsets.only(
-            left: 20,
-            right: 20,
-            top: 20,
-            bottom: 20 +
-                keyboardHeight * 0.1, // Add small padding when keyboard is open
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // App Title
-              _buildAppHeader(context, theme),
-              const SizedBox(height: 30),
+        child: ScrollIndicatorWrapper(
+          controller: _scrollController,
+          child: SingleChildScrollView(
+            controller: _scrollController,
+            padding: EdgeInsets.only(
+              left: 20,
+              right: 20,
+              top: 20,
+              bottom: 20 +
+                  keyboardHeight * 0.1, // Add small padding when keyboard is open
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // App Title
+                _buildAppHeader(context, theme),
+                const SizedBox(height: 30),
 
-              // Quick Actions (Scan QR & Load Contact)
-              _buildQuickActions(context, theme),
-              const SizedBox(height: 30),
+                // Quick Actions (Scan QR & Load Contact)
+                _buildQuickActions(context, theme),
+                const SizedBox(height: 30),
 
-              // Streamlined Payment Form
-              _buildStreamlinedPaymentForm(context, theme),
+                // Streamlined Payment Form
+                _buildStreamlinedPaymentForm(context, theme),
 
-              // Add extra space when keyboard is visible
-              if (keyboardHeight > 0) SizedBox(height: 100),
-            ],
+                // Add extra space when keyboard is visible
+                if (keyboardHeight > 0) SizedBox(height: 100),
+              ],
+            ),
           ),
         ),
       ),

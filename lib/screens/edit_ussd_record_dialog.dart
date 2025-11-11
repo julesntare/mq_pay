@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/ussd_record.dart';
 import '../services/ussd_record_service.dart';
+import '../widgets/scroll_indicator.dart';
 
 class EditUssdRecordDialog extends StatefulWidget {
   final UssdRecord record;
@@ -230,12 +231,15 @@ class _EditUssdRecordDialogState extends State<EditUssdRecordDialog> {
           const Text('Edit Transaction'),
         ],
       ),
-      content: SingleChildScrollView(
-        padding:
-            EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: double.maxFinite),
-          child: Column(
+      content: ScrollIndicatorWrapper(
+        showTopIndicator: true,
+        showBottomIndicator: true,
+        child: SingleChildScrollView(
+          padding:
+              EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: double.maxFinite),
+            child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               // Amount Field
@@ -379,6 +383,7 @@ class _EditUssdRecordDialogState extends State<EditUssdRecordDialog> {
               ),
               const SizedBox(height: 12),
             ],
+            ),
           ),
         ),
       ),
