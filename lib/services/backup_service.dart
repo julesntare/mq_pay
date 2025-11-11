@@ -4,6 +4,8 @@ import 'dart:typed_data';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:excel/excel.dart';
+import 'package:intl/intl.dart';
 import '../models/ussd_record.dart';
 import 'ussd_record_service.dart';
 
@@ -282,6 +284,187 @@ class BackupService {
       }).toList();
     } catch (e) {
       return [];
+    }
+  }
+
+  /// Export transactions to Excel format for analysis
+  static Future<String?> exportToExcel() async {
+    try {
+      // Get all USSD records
+      final ussdRecords = await UssdRecordService.getUssdRecords();
+
+      if (ussdRecords.isEmpty) {
+        throw Exception('No transactions to export');
+      }
+
+      // Create Excel workbook
+      final excel = Excel.createExcel();
+
+      // Remove default sheet
+      excel.delete('Sheet1');
+
+      // Create Transactions sheet
+      final transactionsSheet = excel['Transactions'];
+
+      // Define header style
+      final headerStyle = CellStyle(
+        bold: true,
+        backgroundColorHex: ExcelColor.blue,
+        fontColorHex: ExcelColor.white,
+      );
+
+      // Add headers
+      final headers = [
+        'Date',
+        'Time',
+        'Recipient',
+        'Recipient Type',
+        'Amount',
+        'Contact Name',
+        'Reason',
+        'USSD Code',
+      ];
+
+      for (var i = 0; i < headers.length; i++) {
+        final cell = transactionsSheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 0));
+        cell.value = TextCellValue(headers[i]);
+        cell.cellStyle = headerStyle;
+      }
+
+      // Add data rows
+      for (var i = 0; i < ussdRecords.length; i++) {
+        final record = ussdRecords[i];
+        final rowIndex = i + 1;
+
+        // Format date and time
+        final dateFormat = DateFormat('yyyy-MM-dd');
+        final timeFormat = DateFormat('HH:mm:ss');
+
+        final rowData = [
+          dateFormat.format(record.timestamp),
+          timeFormat.format(record.timestamp),
+          record.maskedRecipient ?? record.recipient,
+          record.recipientType,
+          record.amount.toString(),
+          record.contactName ?? '',
+          record.reason ?? '',
+          record.ussdCode,
+        ];
+
+        for (var j = 0; j < rowData.length; j++) {
+          final cell = transactionsSheet
+              .cell(CellIndex.indexByColumnRow(columnIndex: j, rowIndex: rowIndex));
+          cell.value = TextCellValue(rowData[j]);
+        }
+      }
+
+      // Auto-fit columns (set reasonable width)
+      transactionsSheet.setColumnWidth(0, 12); // Date
+      transactionsSheet.setColumnWidth(1, 10); // Time
+      transactionsSheet.setColumnWidth(2, 15); // Recipient
+      transactionsSheet.setColumnWidth(3, 14); // Recipient Type
+      transactionsSheet.setColumnWidth(4, 12); // Amount
+      transactionsSheet.setColumnWidth(5, 20); // Contact Name
+      transactionsSheet.setColumnWidth(6, 20); // Reason
+      transactionsSheet.setColumnWidth(7, 12); // USSD Code
+
+      // Create Summary sheet
+      final summarySheet = excel['Summary'];
+
+      // Add summary headers
+      summarySheet
+          .cell(CellIndex.indexByString('A1'))
+          .value = TextCellValue('Summary Statistics');
+      summarySheet.cell(CellIndex.indexByString('A1')).cellStyle = headerStyle;
+
+      // Calculate statistics
+      final totalAmount =
+          ussdRecords.fold<double>(0.0, (sum, record) => sum + record.amount);
+      final totalTransactions = ussdRecords.length;
+
+      final amountByType = <String, double>{};
+      for (final record in ussdRecords) {
+        amountByType[record.recipientType] =
+            (amountByType[record.recipientType] ?? 0) + record.amount;
+      }
+
+      // Add summary data
+      var row = 2;
+      summarySheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row))
+          .value = TextCellValue('Total Transactions:');
+      summarySheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row))
+          .value = IntCellValue(totalTransactions);
+      row++;
+
+      summarySheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row))
+          .value = TextCellValue('Total Amount:');
+      summarySheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row))
+          .value = DoubleCellValue(totalAmount);
+      row++;
+
+      summarySheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row))
+          .value = TextCellValue('Average Amount:');
+      summarySheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row))
+          .value = DoubleCellValue(totalAmount / totalTransactions);
+      row += 2;
+
+      // Add breakdown by type
+      summarySheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row))
+          .value = TextCellValue('Amount by Type:');
+      summarySheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row))
+          .cellStyle = headerStyle;
+      row++;
+
+      for (final entry in amountByType.entries) {
+        summarySheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row))
+            .value = TextCellValue('  ${entry.key}:');
+        summarySheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row))
+            .value = DoubleCellValue(entry.value);
+        row++;
+      }
+
+      // Set column widths for summary
+      summarySheet.setColumnWidth(0, 20);
+      summarySheet.setColumnWidth(1, 15);
+
+      // Encode to bytes
+      final bytes = excel.encode();
+      if (bytes == null) {
+        throw Exception('Failed to encode Excel file');
+      }
+
+      // Generate filename with timestamp
+      final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-').replaceAll('.', '-');
+      final fileName = 'mq_pay_transactions_$timestamp.xlsx';
+
+      // Save file
+      final outputFile = await FilePicker.platform.saveFile(
+        dialogTitle: 'Save Excel File',
+        fileName: fileName,
+        type: FileType.custom,
+        allowedExtensions: ['xlsx'],
+        bytes: Uint8List.fromList(bytes),
+      );
+
+      if (outputFile == null) {
+        // User cancelled
+        return null;
+      }
+
+      return outputFile;
+    } catch (e) {
+      throw Exception('Failed to export to Excel: $e');
     }
   }
 }
