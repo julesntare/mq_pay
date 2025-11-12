@@ -200,39 +200,39 @@ class _SettingsPageState extends State<SettingsPage> {
             child: Padding(
               padding: const EdgeInsets.all(20),
               child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header Section
-                _buildHeaderSection(context, theme),
-                const SizedBox(height: 30),
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header Section
+                  _buildHeaderSection(context, theme),
+                  const SizedBox(height: 30),
 
-                // Payment Configuration
-                _buildPaymentConfigSection(context, theme),
-                const SizedBox(height: 20),
+                  // Payment Configuration
+                  _buildPaymentConfigSection(context, theme),
+                  const SizedBox(height: 20),
 
-                // Language Settings
-                _buildLanguageSection(context, theme),
-                const SizedBox(height: 20),
+                  // Language Settings
+                  _buildLanguageSection(context, theme),
+                  const SizedBox(height: 20),
 
-                // Theme Settings
-                _buildThemeSection(context, theme),
-                const SizedBox(height: 20),
+                  // Theme Settings
+                  _buildThemeSection(context, theme),
+                  const SizedBox(height: 20),
 
-                // Backup & Restore
-                _buildBackupSection(context, theme),
-                const SizedBox(height: 20),
+                  // Backup & Restore
+                  _buildBackupSection(context, theme),
+                  const SizedBox(height: 20),
 
-                // Auto-Backup Settings
-                _buildAutoBackupSection(context, theme),
-                const SizedBox(height: 20),
+                  // Auto-Backup Settings
+                  _buildAutoBackupSection(context, theme),
+                  const SizedBox(height: 20),
 
-                // App Information
-                _buildAppInfoSection(context, theme),
-                const SizedBox(height: 30),
+                  // App Information
+                  _buildAppInfoSection(context, theme),
+                  const SizedBox(height: 30),
 
-                // Save Button
-                _buildSaveButton(context, theme),
-              ],
+                  // Save Button
+                  _buildSaveButton(context, theme),
+                ],
               ),
             ),
           ),
@@ -506,7 +506,6 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
               PopupMenuItem(
                 value: 'delete',
-                enabled: paymentMethods.length > 1,
                 child: Row(
                   children: [
                     Icon(Icons.delete_rounded, color: Colors.red),
@@ -1343,8 +1342,7 @@ class _SettingsPageState extends State<SettingsPage> {
             Text(
               label,
               style: theme.textTheme.bodySmall?.copyWith(
-                color:
-                    isSelected ? Colors.white : theme.colorScheme.onSurface,
+                color: isSelected ? Colors.white : theme.colorScheme.onSurface,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
