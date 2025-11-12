@@ -392,7 +392,8 @@ class _HomeState extends State<Home> {
               right: 20,
               top: 20,
               bottom: 20 +
-                  keyboardHeight * 0.1, // Add small padding when keyboard is open
+                  keyboardHeight *
+                      0.1, // Add small padding when keyboard is open
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -456,15 +457,19 @@ class _HomeState extends State<Home> {
               ),
             ),
             IconButton(
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (context) => SettingsPage(
-                          initialMobile: mobileNumber,
-                          initialMomoCode: momoCode,
-                          selectedLanguage: selectedLanguage ?? 'en',
-                        )),
-              ),
+              onPressed: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => SettingsPage(
+                            initialMobile: mobileNumber,
+                            initialMomoCode: momoCode,
+                            selectedLanguage: selectedLanguage ?? 'en',
+                          )),
+                );
+                // Reload payment methods after returning from settings
+                _loadSavedPreferences();
+              },
               icon: Icon(
                 Icons.settings_rounded,
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
@@ -2239,7 +2244,8 @@ class _HomeState extends State<Home> {
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                          color:
+                              theme.colorScheme.primary.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Row(
@@ -2327,12 +2333,16 @@ class _HomeState extends State<Home> {
     String? selectedPaymentNumber;
     String? selectedPaymentType;
 
-    if (paymentMethods.length == 1) {
-      // Auto-select if only one payment method
-      selectedPaymentNumber = paymentMethods.first.value;
-      selectedPaymentType = paymentMethods.first.type;
-    } else if (paymentMethods.isNotEmpty) {
-      // Show dialog to select payment method
+    if (paymentMethods.isEmpty) {
+      // No payment methods - show manual entry dialog directly
+      final manualMethod = await _showManualPaymentEntryDialog(context);
+      if (manualMethod == null) {
+        return; // User cancelled manual entry
+      }
+      selectedPaymentNumber = manualMethod.value;
+      selectedPaymentType = manualMethod.type;
+    } else {
+      // Show dialog to select payment method (includes manual entry option)
       final selected = await _showPaymentMethodSelector(context);
       if (selected == null) {
         return; // User cancelled

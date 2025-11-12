@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../generated/l10n.dart';
 import '../helpers/localProvider.dart';
 import '../helpers/app_theme.dart';
 import '../helpers/theme_provider.dart';
@@ -229,9 +228,6 @@ class _SettingsPageState extends State<SettingsPage> {
                   // App Information
                   _buildAppInfoSection(context, theme),
                   const SizedBox(height: 30),
-
-                  // Save Button
-                  _buildSaveButton(context, theme),
                 ],
               ),
             ),
@@ -585,6 +581,12 @@ class _SettingsPageState extends State<SettingsPage> {
     final prefs = await SharedPreferences.getInstance();
     final jsonList = paymentMethods.map((method) => method.toJson()).toList();
     await prefs.setString('paymentMethods', json.encode(jsonList));
+
+    // If all payment methods are deleted, clear old storage keys to prevent migration
+    if (paymentMethods.isEmpty) {
+      await prefs.remove('mobileNumber');
+      await prefs.remove('momoCode');
+    }
   }
 
   void _showAddPaymentMethodDialog(BuildContext context, ThemeData theme,
@@ -1452,51 +1454,6 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Widget _buildSaveButton(BuildContext context, ThemeData theme) {
-    return Container(
-      width: double.infinity,
-      height: 56,
-      decoration: BoxDecoration(
-        gradient: AppTheme.primaryGradient,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: theme.colorScheme.primary.withOpacity(0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: ElevatedButton(
-        onPressed: _saveSettings,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.transparent,
-          shadowColor: Colors.transparent,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.save_rounded,
-              color: Colors.white,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              S.of(context).save,
-              style: theme.textTheme.titleMedium?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Future<void> _exportBackup() async {
     try {
       // Show loading indicator
@@ -1904,76 +1861,6 @@ class _SettingsPageState extends State<SettingsPage> {
         );
       }
     }
-  }
-
-  Future<void> _saveSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-
-    // Save payment methods (new format)
-    await _savePaymentMethods();
-
-    // For backward compatibility, also save the default payment method in old format
-    final defaultMethod = paymentMethods.firstWhere(
-      (method) => method.isDefault,
-      orElse: () => paymentMethods.isNotEmpty
-          ? paymentMethods.first
-          : PaymentMethod(
-              id: '',
-              type: '',
-              value: '',
-              provider: '',
-            ),
-    );
-
-    if (defaultMethod.id.isNotEmpty) {
-      if (defaultMethod.type == 'mobile') {
-        await prefs.setString('mobileNumber', defaultMethod.value);
-      } else {
-        await prefs.remove('mobileNumber');
-      }
-
-      if (defaultMethod.type == 'momo') {
-        await prefs.setString('momoCode', defaultMethod.value);
-      } else {
-        await prefs.remove('momoCode');
-      }
-    }
-
-    // Show modern success message
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(
-                Icons.check_rounded,
-                color: Colors.white,
-                size: 18,
-              ),
-            ),
-            const SizedBox(width: 12),
-            const Text(
-              'Settings saved successfully!',
-              style: TextStyle(
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: AppTheme.successColor,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        margin: const EdgeInsets.all(16),
-        duration: const Duration(seconds: 2),
-      ),
-    );
   }
 
   @override
