@@ -13,6 +13,7 @@
 migrate_working_dir/
 .claude/
 .vscode/
+*.jks
 
 # IntelliJ related
 *.iml
