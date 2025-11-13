@@ -160,6 +160,141 @@ class BackupService {
     }
   }
 
+  /// Restore data from auto-backup file with duplicate prevention
+  static Future<Map<String, dynamic>> restoreAutoBackup(String backupPath) async {
+    try {
+      // Read the backup file
+      final file = File(backupPath);
+      if (!await file.exists()) {
+        throw Exception('Backup file not found');
+      }
+
+      final jsonString = await file.readAsString();
+      final Map<String, dynamic> backupData = jsonDecode(jsonString);
+
+      // Validate backup format
+      if (!backupData.containsKey('version') ||
+          !backupData.containsKey('data')) {
+        throw Exception('Invalid backup file format');
+      }
+
+      // Extract data
+      final data = backupData['data'] as Map<String, dynamic>;
+      final prefs = await SharedPreferences.getInstance();
+
+      int newRecordsAdded = 0;
+      int duplicateRecordsSkipped = 0;
+      int newPaymentMethodsAdded = 0;
+      int duplicatePaymentMethodsSkipped = 0;
+
+      // Restore USSD records with duplicate prevention
+      if (data.containsKey('ussdRecords')) {
+        final List<dynamic> backupRecordsList = data['ussdRecords'] as List;
+        final backupRecords = backupRecordsList
+            .map((json) => UssdRecord.fromJson(json))
+            .toList();
+
+        // Get existing records
+        final existingRecords = await UssdRecordService.getUssdRecords();
+
+        // Create a set of existing record identifiers (timestamp + recipient + amount)
+        final existingRecordIds = existingRecords.map((r) =>
+          '${r.timestamp.millisecondsSinceEpoch}_${r.recipient}_${r.amount}'
+        ).toSet();
+
+        // Filter out duplicates
+        final newRecords = <UssdRecord>[];
+        for (final record in backupRecords) {
+          final recordId = '${record.timestamp.millisecondsSinceEpoch}_${record.recipient}_${record.amount}';
+          if (!existingRecordIds.contains(recordId)) {
+            newRecords.add(record);
+            newRecordsAdded++;
+          } else {
+            duplicateRecordsSkipped++;
+          }
+        }
+
+        // Merge records (existing + new)
+        final allRecords = [...existingRecords, ...newRecords];
+
+        // Sort by timestamp (newest first)
+        allRecords.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+
+        // Save merged records
+        final recordsJson = jsonEncode(allRecords.map((r) => r.toJson()).toList());
+        await prefs.setString('ussd_records', recordsJson);
+      }
+
+      // Restore payment methods with duplicate prevention
+      if (data.containsKey('paymentMethods')) {
+        final List<dynamic> backupPaymentMethods = data['paymentMethods'] as List;
+
+        // Get existing payment methods
+        final existingPaymentMethodsJson = prefs.getString('paymentMethods') ?? '[]';
+        final List<dynamic> existingPaymentMethods = jsonDecode(existingPaymentMethodsJson);
+
+        // Create a set of existing payment method identifiers (type + value)
+        final existingPaymentIds = existingPaymentMethods.map((pm) =>
+          '${pm['type']}_${pm['value']}'
+        ).toSet();
+
+        // Filter out duplicates
+        final newPaymentMethods = <Map<String, dynamic>>[];
+        for (final pm in backupPaymentMethods) {
+          final pmId = '${pm['type']}_${pm['value']}';
+          if (!existingPaymentIds.contains(pmId)) {
+            newPaymentMethods.add(pm as Map<String, dynamic>);
+            newPaymentMethodsAdded++;
+          } else {
+            duplicatePaymentMethodsSkipped++;
+          }
+        }
+
+        // Merge payment methods
+        final allPaymentMethods = [...existingPaymentMethods, ...newPaymentMethods];
+
+        // Save merged payment methods
+        final paymentMethodsJson = jsonEncode(allPaymentMethods);
+        await prefs.setString('paymentMethods', paymentMethodsJson);
+      }
+
+      // Restore settings (overwrite existing)
+      if (data.containsKey('settings')) {
+        final settings = data['settings'] as Map<String, dynamic>;
+
+        if (settings.containsKey('mobileNumber')) {
+          await prefs.setString('mobileNumber', settings['mobileNumber']);
+        }
+        if (settings.containsKey('momoCode')) {
+          await prefs.setString('momoCode', settings['momoCode']);
+        }
+        if (settings.containsKey('language')) {
+          await prefs.setString('language', settings['language']);
+        }
+        if (settings.containsKey('selectedLanguage')) {
+          await prefs.setString(
+              'selectedLanguage', settings['selectedLanguage']);
+        }
+        if (settings.containsKey('isDarkMode')) {
+          await prefs.setBool('isDarkMode', settings['isDarkMode']);
+        }
+      }
+
+      // Return detailed summary
+      return {
+        'success': true,
+        'backupVersion': backupData['version'],
+        'backupTimestamp': backupData['timestamp'],
+        'newRecordsAdded': newRecordsAdded,
+        'duplicateRecordsSkipped': duplicateRecordsSkipped,
+        'newPaymentMethodsAdded': newPaymentMethodsAdded,
+        'duplicatePaymentMethodsSkipped': duplicatePaymentMethodsSkipped,
+      };
+    } catch (e) {
+      throw Exception('Failed to restore auto-backup: $e');
+    }
+  }
+
   /// Create a quick backup in app's documents directory (for auto-backup feature)
   static Future<String> createAutoBackup() async {
     try {
@@ -199,9 +334,18 @@ class BackupService {
       // Convert to JSON
       final jsonString = const JsonEncoder.withIndent('  ').convert(backupData);
 
-      // Get app documents directory
-      final directory = await getApplicationDocumentsDirectory();
-      final backupDir = Directory('${directory.path}/backups');
+      // Check if user has set a custom backup location
+      final customLocation = prefs.getString('autoBackupLocation');
+
+      Directory backupDir;
+      if (customLocation != null && customLocation.isNotEmpty) {
+        // Use custom location
+        backupDir = Directory('$customLocation/mq_pay_backups');
+      } else {
+        // Use default app documents directory
+        final directory = await getApplicationDocumentsDirectory();
+        backupDir = Directory('${directory.path}/backups');
+      }
 
       // Create backups directory if it doesn't exist
       if (!await backupDir.exists()) {
@@ -254,8 +398,18 @@ class BackupService {
   /// Get list of auto-backup files
   static Future<List<Map<String, dynamic>>> getAutoBackups() async {
     try {
-      final directory = await getApplicationDocumentsDirectory();
-      final backupDir = Directory('${directory.path}/backups');
+      final prefs = await SharedPreferences.getInstance();
+      final customLocation = prefs.getString('autoBackupLocation');
+
+      Directory backupDir;
+      if (customLocation != null && customLocation.isNotEmpty) {
+        // Use custom location
+        backupDir = Directory('$customLocation/mq_pay_backups');
+      } else {
+        // Use default app documents directory
+        final directory = await getApplicationDocumentsDirectory();
+        backupDir = Directory('${directory.path}/backups');
+      }
 
       if (!await backupDir.exists()) {
         return [];

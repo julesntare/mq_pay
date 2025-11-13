@@ -7,6 +7,7 @@ import '../helpers/theme_provider.dart';
 import '../services/backup_service.dart';
 import 'dart:convert';
 import '../widgets/scroll_indicator.dart';
+import 'package:file_picker/file_picker.dart';
 
 // Payment Method Model
 class PaymentMethod {
@@ -71,6 +72,7 @@ class _SettingsPageState extends State<SettingsPage> {
   // Auto-backup settings
   bool _autoBackupEnabled = false;
   String _autoBackupFrequency = 'daily'; // daily, weekly, monthly
+  String? _autoBackupLocation; // Custom backup location path
 
   // ScrollController for scroll indicators
   final ScrollController _scrollController = ScrollController();
@@ -106,6 +108,7 @@ class _SettingsPageState extends State<SettingsPage> {
     setState(() {
       _autoBackupEnabled = prefs.getBool('autoBackupEnabled') ?? false;
       _autoBackupFrequency = prefs.getString('autoBackupFrequency') ?? 'daily';
+      _autoBackupLocation = prefs.getString('autoBackupLocation');
     });
   }
 
@@ -113,6 +116,9 @@ class _SettingsPageState extends State<SettingsPage> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('autoBackupEnabled', _autoBackupEnabled);
     await prefs.setString('autoBackupFrequency', _autoBackupFrequency);
+    if (_autoBackupLocation != null) {
+      await prefs.setString('autoBackupLocation', _autoBackupLocation!);
+    }
 
     // If enabled, create an initial auto-backup
     if (_autoBackupEnabled) {
@@ -122,6 +128,219 @@ class _SettingsPageState extends State<SettingsPage> {
             'lastAutoBackupTimestamp', DateTime.now().millisecondsSinceEpoch);
       } catch (e) {
         // Ignore errors during initial backup
+      }
+    }
+  }
+
+  Future<void> _selectBackupLocation() async {
+    try {
+      String? selectedDirectory = await FilePicker.platform.getDirectoryPath(
+        dialogTitle: 'Select Backup Location',
+      );
+
+      if (selectedDirectory != null) {
+        setState(() {
+          _autoBackupLocation = selectedDirectory;
+        });
+        await _saveAutoBackupSettings();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Backup location updated: $selectedDirectory'),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to select backup location: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _showBackupsDialog() async {
+    try {
+      // Fetch available backups
+      final backups = await BackupService.getAutoBackups();
+
+      if (!mounted) return;
+
+      if (backups.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No auto-backups found'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+
+      // Show dialog with backups
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Available Backups'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: backups.length,
+              itemBuilder: (context, index) {
+                final backup = backups[index];
+                final modified = backup['modified'] as DateTime;
+                final size = backup['size'] as int;
+                final sizeInKB = (size / 1024).toStringAsFixed(2);
+
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: ListTile(
+                    leading: const Icon(Icons.backup_rounded, color: Colors.blue),
+                    title: Text(
+                      '${modified.day}/${modified.month}/${modified.year} ${modified.hour}:${modified.minute.toString().padLeft(2, '0')}',
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    subtitle: Text('Size: $sizeInKB KB'),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.restore_rounded),
+                      color: Colors.green,
+                      onPressed: () async {
+                        Navigator.pop(context);
+                        await _restoreBackup(backup['path'] as String);
+                      },
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load backups: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _restoreBackup(String backupPath) async {
+    try {
+      // Show confirmation dialog
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Restore Backup?'),
+          content: const Text(
+            'This will merge the backup data with your current data. '
+            'Duplicates will be automatically skipped.\n\n'
+            'Do you want to continue?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Restore'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirm != true) return;
+
+      // Show loading indicator
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                SizedBox(width: 16),
+                Text('Restoring backup...'),
+              ],
+            ),
+            duration: Duration(seconds: 30),
+          ),
+        );
+      }
+
+      // Restore the backup
+      final result = await BackupService.restoreAutoBackup(backupPath);
+
+      if (mounted) {
+        // Hide loading indicator
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+        // Reload payment methods
+        await _loadPaymentMethods();
+
+        // Show success message with details
+        final message = StringBuffer('Backup restored successfully!\n\n');
+        message.write('New records: ${result['newRecordsAdded']}\n');
+        message.write('Duplicates skipped: ${result['duplicateRecordsSkipped']}\n');
+        message.write('New payment methods: ${result['newPaymentMethodsAdded']}\n');
+        message.write('Duplicate methods skipped: ${result['duplicatePaymentMethodsSkipped']}');
+
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.green),
+                SizedBox(width: 8),
+                Text('Restore Complete'),
+              ],
+            ),
+            content: Text(message.toString()),
+            actions: [
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Restore Failed'),
+            content: Text('Failed to restore backup: $e'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
       }
     }
   }
@@ -1250,6 +1469,82 @@ class _SettingsPageState extends State<SettingsPage> {
                 ],
               ),
               const SizedBox(height: 16),
+              // Backup Location Selection
+              Text(
+                'Backup Location',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 12),
+              InkWell(
+                onTap: _selectBackupLocation,
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: theme.colorScheme.outline.withOpacity(0.3),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.folder_outlined,
+                        color: theme.colorScheme.primary,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _autoBackupLocation ?? 'Default Location',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.w500,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              _autoBackupLocation == null
+                                  ? 'Tap to select custom backup location'
+                                  : 'Tap to change backup location',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurface.withOpacity(0.6),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(
+                        Icons.chevron_right,
+                        color: theme.colorScheme.onSurface.withOpacity(0.4),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              // View & Restore Backups Button
+              ElevatedButton.icon(
+                onPressed: _showBackupsDialog,
+                icon: const Icon(Icons.restore_rounded),
+                label: const Text('View & Restore Backups'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: theme.colorScheme.primaryContainer,
+                  foregroundColor: theme.colorScheme.onPrimaryContainer,
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -1270,7 +1565,9 @@ class _SettingsPageState extends State<SettingsPage> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        'Auto-backups are stored locally. Use manual export to save externally.',
+                        _autoBackupLocation == null
+                            ? 'Auto-backups are stored in the app\'s default directory. Select a custom location to save backups elsewhere.'
+                            : 'Auto-backups will be saved to your selected location.',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: Colors.blue.shade700,
                         ),
