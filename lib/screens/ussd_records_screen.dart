@@ -62,6 +62,11 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
   // ScrollController for scroll indicators
   final ScrollController _scrollController = ScrollController();
 
+  // Fee display toggle
+  bool includeFees = true; // true = show total with fees, false = show amount only
+  double totalFees = 0.0;
+  double currentMonthTotalFees = 0.0;
+
   @override
   void initState() {
     super.initState();
@@ -183,6 +188,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
       final allRecords = loadedRecords;
       final count = allRecords.length;
       final total = allRecords.fold<double>(0.0, (s, r) => s + r.amount);
+      final fees = allRecords.fold<double>(0.0, (s, r) => s + r.calculateFee());
 
       final typeAmounts = <String, double>{
         'phone': 0.0,
@@ -202,6 +208,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
       setState(() {
         records = allRecords.reversed.toList(); // Show newest first
         totalAmount = total;
+        totalFees = fees;
         totalRecords = count;
         amountByType = typeAmounts;
         isLoading = false;
@@ -265,6 +272,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
     if (monthsWithData.isEmpty) {
       setState(() {
         currentMonthTotal = 0.0;
+        currentMonthTotalFees = 0.0;
         currentMonthAmountByType = {};
       });
       return;
@@ -279,6 +287,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
         .toList();
 
     final total = monthRecords.fold(0.0, (sum, record) => sum + record.amount);
+    final fees = monthRecords.fold(0.0, (sum, record) => sum + record.calculateFee());
 
     // Calculate monthly amounts by type
     final amountsByType = {
@@ -295,6 +304,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
 
     setState(() {
       currentMonthTotal = total;
+      currentMonthTotalFees = fees;
       currentMonthAmountByType = amountsByType;
     });
   }
@@ -939,11 +949,11 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                   padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
                   child: Column(
                     children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
                                 'Overall Total',
@@ -952,25 +962,106 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
-                              const SizedBox(height: 2),
                               Text(
-                                'All recorded payments',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: Colors.white60,
-                                  fontSize: 10,
+                                _formatCurrency(includeFees ? totalAmount + totalFees : totalAmount),
+                                style: theme.textTheme.titleLarge?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
                             ],
                           ),
-                          Text(
-                            _formatCurrency(totalAmount),
-                            style: theme.textTheme.titleLarge?.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
+                          const SizedBox(height: 8),
+                          // Fee Toggle Button
+                          GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                includeFees = !includeFees;
+                              });
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.3),
+                                  width: 1.5,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    includeFees ? Icons.check_circle : Icons.circle_outlined,
+                                    color: Colors.white,
+                                    size: 18,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    includeFees ? 'Fees Included in All Totals' : 'Fees Excluded from All Totals',
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Icon(
+                                    Icons.swap_horiz_rounded,
+                                    color: Colors.white70,
+                                    size: 16,
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ],
                       ),
+                      if (totalFees > 0) ...[
+                        const SizedBox(height: 10),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.1),
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.receipt_long_outlined,
+                                    size: 14,
+                                    color: Colors.white60,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Total Fees Paid',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: Colors.white70,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Text(
+                                _formatCurrency(totalFees),
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                       if (monthsWithData.isNotEmpty) ...[
                         const SizedBox(height: 8),
                         Row(
@@ -1020,12 +1111,25 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                                 ),
                               ],
                             ),
-                            Text(
-                              _formatCurrency(currentMonthTotal),
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  _formatCurrency(includeFees ? currentMonthTotal + currentMonthTotalFees : currentMonthTotal),
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                if (currentMonthTotalFees > 0)
+                                  Text(
+                                    '+ ${_formatCurrency(currentMonthTotalFees)} fees',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: Colors.white60,
+                                      fontSize: 9,
+                                    ),
+                                  ),
+                              ],
                             ),
                           ],
                         ),
@@ -1399,9 +1503,10 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
     final dateKey = DateFormat('yyyy-MM-dd').format(dateObj);
     final isExpanded = expandedGroups.contains(dateKey);
 
-    // Calculate total amount for this day
-    final dayTotal =
-        dayRecords.fold<double>(0, (sum, record) => sum + record.amount);
+    // Calculate total amount for this day (with or without fees based on toggle)
+    final dayTotal = dayRecords.fold<double>(0, (sum, record) {
+      return sum + (includeFees ? record.amount + record.calculateFee() : record.amount);
+    });
 
     // Determine color based on active filter
     Color totalColor = theme.colorScheme.onSurface;
@@ -1621,12 +1726,41 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        Text(
-                          _formatCurrency(record.amount),
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: color,
-                          ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              _formatCurrency(includeFees ? record.amount + record.calculateFee() : record.amount),
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: color,
+                              ),
+                            ),
+                            Builder(
+                              builder: (context) {
+                                final calculatedFee = record.calculateFee();
+                                // Only show fee badge if fees are included and fee > 0
+                                if (includeFees && calculatedFee > 0) {
+                                  return Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: color.withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      '+${_formatCurrency(calculatedFee)}',
+                                      style: theme.textTheme.bodySmall?.copyWith(
+                                        fontSize: 10,
+                                        color: color,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  );
+                                }
+                                return const SizedBox.shrink();
+                              },
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -1916,6 +2050,28 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
             ),
             const SizedBox(height: 8),
             Text('Amount: ${_formatCurrency(record.amount)}'),
+            Builder(
+              builder: (context) {
+                final calculatedFee = record.calculateFee();
+                if (calculatedFee > 0) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Fee: ${_formatCurrency(calculatedFee)}',
+                        style: TextStyle(color: theme.colorScheme.secondary)),
+                      Divider(height: 12, thickness: 1),
+                      Text('Total: ${_formatCurrency(record.amount + calculatedFee)}',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.primary,
+                        )),
+                      const SizedBox(height: 4),
+                    ],
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            ),
             Text(
                 'Date: ${DateFormat('MMM dd, yyyy • HH:mm').format(record.timestamp)}'),
             if (record.reason != null && record.reason!.isNotEmpty) ...[

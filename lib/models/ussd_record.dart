@@ -1,3 +1,5 @@
+import '../services/tariff_service.dart';
+
 class UssdRecord {
   final String id;
   final String ussdCode;
@@ -8,6 +10,7 @@ class UssdRecord {
   final String? maskedRecipient;
   final String? contactName;
   final String? reason;
+  final double? fee; // Transaction fee
 
   UssdRecord({
     required this.id,
@@ -19,6 +22,7 @@ class UssdRecord {
     this.maskedRecipient,
     this.contactName,
     this.reason,
+    this.fee,
   });
 
   Map<String, dynamic> toJson() {
@@ -32,6 +36,7 @@ class UssdRecord {
       'maskedRecipient': maskedRecipient,
       'contactName': contactName,
       'reason': reason,
+      'fee': fee,
     };
   }
 
@@ -46,6 +51,7 @@ class UssdRecord {
       maskedRecipient: json['maskedRecipient'] as String?,
       contactName: json['contactName'] as String?,
       reason: json['reason'] as String?,
+      fee: json['fee'] != null ? (json['fee'] as num).toDouble() : null,
     );
   }
 
@@ -59,6 +65,7 @@ class UssdRecord {
     String? maskedRecipient,
     String? contactName,
     String? reason,
+    double? fee,
   }) {
     return UssdRecord(
       id: id ?? this.id,
@@ -70,6 +77,42 @@ class UssdRecord {
       maskedRecipient: maskedRecipient ?? this.maskedRecipient,
       contactName: contactName ?? this.contactName,
       reason: reason ?? this.reason,
+      fee: fee ?? this.fee,
+    );
+  }
+
+  /// Extract service type from USSD code
+  /// Returns '1' for MoMo Phone, '2' for MoMo eKash, null for MoMo codes or unknown
+  String? _extractServiceTypeFromUssdCode() {
+    // Pattern: *182*1*{serviceType}*{phone}*{amount}#
+    final phonePattern = RegExp(r'\*182\*1\*(\d+)\*');
+    final match = phonePattern.firstMatch(ussdCode);
+    if (match != null && match.groupCount >= 1) {
+      return match.group(1);
+    }
+    return null;
+  }
+
+  /// Calculate the transaction fee dynamically based on tariff rules
+  /// If fee is already saved, returns that; otherwise calculates from tariff rules
+  double calculateFee() {
+    // If fee is already saved, use it
+    if (fee != null) {
+      return fee!;
+    }
+
+    // For MoMo code transactions, fee is always 0
+    if (recipientType == 'momo') {
+      return 0.0;
+    }
+
+    // For phone transactions, extract service type from USSD code
+    final serviceType = _extractServiceTypeFromUssdCode();
+
+    return TariffService.calculateTransactionFee(
+      amount: amount,
+      recipientType: recipientType,
+      serviceType: serviceType,
     );
   }
 }

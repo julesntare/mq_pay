@@ -11,6 +11,7 @@ import 'qr_scanner_screen.dart';
 import 'ussd_records_screen.dart';
 import '../models/ussd_record.dart';
 import '../services/ussd_record_service.dart';
+import '../services/tariff_service.dart';
 import 'dart:convert';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../widgets/scroll_indicator.dart';
@@ -1290,17 +1291,19 @@ class _HomeState extends State<Home> {
     // Handle Dial Now mode (existing logic)
     String input = mobileController.text.trim();
     String ussdCode;
+    String? serviceType;
 
     // Determine if input is phone number or momo code
     if (_isValidPhoneNumber(input)) {
       // Process as phone number
       String formattedPhone = _formatPhoneNumber(input);
-      String serviceType = _getServiceType(formattedPhone);
+      serviceType = _getServiceType(formattedPhone);
       ussdCode =
           '*182*1*$serviceType*$formattedPhone*${amountController.text}#';
     } else if (_isValidMomoCode(input)) {
       // Process as momo code
       ussdCode = '*182*8*1*$input*${amountController.text}#';
+      serviceType = null; // MoMo codes don't have service type
     } else {
       // Should not reach here due to validation, but handle gracefully
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1310,13 +1313,22 @@ class _HomeState extends State<Home> {
     }
 
     // Show the USSD code in a dialog
-    _showUssdDialog(context, ussdCode, input);
+    _showUssdDialog(context, ussdCode, input, serviceType);
   }
 
   Future<void> _showUssdDialog(
-      BuildContext context, String ussdCode, String paymentInfo) async {
+      BuildContext context, String ussdCode, String paymentInfo, String? serviceType) async {
     final theme = Theme.of(context);
     bool isPhoneNumber = _isValidPhoneNumber(paymentInfo);
+
+    // Calculate fee
+    double amount = double.tryParse(amountController.text) ?? 0.0;
+    String recipientType = isPhoneNumber ? 'phone' : 'momo';
+    final feeBreakdown = TariffService.getFeeBreakdown(
+      amount: amount,
+      recipientType: recipientType,
+      serviceType: serviceType,
+    );
 
     return showDialog<void>(
       context: context,
@@ -1356,11 +1368,25 @@ class _HomeState extends State<Home> {
                 ),
                 SizedBox(height: 10),
                 Text('Amount: ${amountController.text} RWF'),
+                Text('Fee: ${feeBreakdown['formattedFee']}',
+                  style: TextStyle(color: theme.colorScheme.secondary)),
+                Divider(height: 12, thickness: 1),
+                Text('Total: ${feeBreakdown['formattedTotal']}',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.primary,
+                  )),
+                SizedBox(height: 8),
                 if (selectedName != null && selectedName!.isNotEmpty)
                   Text('To: $selectedName'),
                 Text(isPhoneNumber
                     ? 'Phone: ${_maskPhoneNumber(paymentInfo)}'
                     : 'Momo Code: ${paymentInfo.length > 3 ? paymentInfo.substring(0, 3) + "***" : paymentInfo}'),
+                Text('Tariff Type: ${feeBreakdown['tariffType']}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                  )),
                 SizedBox(height: 20),
                 Text(
                   'Dial this USSD code:',
@@ -1468,9 +1494,10 @@ class _HomeState extends State<Home> {
                 final reason = reasonController.text.trim().isEmpty
                     ? null
                     : reasonController.text.trim();
+                double fee = feeBreakdown['fee'] as double;
 
                 await _saveUssdRecord(
-                    ussdCode, paymentInfo, recipientType, amount, reason);
+                    ussdCode, paymentInfo, recipientType, amount, reason, fee);
 
                 launchUSSD(ussdCode, context);
 
@@ -1492,6 +1519,34 @@ class _HomeState extends State<Home> {
   Future<void> _showRecordOnlyDialog(BuildContext context) async {
     final theme = Theme.of(context);
     String paymentInfo = mobileController.text.trim();
+
+    // Calculate fee
+    double amount = double.tryParse(amountController.text) ?? 0.0;
+    String recipientType;
+    String? serviceType;
+
+    if (paymentInfo.isEmpty) {
+      recipientType = 'misc';
+      serviceType = null;
+    } else if (_isValidPhoneNumber(paymentInfo)) {
+      recipientType = 'phone';
+      String formattedPhone = _formatPhoneNumber(paymentInfo);
+      serviceType = _getServiceType(formattedPhone);
+    } else if (_isValidMomoCode(paymentInfo)) {
+      recipientType = 'momo';
+      serviceType = null;
+    } else {
+      recipientType = 'misc';
+      serviceType = null;
+    }
+
+    final feeBreakdown = (recipientType != 'misc')
+        ? TariffService.getFeeBreakdown(
+            amount: amount,
+            recipientType: recipientType,
+            serviceType: serviceType,
+          )
+        : null;
 
     return showDialog<void>(
       context: context,
@@ -1533,6 +1588,31 @@ class _HomeState extends State<Home> {
                   'Amount: ${amountController.text} RWF',
                   style: theme.textTheme.bodyLarge,
                 ),
+                if (feeBreakdown != null) ...[
+                  Text(
+                    'Fee: ${feeBreakdown['formattedFee']}',
+                    style: TextStyle(
+                      color: theme.colorScheme.secondary,
+                      fontSize: 14,
+                    ),
+                  ),
+                  Divider(height: 12, thickness: 1),
+                  Text(
+                    'Total: ${feeBreakdown['formattedTotal']}',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+                  Text(
+                    'Tariff Type: ${feeBreakdown['tariffType']}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                    ),
+                  ),
+                  SizedBox(height: 8),
+                ],
                 if (selectedName != null && selectedName!.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
@@ -1648,12 +1728,18 @@ class _HomeState extends State<Home> {
                     ? null
                     : reasonController.text.trim();
 
+                // Calculate fee for valid transaction types
+                double? fee;
+                if (feeBreakdown != null) {
+                  fee = feeBreakdown['fee'] as double;
+                }
+
                 // Generate a placeholder USSD code for record-only mode
                 String ussdCode =
                     'RECORD-ONLY-${DateTime.now().millisecondsSinceEpoch}';
 
                 await _saveUssdRecord(
-                    ussdCode, recipient, recipientType, amount, reason);
+                    ussdCode, recipient, recipientType, amount, reason, fee);
 
                 // Show success message
                 if (mounted) {
@@ -1857,7 +1943,7 @@ class _HomeState extends State<Home> {
   }
 
   Future<void> _saveUssdRecord(String ussdCode, String recipient,
-      String recipientType, double amount, String? reason) async {
+      String recipientType, double amount, String? reason, double? fee) async {
     final record = UssdRecord(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       ussdCode: ussdCode,
@@ -1869,6 +1955,7 @@ class _HomeState extends State<Home> {
           recipientType == 'phone' ? _maskPhoneNumber(recipient) : null,
       contactName: selectedName, // Save contact name if available
       reason: reason,
+      fee: fee,
     );
 
     await UssdRecordService.saveUssdRecord(record);
