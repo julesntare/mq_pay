@@ -22,6 +22,7 @@ class _EditUssdRecordDialogState extends State<EditUssdRecordDialog> {
   late TextEditingController reasonController;
   String recipientType = 'phone';
   bool isLoading = false;
+  late bool applyFee; // Track whether to apply fee
 
   @override
   void initState() {
@@ -33,6 +34,7 @@ class _EditUssdRecordDialogState extends State<EditUssdRecordDialog> {
         TextEditingController(text: widget.record.contactName ?? '');
     reasonController = TextEditingController(text: widget.record.reason ?? '');
     recipientType = widget.record.recipientType;
+    applyFee = widget.record.applyFee; // Initialize from existing record
   }
 
   @override
@@ -197,6 +199,7 @@ class _EditUssdRecordDialogState extends State<EditUssdRecordDialog> {
         reason: reasonController.text.trim().isEmpty
             ? null
             : reasonController.text.trim(),
+        applyFee: applyFee,
       );
 
       await UssdRecordService.updateUssdRecord(updatedRecord);
@@ -240,149 +243,199 @@ class _EditUssdRecordDialogState extends State<EditUssdRecordDialog> {
           child: ConstrainedBox(
             constraints: BoxConstraints(maxWidth: double.maxFinite),
             child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Amount Field
-              TextField(
-                controller: amountController,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText: 'Amount (RWF)',
-                  prefixIcon: const Icon(Icons.attach_money_rounded),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  errorText:
-                      amountController.text.isNotEmpty && !_isValidAmount()
-                          ? 'Enter valid amount'
-                          : null,
-                ),
-                onChanged: (value) => setState(() {}),
-              ),
-              const SizedBox(height: 16),
-
-              // Payment Type Selector
-              Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: theme.colorScheme.outline),
-                ),
-                child: Column(
-                  children: [
-                    RadioListTile<String>(
-                      title: const Text('Phone Payment'),
-                      subtitle: const Text('078xxxxxxx'),
-                      value: 'phone',
-                      groupValue: recipientType,
-                      onChanged: (value) {
-                        setState(() {
-                          recipientType = value!;
-                        });
-                      },
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Amount Field
+                TextField(
+                  controller: amountController,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: 'Amount (RWF)',
+                    prefixIcon: const Icon(Icons.attach_money_rounded),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    RadioListTile<String>(
-                      title: const Text('Momo Payment'),
-                      subtitle: const Text('Momo Code'),
-                      value: 'momo',
-                      groupValue: recipientType,
-                      onChanged: (value) {
-                        setState(() {
-                          recipientType = value!;
-                        });
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Contact Name Field (optional)
-              TextField(
-                controller: contactNameController,
-                keyboardType: TextInputType.text,
-                decoration: InputDecoration(
-                  labelText: 'Contact Name (Optional)',
-                  prefixIcon: Icon(Icons.person_rounded),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    errorText:
+                        amountController.text.isNotEmpty && !_isValidAmount()
+                            ? 'Enter valid amount'
+                            : null,
                   ),
-                  hintText: 'Enter name for this contact',
+                  onChanged: (value) => setState(() {}),
                 ),
-              ),
-              const SizedBox(height: 12),
+                const SizedBox(height: 16),
 
-              // Recipient Field
-              TextField(
-                controller: recipientController,
-                keyboardType: recipientType == 'phone'
-                    ? TextInputType.phone
-                    : TextInputType.text,
-                decoration: InputDecoration(
-                  labelText:
-                      recipientType == 'phone' ? 'Phone Number' : 'Momo Code',
-                  prefixIcon: Icon(recipientType == 'phone'
-                      ? Icons.phone_rounded
-                      : Icons.qr_code_rounded),
-                  border: OutlineInputBorder(
+                // Fee Toggle
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: theme.colorScheme.outline),
                   ),
-                  hintText: recipientType == 'phone' ? '078xxxxxxx' : '123456',
-                  errorText: recipientController.text.isNotEmpty &&
-                          ((recipientType == 'phone' &&
-                                  !_isValidPhoneNumber(
-                                      recipientController.text)) ||
-                              (recipientType == 'momo' &&
-                                  !_isValidMomoCode(recipientController.text)))
-                      ? 'Enter valid ${recipientType == 'phone' ? 'phone number' : 'momo code'}'
-                      : null,
-                ),
-                onChanged: (value) => setState(() {}),
-              ),
-              const SizedBox(height: 12),
-
-              // Reason field (optional) with suggestions
-              FutureBuilder<List<String>>(
-                future: UssdRecordService.getUniqueReasons(),
-                builder: (context, snapshot) {
-                  final options = snapshot.data ?? [];
-                  return Autocomplete<String>(
-                    optionsBuilder: (TextEditingValue textEditingValue) {
-                      if (textEditingValue.text == '') {
-                        return const Iterable<String>.empty();
-                      }
-                      return options.where((String option) {
-                        return option
-                            .toLowerCase()
-                            .contains(textEditingValue.text.toLowerCase());
-                      });
-                    },
-                    onSelected: (String selection) {
-                      reasonController.text = selection;
-                    },
-                    fieldViewBuilder:
-                        (context, controller, focusNode, onFieldSubmitted) {
-                      controller.text = reasonController.text;
-                      controller.selection = TextSelection.fromPosition(
-                          TextPosition(offset: controller.text.length));
-                      return TextField(
-                        controller: controller,
-                        focusNode: focusNode,
-                        decoration: InputDecoration(
-                          labelText: 'Reason (optional)',
-                          hintText: 'Optional note about this transaction',
-                          prefixIcon: Icon(Icons.note_rounded),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Apply Transaction Fee',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              applyFee
+                                  ? 'Fee will be included in total'
+                                  : 'No fee will be applied',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.6),
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
                         ),
-                        onChanged: (v) => reasonController.text = v,
-                      );
-                    },
-                  );
-                },
-              ),
-              const SizedBox(height: 12),
-            ],
+                      ),
+                      Switch(
+                        value: applyFee,
+                        onChanged: (value) {
+                          setState(() {
+                            applyFee = value;
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Payment Type Selector
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: theme.colorScheme.outline),
+                  ),
+                  child: Column(
+                    children: [
+                      RadioListTile<String>(
+                        title: const Text('Phone Payment'),
+                        subtitle: const Text('078xxxxxxx'),
+                        value: 'phone',
+                        groupValue: recipientType,
+                        onChanged: (value) {
+                          setState(() {
+                            recipientType = value!;
+                          });
+                        },
+                      ),
+                      RadioListTile<String>(
+                        title: const Text('Momo Payment'),
+                        subtitle: const Text('Momo Code'),
+                        value: 'momo',
+                        groupValue: recipientType,
+                        onChanged: (value) {
+                          setState(() {
+                            recipientType = value!;
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Contact Name Field (optional)
+                TextField(
+                  controller: contactNameController,
+                  keyboardType: TextInputType.text,
+                  decoration: InputDecoration(
+                    labelText: 'Contact Name (Optional)',
+                    prefixIcon: Icon(Icons.person_rounded),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    hintText: 'Enter name for this contact',
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Recipient Field
+                TextField(
+                  controller: recipientController,
+                  keyboardType: recipientType == 'phone'
+                      ? TextInputType.phone
+                      : TextInputType.text,
+                  decoration: InputDecoration(
+                    labelText:
+                        recipientType == 'phone' ? 'Phone Number' : 'Momo Code',
+                    prefixIcon: Icon(recipientType == 'phone'
+                        ? Icons.phone_rounded
+                        : Icons.qr_code_rounded),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    hintText:
+                        recipientType == 'phone' ? '078xxxxxxx' : '123456',
+                    errorText: recipientController.text.isNotEmpty &&
+                            ((recipientType == 'phone' &&
+                                    !_isValidPhoneNumber(
+                                        recipientController.text)) ||
+                                (recipientType == 'momo' &&
+                                    !_isValidMomoCode(
+                                        recipientController.text)))
+                        ? 'Enter valid ${recipientType == 'phone' ? 'phone number' : 'momo code'}'
+                        : null,
+                  ),
+                  onChanged: (value) => setState(() {}),
+                ),
+                const SizedBox(height: 12),
+
+                // Reason field (optional) with suggestions
+                FutureBuilder<List<String>>(
+                  future: UssdRecordService.getUniqueReasons(),
+                  builder: (context, snapshot) {
+                    final options = snapshot.data ?? [];
+                    return Autocomplete<String>(
+                      optionsBuilder: (TextEditingValue textEditingValue) {
+                        if (textEditingValue.text == '') {
+                          return const Iterable<String>.empty();
+                        }
+                        return options.where((String option) {
+                          return option
+                              .toLowerCase()
+                              .contains(textEditingValue.text.toLowerCase());
+                        });
+                      },
+                      onSelected: (String selection) {
+                        reasonController.text = selection;
+                      },
+                      fieldViewBuilder:
+                          (context, controller, focusNode, onFieldSubmitted) {
+                        controller.text = reasonController.text;
+                        controller.selection = TextSelection.fromPosition(
+                            TextPosition(offset: controller.text.length));
+                        return TextField(
+                          controller: controller,
+                          focusNode: focusNode,
+                          decoration: InputDecoration(
+                            labelText: 'Reason (optional)',
+                            hintText: 'Optional note about this transaction',
+                            prefixIcon: Icon(Icons.note_rounded),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          onChanged: (v) => reasonController.text = v,
+                        );
+                      },
+                    );
+                  },
+                ),
+                const SizedBox(height: 12),
+              ],
             ),
           ),
         ),

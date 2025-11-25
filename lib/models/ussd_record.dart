@@ -11,6 +11,7 @@ class UssdRecord {
   final String? contactName;
   final String? reason;
   final double? fee; // Transaction fee
+  final bool applyFee; // Whether to apply fee to this transaction
 
   UssdRecord({
     required this.id,
@@ -23,6 +24,7 @@ class UssdRecord {
     this.contactName,
     this.reason,
     this.fee,
+    this.applyFee = true, // Default to true for backward compatibility
   });
 
   Map<String, dynamic> toJson() {
@@ -37,6 +39,7 @@ class UssdRecord {
       'contactName': contactName,
       'reason': reason,
       'fee': fee,
+      'applyFee': applyFee,
     };
   }
 
@@ -52,6 +55,8 @@ class UssdRecord {
       contactName: json['contactName'] as String?,
       reason: json['reason'] as String?,
       fee: json['fee'] != null ? (json['fee'] as num).toDouble() : null,
+      applyFee:
+          json['applyFee'] as bool? ?? true, // Default to true for old records
     );
   }
 
@@ -66,6 +71,7 @@ class UssdRecord {
     String? contactName,
     String? reason,
     double? fee,
+    bool? applyFee,
   }) {
     return UssdRecord(
       id: id ?? this.id,
@@ -78,6 +84,7 @@ class UssdRecord {
       contactName: contactName ?? this.contactName,
       reason: reason ?? this.reason,
       fee: fee ?? this.fee,
+      applyFee: applyFee ?? this.applyFee,
     );
   }
 
@@ -95,7 +102,13 @@ class UssdRecord {
 
   /// Calculate the transaction fee dynamically based on tariff rules
   /// If fee is already saved, returns that; otherwise calculates from tariff rules
+  /// Returns 0 if applyFee is false
   double calculateFee() {
+    // If user chose not to apply fee, return 0
+    if (!applyFee) {
+      return 0.0;
+    }
+
     // If fee is already saved, use it
     if (fee != null) {
       return fee!;
