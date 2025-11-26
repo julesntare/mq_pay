@@ -9,9 +9,40 @@ import 'helpers/app_theme.dart';
 import 'helpers/theme_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'services/backup_service.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
+import 'package:workmanager/workmanager.dart';
+import 'services/daily_total_service.dart';
+
+@pragma('vm:entry-point')
+void callbackDispatcher() {
+  Workmanager().executeTask((task, inputData) async {
+    try {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+      await DailyTotalService.sendDailyTotal();
+      return Future.value(true);
+    } catch (e) {
+      return Future.value(false);
+    }
+  });
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Firebase
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  // Initialize Workmanager
+  await Workmanager().initialize(callbackDispatcher, isInDebugMode: false);
+
+  // Schedule daily task at 11:59 PM CAT
+  await DailyTotalService.scheduleDailyTask();
+
   final localeProvider = LocaleProvider();
   final themeProvider = ThemeProvider();
   final prefs = await SharedPreferences.getInstance();

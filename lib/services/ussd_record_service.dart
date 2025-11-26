@@ -43,6 +43,14 @@ class UssdRecordService {
     return records.fold<double>(0.0, (sum, record) => sum + record.amount);
   }
 
+  static Future<double> getTodayTotalAmount() async {
+    final now = DateTime.now();
+    final startOfDay = DateTime(now.year, now.month, now.day, 0, 0, 0);
+    final endOfDay = DateTime(now.year, now.month, now.day, 23, 59, 59);
+    final todayRecords = await getRecordsByDateRange(startOfDay, endOfDay);
+    return todayRecords.fold<double>(0.0, (sum, record) => sum + record.amount);
+  }
+
   static Future<int> getTotalRecordsCount() async {
     final records = await getUssdRecords();
     return records.length;
