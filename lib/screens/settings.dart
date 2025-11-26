@@ -2298,6 +2298,215 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _sendDailyTotalManually(BuildContext context) async {
     final theme = Theme.of(context);
+    final totalAmount = await _getTodayTotal();
+
+    // Show confirmation dialog with adjust/deduct options
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (BuildContext context) {
+        double adjustedAmount = totalAmount;
+        final TextEditingController adjustController = TextEditingController();
+
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      Icons.cloud_upload_rounded,
+                      color: theme.colorScheme.primary,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text('Confirm Daily Total'),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Original Amount',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${NumberFormat('#,###').format(totalAmount)} RWF',
+                            style: theme.textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: theme.colorScheme.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Adjust Amount',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: adjustController,
+                      keyboardType: TextInputType.numberWithOptions(decimal: true),
+                      decoration: InputDecoration(
+                        labelText: 'Deduct/Add Amount',
+                        hintText: 'Enter amount to adjust',
+                        prefixIcon: Icon(Icons.edit_rounded, color: theme.colorScheme.primary),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        suffixText: 'RWF',
+                      ),
+                      onChanged: (value) {
+                        setState(() {
+                          final adjustment = double.tryParse(value) ?? 0.0;
+                          adjustedAmount = totalAmount + adjustment;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              final currentValue = double.tryParse(adjustController.text) ?? 0.0;
+                              adjustController.text = (-currentValue.abs()).toString();
+                              setState(() {
+                                adjustedAmount = totalAmount - currentValue.abs();
+                              });
+                            },
+                            icon: const Icon(Icons.remove_circle_outline, size: 18),
+                            label: const Text('Deduct'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.red,
+                              side: BorderSide(color: Colors.red.withValues(alpha: 0.5)),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              final currentValue = double.tryParse(adjustController.text) ?? 0.0;
+                              adjustController.text = currentValue.abs().toString();
+                              setState(() {
+                                adjustedAmount = totalAmount + currentValue.abs();
+                              });
+                            },
+                            icon: const Icon(Icons.add_circle_outline, size: 18),
+                            label: const Text('Add'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.green,
+                              side: BorderSide(color: Colors.green.withValues(alpha: 0.5)),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: adjustedAmount != totalAmount
+                          ? Colors.orange.withValues(alpha: 0.1)
+                          : theme.colorScheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: adjustedAmount != totalAmount
+                            ? Colors.orange.withValues(alpha: 0.3)
+                            : theme.colorScheme.outline.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Final Amount:',
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          Text(
+                            '${NumberFormat('#,###').format(adjustedAmount)} RWF',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: adjustedAmount != totalAmount
+                                ? Colors.orange
+                                : theme.colorScheme.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(context, {
+                      'confirmed': true,
+                      'amount': adjustedAmount,
+                      'isAdjusted': adjustedAmount != totalAmount,
+                    });
+                  },
+                  icon: const Icon(Icons.send_rounded),
+                  label: const Text('Send to Firebase'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: theme.colorScheme.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    // If user cancelled
+    if (result == null || result['confirmed'] != true) return;
+
+    final finalAmount = result['amount'] as double;
+    final isAdjusted = result['isAdjusted'] as bool;
 
     // Show loading dialog
     showDialog(
@@ -2329,7 +2538,7 @@ class _SettingsPageState extends State<SettingsPage> {
     );
 
     try {
-      await DailyTotalService.sendDailyTotal();
+      await DailyTotalService.sendDailyTotal(overrideAmount: finalAmount);
 
       // Close loading dialog
       if (mounted) {
@@ -2339,8 +2548,7 @@ class _SettingsPageState extends State<SettingsPage> {
       // Show success message
       if (mounted) {
         final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
-        final totalAmount = await _getTodayTotal();
-        final formattedTotal = NumberFormat('#,###').format(totalAmount);
+        final formattedTotal = NumberFormat('#,###').format(finalAmount);
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -2350,7 +2558,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'Successfully sent today\'s total: $formattedTotal RWF ($today) to Firebase!',
+                    'Successfully sent ${isAdjusted ? 'adjusted' : 'today\'s'} total: $formattedTotal RWF ($today) to Firebase!',
                     style: const TextStyle(fontWeight: FontWeight.w500),
                   ),
                 ),

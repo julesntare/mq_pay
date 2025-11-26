@@ -11,7 +11,8 @@ class DailyTotalService {
 
   /// Send daily total to Firestore
   /// If a record for today already exists, it will be updated instead of creating a new one
-  static Future<void> sendDailyTotal() async {
+  /// [overrideAmount] - Optional parameter to override the calculated total amount
+  static Future<void> sendDailyTotal({double? overrideAmount}) async {
     try {
       // Get today's date in yyyy-MM-dd format
       final now = DateTime.now();
@@ -28,10 +29,13 @@ class DailyTotalService {
       );
 
       // Calculate totals for today's records only
-      final totalAmount = todayRecords.fold<double>(
+      final calculatedAmount = todayRecords.fold<double>(
         0.0,
         (sum, record) => sum + record.amount,
       );
+
+      // Use override amount if provided, otherwise use calculated amount
+      final totalAmount = overrideAmount ?? calculatedAmount;
 
       // Calculate total with fees for today's records only
       final totalWithFees = todayRecords.fold<double>(
