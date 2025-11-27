@@ -28,26 +28,20 @@ class DailyTotalService {
         endOfDay,
       );
 
-      // Calculate totals for today's records only
-      final calculatedAmount = todayRecords.fold<double>(
-        0.0,
-        (sum, record) => sum + record.amount,
-      );
-
-      // Use override amount if provided, otherwise use calculated amount
-      final totalAmount = overrideAmount ?? calculatedAmount;
-
       // Calculate total with fees for today's records only
-      final totalWithFees = todayRecords.fold<double>(
+      final calculatedTotalWithFees = todayRecords.fold<double>(
         0.0,
         (sum, record) => sum + record.amount + record.calculateFee(),
       );
+
+      // Use override amount if provided, otherwise use calculated total with fees
+      final totalAmount = overrideAmount ?? calculatedTotalWithFees;
 
       final dailyTotal = DailyTotal(
         date: today,
         total: totalAmount,
         sentAt: DateTime.now(),
-        totalWithFees: totalWithFees,
+        totalWithFees: totalAmount, // Use the same value as total
         recordCount: todayRecords.length,
       );
 
@@ -69,7 +63,9 @@ class DailyTotalService {
       await Workmanager().cancelByUniqueName(_taskName);
 
       // Calculate time until 11:59 PM CAT
-      final now = DateTime.now().toUtc().add(const Duration(hours: 2)); // Convert to CAT
+      final now = DateTime.now()
+          .toUtc()
+          .add(const Duration(hours: 2)); // Convert to CAT
       final todayAt2359 = DateTime(now.year, now.month, now.day, 23, 59);
 
       DateTime targetTime;

@@ -205,7 +205,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 return Card(
                   margin: const EdgeInsets.only(bottom: 8),
                   child: ListTile(
-                    leading: const Icon(Icons.backup_rounded, color: Colors.blue),
+                    leading:
+                        const Icon(Icons.backup_rounded, color: Colors.blue),
                     title: Text(
                       '${modified.day}/${modified.month}/${modified.year} ${modified.hour}:${modified.minute.toString().padLeft(2, '0')}',
                       style: const TextStyle(fontWeight: FontWeight.w600),
@@ -304,9 +305,12 @@ class _SettingsPageState extends State<SettingsPage> {
         // Show success message with details
         final message = StringBuffer('Backup restored successfully!\n\n');
         message.write('New records: ${result['newRecordsAdded']}\n');
-        message.write('Duplicates skipped: ${result['duplicateRecordsSkipped']}\n');
-        message.write('New payment methods: ${result['newPaymentMethodsAdded']}\n');
-        message.write('Duplicate methods skipped: ${result['duplicatePaymentMethodsSkipped']}');
+        message.write(
+            'Duplicates skipped: ${result['duplicateRecordsSkipped']}\n');
+        message.write(
+            'New payment methods: ${result['newPaymentMethodsAdded']}\n');
+        message.write(
+            'Duplicate methods skipped: ${result['duplicatePaymentMethodsSkipped']}');
 
         showDialog(
           context: context,
@@ -474,7 +478,7 @@ class _SettingsPageState extends State<SettingsPage> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(
@@ -541,7 +545,7 @@ class _SettingsPageState extends State<SettingsPage> {
             Text(
               'Manage your mobile numbers and payment options',
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurface.withOpacity(0.7),
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
               ),
             ),
             const SizedBox(height: 20),
@@ -555,7 +559,8 @@ class _SettingsPageState extends State<SettingsPage> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+                  color:
+                      theme.colorScheme.surfaceVariant.withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
@@ -625,11 +630,12 @@ class _SettingsPageState extends State<SettingsPage> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: method.isDefault
-            ? theme.colorScheme.primaryContainer.withOpacity(0.1)
-            : theme.colorScheme.surfaceVariant.withOpacity(0.3),
+            ? theme.colorScheme.primaryContainer.withValues(alpha: 0.1)
+            : theme.colorScheme.surfaceVariant.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(12),
         border: method.isDefault
-            ? Border.all(color: theme.colorScheme.primary.withOpacity(0.3))
+            ? Border.all(
+                color: theme.colorScheme.primary.withValues(alpha: 0.3))
             : null,
       ),
       child: Row(
@@ -637,7 +643,7 @@ class _SettingsPageState extends State<SettingsPage> {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(icon, color: color, size: 20),
@@ -658,7 +664,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 Text(
                   '${method.provider} • ${_maskValue(method.value)}',
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurface.withOpacity(0.7),
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                   ),
                 ),
               ],
@@ -667,7 +673,7 @@ class _SettingsPageState extends State<SettingsPage> {
           PopupMenuButton<String>(
             icon: Icon(
               Icons.more_vert_rounded,
-              color: theme.colorScheme.onSurface.withOpacity(0.7),
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
             ),
             onSelected: (value) {
               switch (value) {
@@ -989,8 +995,8 @@ class _SettingsPageState extends State<SettingsPage> {
                             Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                color:
-                                    theme.colorScheme.primary.withOpacity(0.1),
+                                color: theme.colorScheme.primary
+                                    .withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
@@ -1108,7 +1114,7 @@ class _SettingsPageState extends State<SettingsPage> {
         border: isSelected
             ? null
             : Border.all(
-                color: theme.colorScheme.outline.withOpacity(0.2),
+                color: theme.colorScheme.outline.withValues(alpha: 0.2),
               ),
       ),
       child: Material(
@@ -1124,8 +1130,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? Colors.white.withOpacity(0.2)
-                        : theme.colorScheme.primary.withOpacity(0.1),
+                        ? Colors.white.withValues(alpha: 0.2)
+                        : theme.colorScheme.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
@@ -1152,7 +1158,8 @@ class _SettingsPageState extends State<SettingsPage> {
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: isSelected
                               ? Colors.white70
-                              : theme.colorScheme.onSurface.withOpacity(0.7),
+                              : theme.colorScheme.onSurface
+                                  .withValues(alpha: 0.7),
                         ),
                       ),
                     ],
@@ -1162,7 +1169,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   Container(
                     padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
+                      color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: const Icon(
@@ -1208,7 +1215,7 @@ class _SettingsPageState extends State<SettingsPage> {
             Text(
               'Export your data to keep it safe or restore from a previous backup',
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurface.withOpacity(0.7),
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
               ),
             ),
             const SizedBox(height: 20),
@@ -1221,13 +1228,13 @@ class _SettingsPageState extends State<SettingsPage> {
                 gradient: LinearGradient(
                   colors: [
                     theme.colorScheme.primary,
-                    theme.colorScheme.primary.withOpacity(0.8),
+                    theme.colorScheme.primary.withValues(alpha: 0.8),
                   ],
                 ),
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: theme.colorScheme.primary.withOpacity(0.3),
+                    color: theme.colorScheme.primary.withValues(alpha: 0.3),
                     blurRadius: 8,
                     offset: const Offset(0, 4),
                   ),
@@ -1277,7 +1284,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.green.withOpacity(0.3),
+                    color: Colors.green.withValues(alpha: 0.3),
                     blurRadius: 8,
                     offset: const Offset(0, 4),
                   ),
@@ -1387,7 +1394,7 @@ class _SettingsPageState extends State<SettingsPage> {
             Text(
               'Automatically backup your data periodically',
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurface.withOpacity(0.7),
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
               ),
             ),
             const SizedBox(height: 20),
@@ -1396,7 +1403,7 @@ class _SettingsPageState extends State<SettingsPage> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: theme.colorScheme.primary.withOpacity(0.05),
+                color: theme.colorScheme.primary.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
@@ -1415,7 +1422,8 @@ class _SettingsPageState extends State<SettingsPage> {
                         Text(
                           'Backup data automatically in the background',
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.6),
                           ),
                         ),
                       ],
@@ -1493,7 +1501,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     color: theme.colorScheme.surface,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: theme.colorScheme.outline.withOpacity(0.3),
+                      color: theme.colorScheme.outline.withValues(alpha: 0.3),
                     ),
                   ),
                   child: Row(
@@ -1522,7 +1530,8 @@ class _SettingsPageState extends State<SettingsPage> {
                                   ? 'Tap to select custom backup location'
                                   : 'Tap to change backup location',
                               style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                color: theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.6),
                               ),
                             ),
                           ],
@@ -1530,7 +1539,8 @@ class _SettingsPageState extends State<SettingsPage> {
                       ),
                       Icon(
                         Icons.chevron_right,
-                        color: theme.colorScheme.onSurface.withOpacity(0.4),
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.4),
                       ),
                     ],
                   ),
@@ -1545,7 +1555,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: theme.colorScheme.primaryContainer,
                   foregroundColor: theme.colorScheme.onPrimaryContainer,
-                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -1606,12 +1617,13 @@ class _SettingsPageState extends State<SettingsPage> {
         decoration: BoxDecoration(
           color: isSelected
               ? theme.colorScheme.primary
-              : theme.colorScheme.surfaceContainerHighest.withOpacity(0.3),
+              : theme.colorScheme.surfaceContainerHighest
+                  .withValues(alpha: 0.3),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected
                 ? theme.colorScheme.primary
-                : theme.colorScheme.outline.withOpacity(0.2),
+                : theme.colorScheme.outline.withValues(alpha: 0.2),
             width: isSelected ? 2 : 1,
           ),
         ),
@@ -1703,7 +1715,7 @@ class _SettingsPageState extends State<SettingsPage> {
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: theme.colorScheme.primary.withOpacity(0.1),
+            color: theme.colorScheme.primary.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(
@@ -1726,7 +1738,7 @@ class _SettingsPageState extends State<SettingsPage> {
               Text(
                 value,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withOpacity(0.7),
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                 ),
               ),
             ],
@@ -1781,7 +1793,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
+                    color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(
@@ -1887,7 +1899,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
+                    color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(
@@ -2036,7 +2048,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: AppTheme.successColor.withOpacity(0.1),
+                      color: AppTheme.successColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(
@@ -2057,7 +2069,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+                      color: theme.colorScheme.surfaceVariant
+                          .withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Column(
@@ -2152,148 +2165,162 @@ class _SettingsPageState extends State<SettingsPage> {
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  Icons.cloud_upload_rounded,
-                  color: theme.colorScheme.primary,
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Daily Total Sync',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Text(
-                      'Send daily totals to Firebase',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                Icon(
-                  Icons.info_outline_rounded,
-                  color: theme.colorScheme.primary,
-                  size: 20,
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.cloud_upload_rounded,
+                    color: theme.colorScheme.primary,
+                    size: 24,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Text(
-                    'Automatically syncs at 11:59 PM CAT daily. You can also manually sync now.',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Daily Total Sync',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        'Send daily totals to Firebase',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.6),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
-          ),
-          const SizedBox(height: 16),
-          FutureBuilder<double>(
-            future: _getTodayTotal(),
-            builder: (context, snapshot) {
-              final totalAmount = snapshot.data ?? 0.0;
-              final formattedTotal = NumberFormat('#,###').format(totalAmount);
-
-              return Column(
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: theme.colorScheme.primary.withValues(alpha: 0.3),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Today\'s Total',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurface
-                                    .withValues(alpha: 0.6),
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '$formattedTotal RWF',
-                              style: theme.textTheme.headlineSmall?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: theme.colorScheme.primary,
-                              ),
-                            ),
-                          ],
-                        ),
-                        Icon(
-                          Icons.account_balance_wallet_rounded,
-                          color: theme.colorScheme.primary,
-                          size: 32,
-                        ),
-                      ],
-                    ),
+                  Icon(
+                    Icons.info_outline_rounded,
+                    color: theme.colorScheme.primary,
+                    size: 20,
                   ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: () => _sendDailyTotalManually(context),
-                      icon: const Icon(Icons.send_rounded),
-                      label: const Text('Send to Firebase Now'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: theme.colorScheme.primary,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Automatically syncs at 11:59 PM CAT daily. You can also manually sync now.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.7),
                       ),
                     ),
                   ),
                 ],
-              );
-            },
-          ),
-        ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            FutureBuilder<double>(
+              future: _getTodayTotal(),
+              builder: (context, snapshot) {
+                final totalAmount = snapshot.data ?? 0.0;
+                final formattedTotal =
+                    NumberFormat('#,###').format(totalAmount);
+
+                return Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color:
+                              theme.colorScheme.primary.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Today\'s Total',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurface
+                                      .withValues(alpha: 0.6),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '$formattedTotal RWF',
+                                style: theme.textTheme.headlineSmall?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: theme.colorScheme.primary,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Icon(
+                            Icons.account_balance_wallet_rounded,
+                            color: theme.colorScheme.primary,
+                            size: 32,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () => _sendDailyTotalManually(context),
+                        icon: const Icon(Icons.send_rounded),
+                        label: const Text('Send to Firebase Now'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: theme.colorScheme.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ],
         ),
       ),
     );
   }
 
   Future<double> _getTodayTotal() async {
-    return await UssdRecordService.getTodayTotalAmount();
+    final now = DateTime.now();
+    final startOfDay = DateTime(now.year, now.month, now.day, 0, 0, 0);
+    final endOfDay = DateTime(now.year, now.month, now.day, 23, 59, 59);
+    final todayRecords =
+        await UssdRecordService.getRecordsByDateRange(startOfDay, endOfDay);
+
+    // Calculate total with fees applied
+    return todayRecords.fold<double>(
+      0.0,
+      (sum, record) => sum + record.amount + record.calculateFee(),
+    );
   }
 
   Future<void> _sendDailyTotalManually(BuildContext context) async {
@@ -2344,7 +2371,8 @@ class _SettingsPageState extends State<SettingsPage> {
                         color: theme.colorScheme.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                          color:
+                              theme.colorScheme.primary.withValues(alpha: 0.3),
                         ),
                       ),
                       child: Column(
@@ -2353,7 +2381,8 @@ class _SettingsPageState extends State<SettingsPage> {
                           Text(
                             'Original Amount',
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                              color: theme.colorScheme.onSurface
+                                  .withValues(alpha: 0.6),
                             ),
                           ),
                           const SizedBox(height: 4),
@@ -2377,11 +2406,13 @@ class _SettingsPageState extends State<SettingsPage> {
                     const SizedBox(height: 8),
                     TextField(
                       controller: adjustController,
-                      keyboardType: TextInputType.numberWithOptions(decimal: true),
+                      keyboardType:
+                          TextInputType.numberWithOptions(decimal: true),
                       decoration: InputDecoration(
                         labelText: 'Deduct/Add Amount',
                         hintText: 'Enter amount to adjust',
-                        prefixIcon: Icon(Icons.edit_rounded, color: theme.colorScheme.primary),
+                        prefixIcon: Icon(Icons.edit_rounded,
+                            color: theme.colorScheme.primary),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -2400,17 +2431,22 @@ class _SettingsPageState extends State<SettingsPage> {
                         Expanded(
                           child: OutlinedButton.icon(
                             onPressed: () {
-                              final currentValue = double.tryParse(adjustController.text) ?? 0.0;
-                              adjustController.text = (-currentValue.abs()).toString();
+                              final currentValue =
+                                  double.tryParse(adjustController.text) ?? 0.0;
+                              adjustController.text =
+                                  (-currentValue.abs()).toString();
                               setState(() {
-                                adjustedAmount = totalAmount - currentValue.abs();
+                                adjustedAmount =
+                                    totalAmount - currentValue.abs();
                               });
                             },
-                            icon: const Icon(Icons.remove_circle_outline, size: 18),
+                            icon: const Icon(Icons.remove_circle_outline,
+                                size: 18),
                             label: const Text('Deduct'),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: Colors.red,
-                              side: BorderSide(color: Colors.red.withValues(alpha: 0.5)),
+                              side: BorderSide(
+                                  color: Colors.red.withValues(alpha: 0.5)),
                             ),
                           ),
                         ),
@@ -2418,17 +2454,22 @@ class _SettingsPageState extends State<SettingsPage> {
                         Expanded(
                           child: OutlinedButton.icon(
                             onPressed: () {
-                              final currentValue = double.tryParse(adjustController.text) ?? 0.0;
-                              adjustController.text = currentValue.abs().toString();
+                              final currentValue =
+                                  double.tryParse(adjustController.text) ?? 0.0;
+                              adjustController.text =
+                                  currentValue.abs().toString();
                               setState(() {
-                                adjustedAmount = totalAmount + currentValue.abs();
+                                adjustedAmount =
+                                    totalAmount + currentValue.abs();
                               });
                             },
-                            icon: const Icon(Icons.add_circle_outline, size: 18),
+                            icon:
+                                const Icon(Icons.add_circle_outline, size: 18),
                             label: const Text('Add'),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: Colors.green,
-                              side: BorderSide(color: Colors.green.withValues(alpha: 0.5)),
+                              side: BorderSide(
+                                  color: Colors.green.withValues(alpha: 0.5)),
                             ),
                           ),
                         ),
@@ -2439,13 +2480,14 @@ class _SettingsPageState extends State<SettingsPage> {
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: adjustedAmount != totalAmount
-                          ? Colors.orange.withValues(alpha: 0.1)
-                          : theme.colorScheme.surfaceContainerHighest,
+                            ? Colors.orange.withValues(alpha: 0.1)
+                            : theme.colorScheme.surfaceContainerHighest,
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
                           color: adjustedAmount != totalAmount
-                            ? Colors.orange.withValues(alpha: 0.3)
-                            : theme.colorScheme.outline.withValues(alpha: 0.3),
+                              ? Colors.orange.withValues(alpha: 0.3)
+                              : theme.colorScheme.outline
+                                  .withValues(alpha: 0.3),
                         ),
                       ),
                       child: Row(
@@ -2462,8 +2504,8 @@ class _SettingsPageState extends State<SettingsPage> {
                             style: theme.textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                               color: adjustedAmount != totalAmount
-                                ? Colors.orange
-                                : theme.colorScheme.primary,
+                                  ? Colors.orange
+                                  : theme.colorScheme.primary,
                             ),
                           ),
                         ],
