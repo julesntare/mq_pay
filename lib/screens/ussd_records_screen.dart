@@ -1845,7 +1845,20 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
 
   Future<void> _redialRecord(UssdRecord record) async {
     try {
+      // Show dialog to confirm if the transaction failed
+      final shouldDeleteOriginal = await _showRedialConfirmationDialog(record);
+
+      if (shouldDeleteOriginal == null) {
+        // User cancelled the dialog
+        return;
+      }
+
       launchUSSD(record.ussdCode, context);
+
+      // If the transaction failed, delete the original record
+      if (shouldDeleteOriginal) {
+        await UssdRecordService.deleteUssdRecord(record.id);
+      }
 
       // Save a new record for the redial
       final newRecord = record.copyWith(
@@ -1858,7 +1871,11 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Redialing transaction...')),
+          SnackBar(
+            content: Text(shouldDeleteOriginal
+              ? 'Failed transaction deleted and redialing...'
+              : 'Redialing transaction...'),
+          ),
         );
       }
     } catch (e) {
@@ -1868,6 +1885,139 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
         );
       }
     }
+  }
+
+  Future<bool?> _showRedialConfirmationDialog(UssdRecord record) async {
+    bool transactionFailed = false;
+    final theme = Theme.of(context);
+
+    return await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              Icon(Icons.refresh_rounded, color: theme.colorScheme.primary),
+              const SizedBox(width: 12),
+              const Text('Redial Transaction'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'You are about to redial this transaction:',
+                style: theme.textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Amount: ${_formatCurrency(record.amount)}',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'To: ${record.maskedRecipient ?? record.recipient}',
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              InkWell(
+                onTap: () {
+                  setState(() {
+                    transactionFailed = !transactionFailed;
+                  });
+                },
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: theme.colorScheme.outline.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Checkbox(
+                        value: transactionFailed,
+                        onChanged: (value) {
+                          setState(() {
+                            transactionFailed = value ?? false;
+                          });
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'The original transaction failed',
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (transactionFailed) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline,
+                        size: 16,
+                        color: Colors.orange,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'The original transaction will be deleted',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: Colors.orange.shade700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(null),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(transactionFailed),
+              child: const Text('Redial'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _deleteRecord(UssdRecord record) async {
