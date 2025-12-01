@@ -123,4 +123,61 @@ class DailyTotalService {
       return [];
     }
   }
+
+  /// Sync all dates with transactions to Firebase
+  /// This ensures that all dates that have transactions are synced to Firebase
+  static Future<Map<String, dynamic>> syncAllDateTotals() async {
+    try {
+      // Get all unique dates from transactions
+      final allDates = await UssdRecordService.getAllUniqueDates();
+
+      int syncedCount = 0;
+      int errorCount = 0;
+      final List<String> syncedDates = [];
+      final List<String> errorDates = [];
+
+      // Sync each date
+      for (final dateString in allDates) {
+        try {
+          // Get total for this date
+          final dateData = await UssdRecordService.getTotalForDate(dateString);
+          final total = dateData['total'] as double;
+          final recordCount = dateData['recordCount'] as int;
+
+          // Create daily total object
+          final dailyTotal = DailyTotal(
+            date: dateString,
+            total: total,
+            sentAt: DateTime.now(),
+            totalWithFees: total,
+            recordCount: recordCount,
+          );
+
+          // Save to Firebase (merge to avoid overwriting existing data)
+          await _firestore
+              .collection(_collectionName)
+              .doc(dateString)
+              .set(dailyTotal.toJson(), SetOptions(merge: true));
+
+          syncedCount++;
+          syncedDates.add(dateString);
+        } catch (e) {
+          print('Error syncing date $dateString: $e');
+          errorCount++;
+          errorDates.add(dateString);
+        }
+      }
+
+      return {
+        'totalDates': allDates.length,
+        'syncedCount': syncedCount,
+        'errorCount': errorCount,
+        'syncedDates': syncedDates,
+        'errorDates': errorDates,
+      };
+    } catch (e) {
+      print('Error syncing all date totals: $e');
+      throw Exception('Failed to sync all date totals: $e');
+    }
+  }
 }

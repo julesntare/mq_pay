@@ -150,4 +150,45 @@ class UssdRecordService {
         .where((r) => r.timestamp.year == year && r.timestamp.month == month)
         .fold<double>(0.0, (double sum, r) => sum + r.amount);
   }
+
+  // Get all unique dates (yyyy-MM-dd format) that have transactions
+  static Future<List<String>> getAllUniqueDates() async {
+    final records = await getUssdRecords();
+    final Set<String> dates = {};
+
+    for (final record in records) {
+      final date = DateTime(
+        record.timestamp.year,
+        record.timestamp.month,
+        record.timestamp.day,
+      );
+      final dateString = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+      dates.add(dateString);
+    }
+
+    return dates.toList()..sort();
+  }
+
+  // Get total amount (with fees) for a specific date (yyyy-MM-dd format)
+  static Future<Map<String, dynamic>> getTotalForDate(String dateString) async {
+    final dateParts = dateString.split('-');
+    final year = int.parse(dateParts[0]);
+    final month = int.parse(dateParts[1]);
+    final day = int.parse(dateParts[2]);
+
+    final startOfDay = DateTime(year, month, day, 0, 0, 0);
+    final endOfDay = DateTime(year, month, day, 23, 59, 59);
+
+    final records = await getRecordsByDateRange(startOfDay, endOfDay);
+
+    final totalWithFees = records.fold<double>(
+      0.0,
+      (sum, record) => sum + record.amount + record.calculateFee(),
+    );
+
+    return {
+      'total': totalWithFees,
+      'recordCount': records.length,
+    };
+  }
 }
