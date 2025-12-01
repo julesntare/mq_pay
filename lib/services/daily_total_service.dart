@@ -9,7 +9,17 @@ class DailyTotalService {
   static const String _collectionName = 'daily_totals';
   static const String _taskName = 'dailyTotalTask';
 
-  /// Send daily total to Firestore
+  /// Get month key from date (format: yyyy-MM)
+  static String _getMonthKey(DateTime date) {
+    return DateFormat('yyyy-MM').format(date);
+  }
+
+  /// Get month key from date string (format: yyyy-MM-dd -> yyyy-MM)
+  static String _getMonthKeyFromString(String dateString) {
+    return dateString.substring(0, 7); // Get first 7 chars: "yyyy-MM"
+  }
+
+  /// Send daily total to Firestore using monthly document structure
   /// If a record for today already exists, it will be updated instead of creating a new one
   /// [overrideAmount] - Optional parameter to override the calculated total amount
   static Future<void> sendDailyTotal({double? overrideAmount}) async {
@@ -17,6 +27,7 @@ class DailyTotalService {
       // Get today's date in yyyy-MM-dd format
       final now = DateTime.now();
       final today = DateFormat('yyyy-MM-dd').format(now);
+      final monthKey = _getMonthKey(now);
 
       // Get start and end of today
       final startOfDay = DateTime(now.year, now.month, now.day, 0, 0, 0);
@@ -45,11 +56,11 @@ class DailyTotalService {
         recordCount: todayRecords.length,
       );
 
-      // Use document ID as date to ensure update instead of insert
-      await _firestore
-          .collection(_collectionName)
-          .doc(today)
-          .set(dailyTotal.toJson(), SetOptions(merge: true));
+      // Store in monthly document: daily_totals/yyyy-MM
+      // Update the specific date field within the month document
+      await _firestore.collection(_collectionName).doc(monthKey).set({
+        today: dailyTotal.toJson(),
+      }, SetOptions(merge: true));
     } catch (e) {
       // Log error but don't throw to prevent background task failure
       print('Error sending daily total: $e');
@@ -93,12 +104,18 @@ class DailyTotalService {
     }
   }
 
-  /// Get daily total for a specific date
+  /// Get daily total for a specific date from monthly document
   static Future<DailyTotal?> getDailyTotal(String date) async {
     try {
-      final doc = await _firestore.collection(_collectionName).doc(date).get();
-      if (doc.exists) {
-        return DailyTotal.fromJson(doc.data()!);
+      final monthKey = _getMonthKeyFromString(date);
+      final doc =
+          await _firestore.collection(_collectionName).doc(monthKey).get();
+
+      if (doc.exists && doc.data() != null) {
+        final monthData = doc.data()!;
+        if (monthData.containsKey(date)) {
+          return DailyTotal.fromJson(monthData[date] as Map<String, dynamic>);
+        }
       }
       return null;
     } catch (e) {
@@ -107,24 +124,46 @@ class DailyTotalService {
     }
   }
 
-  /// Get all daily totals (optional: for viewing history)
+  /// Get all daily totals from all monthly documents (optional: for viewing history)
   static Future<List<DailyTotal>> getAllDailyTotals() async {
     try {
-      final querySnapshot = await _firestore
-          .collection(_collectionName)
-          .orderBy('date', descending: true)
-          .get();
+      final querySnapshot = await _firestore.collection(_collectionName).get();
 
-      return querySnapshot.docs
-          .map((doc) => DailyTotal.fromJson(doc.data()))
-          .toList();
+      final List<DailyTotal> allTotals = [];
+
+      for (final doc in querySnapshot.docs) {
+        if (doc.exists && doc.data().isNotEmpty) {
+          final monthData = doc.data();
+
+          // Each month document contains date keys (yyyy-MM-dd) with daily total data
+          for (final entry in monthData.entries) {
+            final dateKey = entry.key;
+            final dailyData = entry.value;
+
+            // Ensure it's a map and looks like a daily total entry
+            if (dailyData is Map<String, dynamic> &&
+                dailyData.containsKey('date')) {
+              try {
+                allTotals.add(DailyTotal.fromJson(dailyData));
+              } catch (e) {
+                print('Error parsing daily total for date $dateKey: $e');
+              }
+            }
+          }
+        }
+      }
+
+      // Sort by date descending
+      allTotals.sort((a, b) => b.date.compareTo(a.date));
+
+      return allTotals;
     } catch (e) {
       print('Error getting all daily totals: $e');
       return [];
     }
   }
 
-  /// Sync all dates with transactions to Firebase
+  /// Sync all dates with transactions to Firebase using monthly document structure
   /// This ensures that all dates that have transactions are synced to Firebase
   static Future<Map<String, dynamic>> syncAllDateTotals() async {
     try {
@@ -136,7 +175,10 @@ class DailyTotalService {
       final List<String> syncedDates = [];
       final List<String> errorDates = [];
 
-      // Sync each date
+      // Group dates by month
+      final Map<String, Map<String, DailyTotal>> monthlyData = {};
+
+      // Prepare data grouped by month
       for (final dateString in allDates) {
         try {
           // Get total for this date
@@ -153,18 +195,44 @@ class DailyTotalService {
             recordCount: recordCount,
           );
 
+          // Group by month
+          final monthKey = _getMonthKeyFromString(dateString);
+          if (!monthlyData.containsKey(monthKey)) {
+            monthlyData[monthKey] = {};
+          }
+          monthlyData[monthKey]![dateString] = dailyTotal;
+        } catch (e) {
+          print('Error preparing date $dateString: $e');
+          errorCount++;
+          errorDates.add(dateString);
+        }
+      }
+
+      // Save each month's data to Firebase
+      for (final monthEntry in monthlyData.entries) {
+        final monthKey = monthEntry.key;
+        final datesData = monthEntry.value;
+
+        try {
+          // Convert DailyTotal objects to JSON
+          final Map<String, dynamic> monthDataJson = {};
+          for (final dateEntry in datesData.entries) {
+            monthDataJson[dateEntry.key] = dateEntry.value.toJson();
+          }
+
           // Save to Firebase (merge to avoid overwriting existing data)
           await _firestore
               .collection(_collectionName)
-              .doc(dateString)
-              .set(dailyTotal.toJson(), SetOptions(merge: true));
+              .doc(monthKey)
+              .set(monthDataJson, SetOptions(merge: true));
 
-          syncedCount++;
-          syncedDates.add(dateString);
+          // Count synced dates for this month
+          syncedCount += datesData.length;
+          syncedDates.addAll(datesData.keys);
         } catch (e) {
-          print('Error syncing date $dateString: $e');
-          errorCount++;
-          errorDates.add(dateString);
+          print('Error syncing month $monthKey: $e');
+          errorCount += datesData.length;
+          errorDates.addAll(datesData.keys);
         }
       }
 
@@ -174,6 +242,7 @@ class DailyTotalService {
         'errorCount': errorCount,
         'syncedDates': syncedDates,
         'errorDates': errorDates,
+        'monthsProcessed': monthlyData.length,
       };
     } catch (e) {
       print('Error syncing all date totals: $e');
