@@ -502,6 +502,7 @@ class _HomeState extends State<Home> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // Mode Selector (Send vs Receive)
+              // Enhanced Send Money / Get Paid Toggle
               Container(
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
@@ -511,77 +512,95 @@ class _HomeState extends State<Home> {
                 child: Row(
                   children: [
                     Expanded(
-                      child: GestureDetector(
-                        onTap: () => setState(() => isReceiveMode = false),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          decoration: BoxDecoration(
-                            color: !isReceiveMode
-                                ? theme.colorScheme.primary
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.send_rounded,
-                                size: 18,
-                                color: !isReceiveMode
-                                    ? Colors.white
-                                    : theme.colorScheme.onSurface
-                                        .withValues(alpha: 0.6),
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                'Send Money',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w600,
+                      child: AnimatedScale(
+                        scale: !isReceiveMode ? 1.0 : 0.98,
+                        duration: const Duration(milliseconds: 200),
+                        curve: Curves.easeInOut,
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() => isReceiveMode = false);
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            curve: Curves.easeInOut,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            decoration: BoxDecoration(
+                              color: !isReceiveMode
+                                  ? theme.colorScheme.primary
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.send_rounded,
+                                  size: 22,
                                   color: !isReceiveMode
                                       ? Colors.white
                                       : theme.colorScheme.onSurface
-                                          .withValues(alpha: 0.6),
+                                          .withValues(alpha: 0.5),
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Send Money',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    color: !isReceiveMode
+                                        ? Colors.white
+                                        : theme.colorScheme.onSurface
+                                            .withValues(alpha: 0.5),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
                     ),
                     Expanded(
-                      child: GestureDetector(
-                        onTap: () => setState(() => isReceiveMode = true),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          decoration: BoxDecoration(
-                            color: isReceiveMode
-                                ? theme.colorScheme.primary
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.qr_code_2_rounded,
-                                size: 18,
-                                color: isReceiveMode
-                                    ? Colors.white
-                                    : theme.colorScheme.onSurface
-                                        .withValues(alpha: 0.6),
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                'Get Paid',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w600,
+                      child: AnimatedScale(
+                        scale: isReceiveMode ? 1.0 : 0.98,
+                        duration: const Duration(milliseconds: 200),
+                        curve: Curves.easeInOut,
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() => isReceiveMode = true);
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            curve: Curves.easeInOut,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            decoration: BoxDecoration(
+                              color: isReceiveMode
+                                  ? theme.colorScheme.primary
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.qr_code_2_rounded,
+                                  size: 22,
                                   color: isReceiveMode
                                       ? Colors.white
                                       : theme.colorScheme.onSurface
-                                          .withValues(alpha: 0.6),
+                                          .withValues(alpha: 0.5),
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Get Paid',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    color: isReceiveMode
+                                        ? Colors.white
+                                        : theme.colorScheme.onSurface
+                                            .withValues(alpha: 0.5),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -864,94 +883,9 @@ class _HomeState extends State<Home> {
         ),
         const SizedBox(height: 24),
 
-        // Payment Mode Toggle
-        Container(
-          padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: GestureDetector(
-                  onTap: () => setState(() => isRecordOnlyMode = false),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    decoration: BoxDecoration(
-                      color: !isRecordOnlyMode
-                          ? theme.colorScheme.primary
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.phone_rounded,
-                          size: 18,
-                          color: !isRecordOnlyMode
-                              ? Colors.white
-                              : theme.colorScheme.onSurface
-                                  .withValues(alpha: 0.6),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Dial',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: !isRecordOnlyMode
-                                ? Colors.white
-                                : theme.colorScheme.onSurface
-                                    .withValues(alpha: 0.6),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              Expanded(
-                child: GestureDetector(
-                  onTap: () => setState(() => isRecordOnlyMode = true),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    decoration: BoxDecoration(
-                      color: isRecordOnlyMode
-                          ? theme.colorScheme.primary
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.save_rounded,
-                          size: 18,
-                          color: isRecordOnlyMode
-                              ? Colors.white
-                              : theme.colorScheme.onSurface
-                                  .withValues(alpha: 0.6),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Record Only',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: isRecordOnlyMode
-                                ? Colors.white
-                                : theme.colorScheme.onSurface
-                                    .withValues(alpha: 0.6),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+        // NEW: Card-based payment mode selector
+        _buildPaymentModeSelector(theme),
+
         const SizedBox(height: 24),
         TextField(
           controller: amountController,
@@ -1316,8 +1250,8 @@ class _HomeState extends State<Home> {
     _showUssdDialog(context, ussdCode, input, serviceType);
   }
 
-  Future<void> _showUssdDialog(
-      BuildContext context, String ussdCode, String paymentInfo, String? serviceType) async {
+  Future<void> _showUssdDialog(BuildContext context, String ussdCode,
+      String paymentInfo, String? serviceType) async {
     final theme = Theme.of(context);
     bool isPhoneNumber = _isValidPhoneNumber(paymentInfo);
 
@@ -1378,7 +1312,8 @@ class _HomeState extends State<Home> {
                     SizedBox(height: 12),
                     // Fee toggle switch
                     Container(
-                      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
                         color: theme.colorScheme.surfaceContainerHighest,
                         borderRadius: BorderRadius.circular(10),
@@ -1398,10 +1333,11 @@ class _HomeState extends State<Home> {
                                 SizedBox(height: 2),
                                 Text(
                                   applyFee
-                                    ? 'Fee will be added to total'
-                                    : 'No fee will be applied',
+                                      ? 'Fee will be added to total'
+                                      : 'No fee will be applied',
                                   style: theme.textTheme.bodySmall?.copyWith(
-                                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                                    color: theme.colorScheme.onSurface
+                                        .withValues(alpha: 0.6),
                                     fontSize: 11,
                                   ),
                                 ),
@@ -1422,21 +1358,22 @@ class _HomeState extends State<Home> {
                     SizedBox(height: 8),
                     if (applyFee) ...[
                       Text('Fee: ${feeBreakdown['formattedFee']}',
-                        style: TextStyle(
-                          color: theme.colorScheme.secondary,
-                          fontSize: 14,
-                        )),
+                          style: TextStyle(
+                            color: theme.colorScheme.secondary,
+                            fontSize: 14,
+                          )),
                       Divider(height: 12, thickness: 1),
                       Text('Total: ${feeBreakdown['formattedTotal']}',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: theme.colorScheme.primary,
-                        )),
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: theme.colorScheme.primary,
+                          )),
                       Text('Tariff Type: ${feeBreakdown['tariffType']}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                        )),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.6),
+                          )),
                       SizedBox(height: 8),
                     ],
                     if (selectedName != null && selectedName!.isNotEmpty)
@@ -1444,93 +1381,93 @@ class _HomeState extends State<Home> {
                     Text(isPhoneNumber
                         ? 'Phone: ${_maskPhoneNumber(paymentInfo)}'
                         : 'Momo Code: ${paymentInfo.length > 3 ? paymentInfo.substring(0, 3) + "***" : paymentInfo}'),
-                SizedBox(height: 20),
-                Text(
-                  'Dial this USSD code:',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                SizedBox(height: 10),
-                Container(
-                  padding: EdgeInsets.all(15),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                    SizedBox(height: 20),
+                    Text(
+                      'Dial this USSD code:',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          ussdCode,
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            fontFamily: 'monospace',
-                            color: theme.colorScheme.primary,
-                          ),
+                    SizedBox(height: 10),
+                    Container(
+                      padding: EdgeInsets.all(15),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color:
+                              theme.colorScheme.primary.withValues(alpha: 0.3),
                         ),
                       ),
-                      IconButton(
-                        onPressed: () {
-                          // Copy to clipboard functionality can be added here
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('USSD code copied!')),
-                          );
-                        },
-                        icon: Icon(Icons.copy_rounded),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                // Optional reason field with suggestions
-                FutureBuilder<List<String>>(
-                  future: UssdRecordService.getUniqueReasons(),
-                  builder: (context, snapshot) {
-                    final options = snapshot.data ?? [];
-                    return Autocomplete<String>(
-                      optionsBuilder: (TextEditingValue textEditingValue) {
-                        if (textEditingValue.text == '') {
-                          return const Iterable<String>.empty();
-                        }
-                        return options.where((String option) {
-                          return option
-                              .toLowerCase()
-                              .contains(textEditingValue.text.toLowerCase());
-                        });
-                      },
-                      onSelected: (String selection) {
-                        reasonController.text = selection;
-                      },
-                      fieldViewBuilder:
-                          (context, controller, focusNode, onFieldSubmitted) {
-                        controller.text = reasonController.text;
-                        controller.selection = TextSelection.fromPosition(
-                            TextPosition(offset: controller.text.length));
-                        return TextField(
-                          controller: controller,
-                          focusNode: focusNode,
-                          decoration: InputDecoration(
-                            labelText: 'Reason (optional)',
-                            hintText: 'Why are you sending this money?',
-                            prefixIcon: Icon(Icons.note_rounded),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              ussdCode,
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                fontFamily: 'monospace',
+                                color: theme.colorScheme.primary,
+                              ),
                             ),
                           ),
-                          onChanged: (v) => reasonController.text = v,
+                          IconButton(
+                            onPressed: () {
+                              // Copy to clipboard functionality can be added here
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('USSD code copied!')),
+                              );
+                            },
+                            icon: Icon(Icons.copy_rounded),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Optional reason field with suggestions
+                    FutureBuilder<List<String>>(
+                      future: UssdRecordService.getUniqueReasons(),
+                      builder: (context, snapshot) {
+                        final options = snapshot.data ?? [];
+                        return Autocomplete<String>(
+                          optionsBuilder: (TextEditingValue textEditingValue) {
+                            if (textEditingValue.text == '') {
+                              return const Iterable<String>.empty();
+                            }
+                            return options.where((String option) {
+                              return option.toLowerCase().contains(
+                                  textEditingValue.text.toLowerCase());
+                            });
+                          },
+                          onSelected: (String selection) {
+                            reasonController.text = selection;
+                          },
+                          fieldViewBuilder: (context, controller, focusNode,
+                              onFieldSubmitted) {
+                            controller.text = reasonController.text;
+                            controller.selection = TextSelection.fromPosition(
+                                TextPosition(offset: controller.text.length));
+                            return TextField(
+                              controller: controller,
+                              focusNode: focusNode,
+                              decoration: InputDecoration(
+                                labelText: 'Reason (optional)',
+                                hintText: 'Why are you sending this money?',
+                                prefixIcon: Icon(Icons.note_rounded),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              onChanged: (v) => reasonController.text = v,
+                            );
+                          },
                         );
                       },
-                    );
-                  },
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ),
+              ),
               actions: <Widget>[
                 TextButton(
                   child: Text('Close'),
@@ -1547,7 +1484,8 @@ class _HomeState extends State<Home> {
                     // Save the USSD record before dialing
                     String recipientType =
                         _isValidPhoneNumber(paymentInfo) ? 'phone' : 'momo';
-                    double amount = double.tryParse(amountController.text) ?? 0.0;
+                    double amount =
+                        double.tryParse(amountController.text) ?? 0.0;
                     final reason = reasonController.text.trim().isEmpty
                         ? null
                         : reasonController.text.trim();
@@ -1558,8 +1496,8 @@ class _HomeState extends State<Home> {
                       fee = feeBreakdown['fee'] as double;
                     }
 
-                    await _saveUssdRecord(
-                        ussdCode, paymentInfo, recipientType, amount, reason, fee, applyFee);
+                    await _saveUssdRecord(ussdCode, paymentInfo, recipientType,
+                        amount, reason, fee, applyFee);
 
                     launchUSSD(ussdCode, context);
 
@@ -1659,7 +1597,8 @@ class _HomeState extends State<Home> {
                     SizedBox(height: 12),
                     // Fee toggle switch - always show
                     Container(
-                      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
                         color: theme.colorScheme.surfaceContainerHighest,
                         borderRadius: BorderRadius.circular(10),
@@ -1679,14 +1618,15 @@ class _HomeState extends State<Home> {
                                 SizedBox(height: 2),
                                 Text(
                                   feeBreakdown != null
-                                    ? (applyFee
-                                        ? 'Fee will be added to total'
-                                        : 'No fee will be applied')
-                                    : (applyFee
-                                        ? 'Fee tracking enabled (no fee calculated for this type)'
-                                        : 'No fee will be tracked'),
+                                      ? (applyFee
+                                          ? 'Fee will be added to total'
+                                          : 'No fee will be applied')
+                                      : (applyFee
+                                          ? 'Fee tracking enabled (no fee calculated for this type)'
+                                          : 'No fee will be tracked'),
                                   style: theme.textTheme.bodySmall?.copyWith(
-                                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                                    color: theme.colorScheme.onSurface
+                                        .withValues(alpha: 0.6),
                                     fontSize: 11,
                                   ),
                                 ),
@@ -1725,170 +1665,177 @@ class _HomeState extends State<Home> {
                         'Tariff Type: ${feeBreakdown['tariffType']}',
                         style: TextStyle(
                           fontSize: 12,
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.6),
                         ),
                       ),
                       SizedBox(height: 8),
                     ],
-                if (selectedName != null && selectedName!.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(
-                      'To: $selectedName',
-                      style: theme.textTheme.bodyMedium,
-                    ),
-                  ),
-                if (paymentInfo.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(
-                      _isValidPhoneNumber(paymentInfo)
-                          ? 'Phone: ${_maskPhoneNumber(paymentInfo)}'
-                          : _isValidMomoCode(paymentInfo)
-                              ? 'Momo Code: ${paymentInfo.length > 3 ? paymentInfo.substring(0, 3) + "***" : paymentInfo}'
-                              : 'Recipient: $paymentInfo',
-                      style: theme.textTheme.bodyMedium,
-                    ),
-                  ),
-                if (paymentInfo.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(
-                      'Type: Side Payment',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontStyle: FontStyle.italic,
-                        color:
-                            theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                    if (selectedName != null && selectedName!.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          'To: $selectedName',
+                          style: theme.textTheme.bodyMedium,
+                        ),
                       ),
-                    ),
-                  ),
-                const SizedBox(height: 16),
-                // Optional reason field with suggestions
-                FutureBuilder<List<String>>(
-                  future: UssdRecordService.getUniqueReasons(),
-                  builder: (context, snapshot) {
-                    final options = snapshot.data ?? [];
-                    return Autocomplete<String>(
-                      optionsBuilder: (TextEditingValue textEditingValue) {
-                        if (textEditingValue.text == '') {
-                          return const Iterable<String>.empty();
-                        }
-                        return options.where((String option) {
-                          return option
-                              .toLowerCase()
-                              .contains(textEditingValue.text.toLowerCase());
-                        });
-                      },
-                      onSelected: (String selection) {
-                        reasonController.text = selection;
-                      },
-                      fieldViewBuilder:
-                          (context, controller, focusNode, onFieldSubmitted) {
-                        controller.text = reasonController.text;
-                        controller.selection = TextSelection.fromPosition(
-                            TextPosition(offset: controller.text.length));
-                        return TextField(
-                          controller: controller,
-                          focusNode: focusNode,
-                          decoration: InputDecoration(
-                            labelText: 'Reason (optional)',
-                            hintText: 'Why was this payment made?',
-                            prefixIcon: Icon(Icons.note_rounded),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
+                    if (paymentInfo.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          _isValidPhoneNumber(paymentInfo)
+                              ? 'Phone: ${_maskPhoneNumber(paymentInfo)}'
+                              : _isValidMomoCode(paymentInfo)
+                                  ? 'Momo Code: ${paymentInfo.length > 3 ? paymentInfo.substring(0, 3) + "***" : paymentInfo}'
+                                  : 'Recipient: $paymentInfo',
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                      ),
+                    if (paymentInfo.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          'Type: Side Payment',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontStyle: FontStyle.italic,
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.7),
                           ),
-                          onChanged: (v) => reasonController.text = v,
+                        ),
+                      ),
+                    const SizedBox(height: 16),
+                    // Optional reason field with suggestions
+                    FutureBuilder<List<String>>(
+                      future: UssdRecordService.getUniqueReasons(),
+                      builder: (context, snapshot) {
+                        final options = snapshot.data ?? [];
+                        return Autocomplete<String>(
+                          optionsBuilder: (TextEditingValue textEditingValue) {
+                            if (textEditingValue.text == '') {
+                              return const Iterable<String>.empty();
+                            }
+                            return options.where((String option) {
+                              return option.toLowerCase().contains(
+                                  textEditingValue.text.toLowerCase());
+                            });
+                          },
+                          onSelected: (String selection) {
+                            reasonController.text = selection;
+                          },
+                          fieldViewBuilder: (context, controller, focusNode,
+                              onFieldSubmitted) {
+                            controller.text = reasonController.text;
+                            controller.selection = TextSelection.fromPosition(
+                                TextPosition(offset: controller.text.length));
+                            return TextField(
+                              controller: controller,
+                              focusNode: focusNode,
+                              decoration: InputDecoration(
+                                labelText: 'Reason (optional)',
+                                hintText: 'Why was this payment made?',
+                                prefixIcon: Icon(Icons.note_rounded),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              onChanged: (v) => reasonController.text = v,
+                            );
+                          },
                         );
                       },
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: Text('Cancel'),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-            ElevatedButton.icon(
-              icon: Icon(Icons.save_rounded),
-              label: Text('Save Record'),
-              onPressed: () async {
-                Navigator.of(context).pop();
-
-                // Determine recipient type and value
-                String recipient;
-                String recipientType;
-
-                if (paymentInfo.isEmpty) {
-                  // Side payment or no specific recipient
-                  recipient = 'Side Payment';
-                  recipientType = 'misc';
-                } else if (_isValidPhoneNumber(paymentInfo)) {
-                  recipient = paymentInfo;
-                  recipientType = 'phone';
-                } else if (_isValidMomoCode(paymentInfo)) {
-                  recipient = paymentInfo;
-                  recipientType = 'momo';
-                } else {
-                  // Any other text input
-                  recipient = paymentInfo;
-                  recipientType = 'misc';
-                }
-
-                double amount = double.tryParse(amountController.text) ?? 0.0;
-                final reason = reasonController.text.trim().isEmpty
-                    ? null
-                    : reasonController.text.trim();
-
-                // Calculate fee for valid transaction types (only if applyFee is true)
-                double? fee;
-                if (feeBreakdown != null && applyFee) {
-                  fee = feeBreakdown['fee'] as double;
-                }
-
-                // Generate a placeholder USSD code for record-only mode
-                String ussdCode =
-                    'RECORD-ONLY-${DateTime.now().millisecondsSinceEpoch}';
-
-                await _saveUssdRecord(
-                    ussdCode, recipient, recipientType, amount, reason, fee, applyFee);
-
-                // Show success message
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Payment record saved successfully!'),
-                      backgroundColor: Colors.green,
-                      duration: const Duration(seconds: 2),
                     ),
-                  );
-                }
-
-                // Reset the form for next payment
-                _resetForm();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: theme.colorScheme.primary,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  ],
                 ),
               ),
-            ),
-          ],
+              actions: <Widget>[
+                TextButton(
+                  child: Text('Cancel'),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                ),
+                ElevatedButton.icon(
+                  icon: Icon(Icons.save_rounded),
+                  label: Text('Save Record'),
+                  onPressed: () async {
+                    Navigator.of(context).pop();
+
+                    // Determine recipient type and value
+                    String recipient;
+                    String recipientType;
+
+                    if (paymentInfo.isEmpty) {
+                      // Side payment or no specific recipient
+                      recipient = 'Side Payment';
+                      recipientType = 'misc';
+                    } else if (_isValidPhoneNumber(paymentInfo)) {
+                      recipient = paymentInfo;
+                      recipientType = 'phone';
+                    } else if (_isValidMomoCode(paymentInfo)) {
+                      recipient = paymentInfo;
+                      recipientType = 'momo';
+                    } else {
+                      // Any other text input
+                      recipient = paymentInfo;
+                      recipientType = 'misc';
+                    }
+
+                    double amount =
+                        double.tryParse(amountController.text) ?? 0.0;
+                    final reason = reasonController.text.trim().isEmpty
+                        ? null
+                        : reasonController.text.trim();
+
+                    // Calculate fee for valid transaction types (only if applyFee is true)
+                    double? fee;
+                    if (feeBreakdown != null && applyFee) {
+                      fee = feeBreakdown['fee'] as double;
+                    }
+
+                    // Generate a placeholder USSD code for record-only mode
+                    String ussdCode =
+                        'RECORD-ONLY-${DateTime.now().millisecondsSinceEpoch}';
+
+                    await _saveUssdRecord(ussdCode, recipient, recipientType,
+                        amount, reason, fee, applyFee);
+
+                    // Show success message
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Payment record saved successfully!'),
+                          backgroundColor: Colors.green,
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                    }
+
+                    // Reset the form for next payment
+                    _resetForm();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: theme.colorScheme.primary,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
         );
-      },
-    );
       },
     );
   }
 
-  Future<void> _saveUssdRecord(String ussdCode, String recipient,
-      String recipientType, double amount, String? reason, double? fee, bool applyFee) async {
+  Future<void> _saveUssdRecord(
+      String ussdCode,
+      String recipient,
+      String recipientType,
+      double amount,
+      String? reason,
+      double? fee,
+      bool applyFee) async {
     final record = UssdRecord(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       ussdCode: ussdCode,
@@ -1914,47 +1861,33 @@ class _HomeState extends State<Home> {
   }
 
   Widget _buildQuickActions(BuildContext context, ThemeData theme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
       children: [
-        Text(
-          'Quick Actions',
-          style: theme.textTheme.headlineSmall?.copyWith(
-            fontWeight: FontWeight.bold,
+        Expanded(
+          child: _buildActionCard(
+            context: context,
+            theme: theme,
+            icon: Icons.qr_code_scanner_rounded,
+            title: S.of(context).scanNow,
+            onTap: _scanQrCode,
+            gradient: AppTheme.secondaryGradient,
           ),
         ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: _buildActionCard(
-                context: context,
-                theme: theme,
-                icon: Icons.qr_code_scanner_rounded,
-                title: S.of(context).scanNow,
-                subtitle: 'Scan QR codes',
-                onTap: _scanQrCode,
-                gradient: AppTheme.secondaryGradient,
-              ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildActionCard(
+            context: context,
+            theme: theme,
+            icon: Icons.contacts_rounded,
+            title: 'Contact',
+            onTap: _loadContact,
+            gradient: LinearGradient(
+              colors: [
+                AppTheme.warningColor,
+                AppTheme.warningColor.withValues(alpha: 0.8),
+              ],
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: _buildActionCard(
-                context: context,
-                theme: theme,
-                icon: Icons.contacts_rounded,
-                title: 'Contact',
-                subtitle: 'Select contact',
-                onTap: _loadContact,
-                gradient: LinearGradient(
-                  colors: [
-                    AppTheme.warningColor,
-                    AppTheme.warningColor.withValues(alpha: 0.8),
-                  ],
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
       ],
     );
@@ -1965,47 +1898,39 @@ class _HomeState extends State<Home> {
     required ThemeData theme,
     required IconData icon,
     required String title,
-    required String subtitle,
     required VoidCallback onTap,
     required Gradient gradient,
   }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
           gradient: gradient,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: gradient.colors.first.withValues(alpha: 0.3),
-              blurRadius: 12,
-              offset: const Offset(0, 6),
+              color: gradient.colors.first.withValues(alpha: 0.25),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
-        child: Column(
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               icon,
               color: Colors.white,
-              size: 32,
+              size: 24,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(width: 10),
             Text(
               title,
-              style: theme.textTheme.titleMedium?.copyWith(
+              style: theme.textTheme.titleSmall?.copyWith(
                 color: Colors.white,
-                fontWeight: FontWeight.bold,
+                fontWeight: FontWeight.w600,
               ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              subtitle,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: Colors.white70,
-              ),
-              textAlign: TextAlign.center,
             ),
           ],
         ),
@@ -2711,6 +2636,67 @@ class _HomeState extends State<Home> {
           },
         );
       },
+    );
+  }
+
+  // Enhanced payment mode toggle with subtle improvements
+  Widget _buildPaymentModeSelector(ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Row(
+              children: [
+                Text(
+                  'Record Only',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 15,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Record Only Mode'),
+                        content: const Text(
+                          'When enabled, transactions are saved as records without executing the payment. This is useful for tracking side payments or manually handled transactions.',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            child: const Text('Got it'),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                  child: Icon(
+                    Icons.info_outline_rounded,
+                    size: 20,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: isRecordOnlyMode,
+            onChanged: (value) {
+              setState(() => isRecordOnlyMode = value);
+            },
+          ),
+        ],
+      ),
     );
   }
 }
