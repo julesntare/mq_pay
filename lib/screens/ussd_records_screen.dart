@@ -7,6 +7,7 @@ import '../helpers/launcher.dart';
 import 'edit_ussd_record_dialog.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import '../widgets/scroll_indicator.dart';
+import 'package:dropdown_search/dropdown_search.dart';
 
 class UssdRecordsScreen extends StatefulWidget {
   const UssdRecordsScreen({super.key});
@@ -63,7 +64,8 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
   final ScrollController _scrollController = ScrollController();
 
   // Fee display toggle
-  bool includeFees = true; // true = show total with fees, false = show amount only
+  bool includeFees =
+      true; // true = show total with fees, false = show amount only
   double totalFees = 0.0;
   double currentMonthTotalFees = 0.0;
 
@@ -287,7 +289,8 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
         .toList();
 
     final total = monthRecords.fold(0.0, (sum, record) => sum + record.amount);
-    final fees = monthRecords.fold(0.0, (sum, record) => sum + record.calculateFee());
+    final fees =
+        monthRecords.fold(0.0, (sum, record) => sum + record.calculateFee());
 
     // Calculate monthly amounts by type
     final amountsByType = {
@@ -594,45 +597,72 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
               children: [
                 Text('Filters', style: theme.textTheme.headlineSmall),
                 const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Flexible(
-                      child: DropdownButtonFormField<String?>(
-                        isExpanded: true,
-                        value: localRecipientType,
-                        decoration: const InputDecoration(
-                            labelText: 'Type', isDense: true),
-                        items: [
-                          const DropdownMenuItem(
-                              value: null, child: Text('All')),
-                          const DropdownMenuItem(
-                              value: 'phone', child: Text('Phone')),
-                          const DropdownMenuItem(
-                              value: 'momo', child: Text('MoCode')),
-                          const DropdownMenuItem(
-                              value: 'misc', child: Text('Misc')),
-                        ],
-                        onChanged: (v) =>
-                            setLocalState(() => localRecipientType = v),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Flexible(
-                      child: DropdownButtonFormField<String?>(
-                        isExpanded: true,
-                        value: localReason,
-                        decoration: const InputDecoration(
-                            labelText: 'Reason', isDense: true),
-                        items: [
-                          const DropdownMenuItem(
-                              value: null, child: Text('Any')),
-                          ...availableReasons.map((r) =>
-                              DropdownMenuItem(value: r, child: Text(r))),
-                        ],
-                        onChanged: (v) => setLocalState(() => localReason = v),
-                      ),
-                    ),
+                DropdownButtonFormField<String?>(
+                  isExpanded: true,
+                  initialValue: localRecipientType,
+                  decoration:
+                      const InputDecoration(labelText: 'Type', isDense: true),
+                  items: [
+                    const DropdownMenuItem(value: null, child: Text('All')),
+                    const DropdownMenuItem(
+                        value: 'phone', child: Text('Phone')),
+                    const DropdownMenuItem(
+                        value: 'momo', child: Text('MoCode')),
+                    const DropdownMenuItem(value: 'misc', child: Text('Misc')),
                   ],
+                  onChanged: (v) => setLocalState(() => localRecipientType = v),
+                ),
+                const SizedBox(height: 12),
+                DropdownSearch<String>(
+                  items: (filter, infiniteScrollProps) => availableReasons,
+                  selectedItem: localReason,
+                  popupProps: PopupProps.menu(
+                    showSearchBox: true,
+                    searchFieldProps: TextFieldProps(
+                      decoration: InputDecoration(
+                        hintText: 'Search reasons...',
+                        prefixIcon: Icon(Icons.search),
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    emptyBuilder: (context, searchEntry) => Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Text('No reasons found'),
+                      ),
+                    ),
+                    itemBuilder: (context, item, isDisabled, isSelected) {
+                      return ListTile(
+                        title: Text(item),
+                        selected: isSelected,
+                      );
+                    },
+                  ),
+                  dropdownBuilder: (context, selectedItem) {
+                    return Text(
+                      selectedItem ?? '',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: selectedItem == null
+                            ? Theme.of(context).hintColor
+                            : Theme.of(context).textTheme.bodyLarge?.color,
+                      ),
+                    );
+                  },
+                  decoratorProps: DropDownDecoratorProps(
+                    decoration: InputDecoration(
+                      labelText: 'Reason',
+                      isDense: true,
+                      suffixIcon: localReason != null
+                          ? IconButton(
+                              icon: Icon(Icons.clear, size: 18),
+                              onPressed: () =>
+                                  setLocalState(() => localReason = null),
+                            )
+                          : null,
+                    ),
+                  ),
+                  onChanged: (v) => setLocalState(() => localReason = v),
                 ),
                 const SizedBox(height: 12),
                 // Single date or range toggle
@@ -963,7 +993,9 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                                 ),
                               ),
                               Text(
-                                _formatCurrency(includeFees ? totalAmount + totalFees : totalAmount),
+                                _formatCurrency(includeFees
+                                    ? totalAmount + totalFees
+                                    : totalAmount),
                                 style: theme.textTheme.titleLarge?.copyWith(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
@@ -980,7 +1012,8 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                               });
                             },
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 8),
                               decoration: BoxDecoration(
                                 color: Colors.white.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(8),
@@ -993,13 +1026,17 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Icon(
-                                    includeFees ? Icons.check_circle : Icons.circle_outlined,
+                                    includeFees
+                                        ? Icons.check_circle
+                                        : Icons.circle_outlined,
                                     color: Colors.white,
                                     size: 18,
                                   ),
                                   const SizedBox(width: 8),
                                   Text(
-                                    includeFees ? 'Fees Included in All Totals' : 'Fees Excluded from All Totals',
+                                    includeFees
+                                        ? 'Fees Included in All Totals'
+                                        : 'Fees Excluded from All Totals',
                                     style: theme.textTheme.bodyMedium?.copyWith(
                                       color: Colors.white,
                                       fontWeight: FontWeight.w600,
@@ -1021,7 +1058,8 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                       if (totalFees > 0) ...[
                         const SizedBox(height: 10),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
                           decoration: BoxDecoration(
                             color: Colors.white.withValues(alpha: 0.08),
                             borderRadius: BorderRadius.circular(8),
@@ -1115,7 +1153,10 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
                                 Text(
-                                  _formatCurrency(includeFees ? currentMonthTotal + currentMonthTotalFees : currentMonthTotal),
+                                  _formatCurrency(includeFees
+                                      ? currentMonthTotal +
+                                          currentMonthTotalFees
+                                      : currentMonthTotal),
                                   style: theme.textTheme.titleMedium?.copyWith(
                                     color: Colors.white,
                                     fontWeight: FontWeight.bold,
@@ -1413,7 +1454,9 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
-                searchQuery.isNotEmpty ? Icons.search_off : Icons.filter_alt_off,
+                searchQuery.isNotEmpty
+                    ? Icons.search_off
+                    : Icons.filter_alt_off,
                 size: 60,
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
               ),
@@ -1505,7 +1548,8 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
 
     // Calculate total amount for this day (with or without fees based on toggle)
     final dayTotal = dayRecords.fold<double>(0, (sum, record) {
-      return sum + (includeFees ? record.amount + record.calculateFee() : record.amount);
+      return sum +
+          (includeFees ? record.amount + record.calculateFee() : record.amount);
     });
 
     // Determine color based on active filter
@@ -1730,7 +1774,9 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             Text(
-                              _formatCurrency(includeFees ? record.amount + record.calculateFee() : record.amount),
+                              _formatCurrency(includeFees
+                                  ? record.amount + record.calculateFee()
+                                  : record.amount),
                               style: theme.textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.bold,
                                 color: color,
@@ -1742,14 +1788,16 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                                 // Only show fee badge if fees are included and fee > 0
                                 if (includeFees && calculatedFee > 0) {
                                   return Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 6, vertical: 2),
                                     decoration: BoxDecoration(
                                       color: color.withValues(alpha: 0.1),
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: Text(
                                       '+${_formatCurrency(calculatedFee)}',
-                                      style: theme.textTheme.bodySmall?.copyWith(
+                                      style:
+                                          theme.textTheme.bodySmall?.copyWith(
                                         fontSize: 10,
                                         color: color,
                                         fontWeight: FontWeight.w600,
@@ -1873,8 +1921,8 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(shouldDeleteOriginal
-              ? 'Failed transaction deleted and redialing...'
-              : 'Redialing transaction...'),
+                ? 'Failed transaction deleted and redialing...'
+                : 'Redialing transaction...'),
           ),
         );
       }
@@ -1895,7 +1943,8 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: Row(
             children: [
               Icon(Icons.refresh_rounded, color: theme.colorScheme.primary),
@@ -2208,13 +2257,14 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('Fee: ${_formatCurrency(calculatedFee)}',
-                        style: TextStyle(color: theme.colorScheme.secondary)),
+                          style: TextStyle(color: theme.colorScheme.secondary)),
                       Divider(height: 12, thickness: 1),
-                      Text('Total: ${_formatCurrency(record.amount + calculatedFee)}',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: theme.colorScheme.primary,
-                        )),
+                      Text(
+                          'Total: ${_formatCurrency(record.amount + calculatedFee)}',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: theme.colorScheme.primary,
+                          )),
                       const SizedBox(height: 4),
                     ],
                   );

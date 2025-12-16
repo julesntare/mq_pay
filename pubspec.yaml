@@ -55,6 +55,7 @@ dependencies:
   firebase_core: ^4.2.1
   cloud_firestore: ^6.1.0
   workmanager: ^0.9.0+3
+  dropdown_search: ^6.0.2
 
 dev_dependencies:
   flutter_test:
