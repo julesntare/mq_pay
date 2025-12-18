@@ -2902,12 +2902,12 @@ class _SettingsPageState extends State<SettingsPage> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.purple.withValues(alpha: 0.1),
+                    color: theme.colorScheme.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.cloud_done_rounded,
-                    color: Colors.purple,
+                    color: theme.colorScheme.primary,
                     size: 24,
                   ),
                 ),
@@ -2968,17 +2968,17 @@ class _SettingsPageState extends State<SettingsPage> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.green.withValues(alpha: 0.1),
+                  color: theme.colorScheme.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: Colors.green.withValues(alpha: 0.3),
+                    color: theme.colorScheme.primary.withValues(alpha: 0.3),
                   ),
                 ),
                 child: Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.check_circle_rounded,
-                      color: Colors.green,
+                      color: theme.colorScheme.primary,
                       size: 20,
                     ),
                     const SizedBox(width: 12),
@@ -2986,7 +2986,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       child: Text(
                         'Supabase is configured and ready (Max 3 backups)',
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: Colors.green.shade900,
+                          color: theme.colorScheme.primary,
                         ),
                       ),
                     ),
@@ -3002,7 +3002,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       icon: const Icon(Icons.cloud_upload_rounded),
                       label: const Text('Upload Backup'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.purple,
+                        backgroundColor: theme.colorScheme.primary,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
@@ -3015,9 +3015,9 @@ class _SettingsPageState extends State<SettingsPage> {
                       icon: const Icon(Icons.cloud_download_rounded),
                       label: const Text('View Backups'),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.purple,
+                        foregroundColor: theme.colorScheme.primary,
                         padding: const EdgeInsets.symmetric(vertical: 14),
-                        side: const BorderSide(color: Colors.purple, width: 2),
+                        side: BorderSide(color: theme.colorScheme.primary, width: 2),
                       ),
                     ),
                   ),
@@ -3168,42 +3168,45 @@ class _SettingsPageState extends State<SettingsPage> {
 
         showDialog(
           context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('Supabase Backups'),
-            content: SizedBox(
-              width: double.maxFinite,
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: backups.length,
-                itemBuilder: (context, index) {
-                  final backup = backups[index];
-                  final created = backup['created'] as DateTime;
-                  final size = backup['size'] as int;
-                  final sizeInKB = (size / 1024).toStringAsFixed(2);
+          builder: (context) {
+            final theme = Theme.of(context);
+            return AlertDialog(
+              title: const Text('Supabase Backups'),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: backups.length,
+                  itemBuilder: (context, index) {
+                    final backup = backups[index];
+                    final created = backup['created'] as DateTime;
+                    final localCreated = created.toLocal();
+                    final size = backup['size'] as int;
+                    final sizeInKB = (size / 1024).toStringAsFixed(2);
 
-                  return Card(
-                    child: ListTile(
-                      leading: const Icon(
-                        Icons.cloud_rounded,
-                        color: Colors.purple,
-                      ),
-                      title: Text(
-                        DateFormat('MMM d, y h:mm a').format(created),
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      subtitle: Text('Size: $sizeInKB KB'),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.restore_rounded),
-                            color: Colors.green,
-                            onPressed: () async {
-                              Navigator.pop(context);
-                              await _restoreFromSupabase(
-                                  backup['path'] as String);
-                            },
-                          ),
+                    return Card(
+                      child: ListTile(
+                        leading: Icon(
+                          Icons.cloud_rounded,
+                          color: theme.colorScheme.primary,
+                        ),
+                        title: Text(
+                          DateFormat('MMM d, y h:mm a').format(localCreated),
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        subtitle: Text('Size: $sizeInKB KB'),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.restore_rounded),
+                              color: theme.colorScheme.primary,
+                              onPressed: () async {
+                                Navigator.pop(context);
+                                await _restoreFromSupabase(
+                                    backup['path'] as String);
+                              },
+                            ),
                           IconButton(
                             icon: const Icon(Icons.delete_rounded),
                             color: Colors.red,
@@ -3252,7 +3255,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 child: const Text('Close'),
               ),
             ],
-          ),
+            );
+          },
         );
       }
     } catch (e) {
