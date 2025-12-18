@@ -56,6 +56,8 @@ dependencies:
   cloud_firestore: ^6.1.0
   workmanager: ^0.9.0+3
   dropdown_search: ^6.0.2
+  supabase_flutter: ^2.12.0
+  flutter_dotenv: ^6.0.0
 
 dev_dependencies:
   flutter_test:
@@ -87,6 +89,7 @@ flutter:
   generate: true
   assets:
     - assets/data/
+    - .env
 
 flutter_intl:
   enabled: true # Required. Must be set to true to activate the package. Default: false

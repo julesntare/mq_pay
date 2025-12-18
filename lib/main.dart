@@ -9,10 +9,12 @@ import 'helpers/app_theme.dart';
 import 'helpers/theme_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'services/backup_service.dart';
+import 'services/supabase_backup_service.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:workmanager/workmanager.dart';
 import 'services/daily_total_service.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 @pragma('vm:entry-point')
 void callbackDispatcher() {
@@ -32,10 +34,21 @@ void callbackDispatcher() {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Load environment variables
+  await dotenv.load(fileName: ".env");
+
   // Initialize Firebase
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // Initialize Supabase (if configured)
+  try {
+    await SupabaseBackupService.initialize();
+  } catch (e) {
+    // Supabase initialization is optional, so we don't crash the app
+    print('Supabase initialization skipped: $e');
+  }
 
   // Initialize Workmanager
   await Workmanager().initialize(callbackDispatcher, isInDebugMode: false);
@@ -49,8 +62,9 @@ void main() async {
 
   await localeProvider.loadLocale();
 
-  // Check and perform auto-backup if needed
+  // Check and perform auto-backup if needed (both local and Supabase)
   BackupService.performAutoBackupIfNeeded();
+  SupabaseBackupService.performAutoBackupIfNeeded();
 
   runApp(
     MultiProvider(

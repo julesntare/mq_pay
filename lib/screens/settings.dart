@@ -7,6 +7,7 @@ import '../helpers/theme_provider.dart';
 import '../services/backup_service.dart';
 import '../services/daily_total_service.dart';
 import '../services/ussd_record_service.dart';
+import '../services/supabase_backup_service.dart';
 import 'dart:convert';
 import '../widgets/scroll_indicator.dart';
 import 'package:file_picker/file_picker.dart';
@@ -77,6 +78,9 @@ class _SettingsPageState extends State<SettingsPage> {
   String _autoBackupFrequency = 'daily'; // daily, weekly, monthly
   String? _autoBackupLocation; // Custom backup location path
 
+  // Supabase backup settings
+  bool _supabaseConfigured = false;
+
   // ScrollController for scroll indicators
   final ScrollController _scrollController = ScrollController();
 
@@ -88,6 +92,7 @@ class _SettingsPageState extends State<SettingsPage> {
     selectedLanguage = widget.selectedLanguage;
     _loadPaymentMethods();
     _loadAutoBackupSettings();
+    _loadSupabaseSettings();
   }
 
   Future<void> _loadPaymentMethods() async {
@@ -123,14 +128,23 @@ class _SettingsPageState extends State<SettingsPage> {
       await prefs.setString('autoBackupLocation', _autoBackupLocation!);
     }
 
-    // If enabled, create an initial auto-backup
+    // If enabled, create an initial auto-backup (both local and Supabase)
     if (_autoBackupEnabled) {
       try {
         await BackupService.createAutoBackup();
         await prefs.setInt(
             'lastAutoBackupTimestamp', DateTime.now().millisecondsSinceEpoch);
       } catch (e) {
-        // Ignore errors during initial backup
+        // Ignore errors during initial local backup
+      }
+
+      // Also create initial Supabase backup if configured
+      try {
+        if (SupabaseBackupService.isConfigured()) {
+          await SupabaseBackupService.uploadBackup();
+        }
+      } catch (e) {
+        // Ignore errors during initial Supabase backup
       }
     }
   }
@@ -453,6 +467,10 @@ class _SettingsPageState extends State<SettingsPage> {
 
                   // Firebase Daily Totals
                   _buildFirebaseSyncSection(context, theme),
+                  const SizedBox(height: 20),
+
+                  // Supabase Cloud Backup
+                  _buildSupabaseBackupSection(context, theme),
                   const SizedBox(height: 20),
 
                   // App Information
@@ -2425,7 +2443,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceVariant.withValues(alpha: 0.3),
+                      color: theme.colorScheme.surfaceVariant
+                          .withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Column(
@@ -2434,16 +2453,23 @@ class _SettingsPageState extends State<SettingsPage> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text('Total dates:', style: theme.textTheme.bodyMedium),
-                            Text('$totalDates', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                            Text('Total dates:',
+                                style: theme.textTheme.bodyMedium),
+                            Text('$totalDates',
+                                style: theme.textTheme.titleMedium
+                                    ?.copyWith(fontWeight: FontWeight.bold)),
                           ],
                         ),
                         const SizedBox(height: 8),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text('Successfully synced:', style: theme.textTheme.bodyMedium),
-                            Text('$syncedCount', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: Colors.green)),
+                            Text('Successfully synced:',
+                                style: theme.textTheme.bodyMedium),
+                            Text('$syncedCount',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.green)),
                           ],
                         ),
                         if (errorCount > 0) ...[
@@ -2451,8 +2477,12 @@ class _SettingsPageState extends State<SettingsPage> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text('Failed:', style: theme.textTheme.bodyMedium),
-                              Text('$errorCount', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: Colors.red)),
+                              Text('Failed:',
+                                  style: theme.textTheme.bodyMedium),
+                              Text('$errorCount',
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.red)),
                             ],
                           ),
                         ],
@@ -2835,6 +2865,520 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             margin: const EdgeInsets.all(16),
             duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _loadSupabaseSettings() async {
+    final isConfigured = SupabaseBackupService.isConfigured();
+
+    setState(() {
+      _supabaseConfigured = isConfigured;
+    });
+
+    // Initialize Supabase if configured
+    if (isConfigured) {
+      try {
+        await SupabaseBackupService.initialize();
+      } catch (e) {
+        // Already initialized or error - ignore
+      }
+    }
+  }
+
+  Widget _buildSupabaseBackupSection(BuildContext context, ThemeData theme) {
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.purple.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.cloud_done_rounded,
+                    color: Colors.purple,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Supabase Cloud Backup',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        'Backup your data to the cloud',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.6),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            if (!_supabaseConfigured) ...[
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.orange.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.warning_amber_rounded,
+                      color: Colors.orange,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Supabase credentials not configured. Update the hardcoded values in supabase_backup_service.dart',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: Colors.orange.shade900,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ] else ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.green.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.green.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.check_circle_rounded,
+                      color: Colors.green,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Supabase is configured and ready (Max 3 backups)',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: Colors.green.shade900,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: _uploadToSupabase,
+                      icon: const Icon(Icons.cloud_upload_rounded),
+                      label: const Text('Upload Backup'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.purple,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _viewSupabaseBackups,
+                      icon: const Icon(Icons.cloud_download_rounded),
+                      label: const Text('View Backups'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.purple,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        side: const BorderSide(color: Colors.purple, width: 2),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              FutureBuilder<DateTime?>(
+                future: SupabaseBackupService.getLastBackupTime(),
+                builder: (context, snapshot) {
+                  final lastBackup = snapshot.data;
+                  return Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.access_time_rounded,
+                          size: 16,
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.6),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          lastBackup != null
+                              ? 'Last backup: ${DateFormat('MMM d, y h:mm a').format(lastBackup)}'
+                              : 'No backups yet',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.6),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _uploadToSupabase() async {
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: Card(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('Uploading to Supabase...'),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final result = await SupabaseBackupService.uploadBackup();
+
+      if (mounted) {
+        Navigator.pop(context);
+
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.green),
+                SizedBox(width: 8),
+                Text('Backup Uploaded'),
+              ],
+            ),
+            content: Text(
+              'Your backup has been uploaded to Supabase!\n\n'
+              'Records: ${result['recordsCount']}\n'
+              'Payment Methods: ${result['paymentMethodsCount']}\n\n'
+              'Note: Only the 3 most recent backups are kept.',
+            ),
+            actions: [
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to upload: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _viewSupabaseBackups() async {
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: Card(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('Loading backups...'),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final backups = await SupabaseBackupService.listBackups();
+
+      if (mounted) {
+        Navigator.pop(context);
+
+        if (backups.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No backups found'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+          return;
+        }
+
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Supabase Backups'),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: backups.length,
+                itemBuilder: (context, index) {
+                  final backup = backups[index];
+                  final created = backup['created'] as DateTime;
+                  final size = backup['size'] as int;
+                  final sizeInKB = (size / 1024).toStringAsFixed(2);
+
+                  return Card(
+                    child: ListTile(
+                      leading: const Icon(
+                        Icons.cloud_rounded,
+                        color: Colors.purple,
+                      ),
+                      title: Text(
+                        DateFormat('MMM d, y h:mm a').format(created),
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      subtitle: Text('Size: $sizeInKB KB'),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.restore_rounded),
+                            color: Colors.green,
+                            onPressed: () async {
+                              Navigator.pop(context);
+                              await _restoreFromSupabase(
+                                  backup['path'] as String);
+                            },
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete_rounded),
+                            color: Colors.red,
+                            onPressed: () async {
+                              final confirm = await showDialog<bool>(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: const Text('Delete Backup?'),
+                                  content: const Text(
+                                      'Are you sure you want to delete this backup?'),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.pop(context, false),
+                                      child: const Text('Cancel'),
+                                    ),
+                                    ElevatedButton(
+                                      onPressed: () =>
+                                          Navigator.pop(context, true),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.red,
+                                      ),
+                                      child: const Text('Delete'),
+                                    ),
+                                  ],
+                                ),
+                              );
+
+                              if (confirm == true && mounted) {
+                                Navigator.pop(context);
+                                await _deleteSupabaseBackup(
+                                    backup['path'] as String);
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Close'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load backups: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _restoreFromSupabase(String backupPath) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Restore Backup?'),
+        content: const Text(
+          'This will merge the backup data with your current data. '
+          'Duplicates will be automatically skipped.\n\n'
+          'Do you want to continue?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Restore'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: Card(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('Restoring from Supabase...'),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final result =
+          await SupabaseBackupService.restoreBackup(backupPath: backupPath);
+
+      if (mounted) {
+        Navigator.pop(context);
+
+        await _loadPaymentMethods();
+
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.green),
+                SizedBox(width: 8),
+                Text('Restore Complete'),
+              ],
+            ),
+            content: Text(
+              'Backup restored successfully!\n\n'
+              'New records: ${result['newRecordsAdded']}\n'
+              'Duplicates skipped: ${result['duplicateRecordsSkipped']}\n'
+              'New payment methods: ${result['newPaymentMethodsAdded']}\n'
+              'Duplicate methods skipped: ${result['duplicatePaymentMethodsSkipped']}',
+            ),
+            actions: [
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to restore: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteSupabaseBackup(String backupPath) async {
+    try {
+      await SupabaseBackupService.deleteBackup(backupPath);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Backup deleted successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to delete backup: $e'),
+            backgroundColor: Colors.red,
           ),
         );
       }
