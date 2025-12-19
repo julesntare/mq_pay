@@ -43,6 +43,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
   // Search state
   final TextEditingController searchController = TextEditingController();
   String searchQuery = '';
+  int filteredRecordsCount = 0;
 
   // Contact caching
   List<Contact> deviceContacts = [];
@@ -473,67 +474,91 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
   Widget _buildSearchBar(ThemeData theme) {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
-      child: TextField(
-        controller: searchController,
-        onChanged: (value) {
-          setState(() {
-            searchQuery = value.toLowerCase();
-          });
-          _computeFilteredTotal();
-        },
-        decoration: InputDecoration(
-          hintText: 'Search by name, number, amount...',
-          prefixIcon: Icon(Icons.search, color: theme.colorScheme.primary),
-          suffixIcon: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Filter icon
-              IconButton(
-                icon: Icon(Icons.filter_list,
-                    color: filterStartDate != null ||
-                            recipientTypeFilter != null ||
-                            selectedReason != null
-                        ? theme.colorScheme.primary
-                        : theme.colorScheme.onSurface.withValues(alpha: 0.5)),
-                onPressed: () async {
-                  await _showFilterSheet();
-                },
-                tooltip: 'Filters',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: searchController,
+            onChanged: (value) {
+              setState(() {
+                searchQuery = value.toLowerCase();
+              });
+              _computeFilteredTotal();
+            },
+            decoration: InputDecoration(
+              hintText: 'Search by name, number, amount, reason...',
+              prefixIcon: Icon(Icons.search, color: theme.colorScheme.primary),
+              suffixIcon: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Filter icon
+                  IconButton(
+                    icon: Icon(Icons.filter_list,
+                        color: filterStartDate != null ||
+                                recipientTypeFilter != null ||
+                                selectedReason != null
+                            ? theme.colorScheme.primary
+                            : theme.colorScheme.onSurface
+                                .withValues(alpha: 0.5)),
+                    onPressed: () async {
+                      await _showFilterSheet();
+                    },
+                    tooltip: 'Filters',
+                  ),
+                  // Clear search
+                  if (searchQuery.isNotEmpty)
+                    IconButton(
+                      icon: Icon(Icons.clear,
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.5)),
+                      onPressed: () {
+                        setState(() {
+                          searchController.clear();
+                          searchQuery = '';
+                        });
+                        _computeFilteredTotal();
+                      },
+                    ),
+                ],
               ),
-              // Clear search
-              if (searchQuery.isNotEmpty)
-                IconButton(
-                  icon: Icon(Icons.clear,
-                      color:
-                          theme.colorScheme.onSurface.withValues(alpha: 0.5)),
-                  onPressed: () {
-                    setState(() {
-                      searchController.clear();
-                      searchQuery = '';
-                    });
-                  },
+              filled: true,
+              fillColor: theme.colorScheme.surface,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(
+                    color: theme.colorScheme.outline.withValues(alpha: 0.3)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(
+                    color: theme.colorScheme.outline.withValues(alpha: 0.3)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide:
+                    BorderSide(color: theme.colorScheme.primary, width: 2),
+              ),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            ),
+          ),
+          // Show search results count when searching or filtering
+          if (searchQuery.isNotEmpty ||
+              recipientTypeFilter != null ||
+              selectedReason != null ||
+              filterStartDate != null ||
+              filterEndDate != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8, left: 4),
+              child: Text(
+                'Found $filteredRecordsCount ${filteredRecordsCount == 1 ? 'record' : 'records'}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.primary,
+                  fontWeight: FontWeight.w600,
                 ),
-            ],
-          ),
-          filled: true,
-          fillColor: theme.colorScheme.surface,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(
-                color: theme.colorScheme.outline.withValues(alpha: 0.3)),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(
-                color: theme.colorScheme.outline.withValues(alpha: 0.3)),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: theme.colorScheme.primary, width: 2),
-          ),
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -804,6 +829,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
 
   void _computeFilteredTotal() {
     double total = 0.0;
+    int count = 0;
 
     for (final r in records) {
       if (recipientTypeFilter != null && r.recipientType != recipientTypeFilter)
@@ -814,11 +840,54 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
         continue;
       if (filterEndDate != null && r.timestamp.isAfter(filterEndDate!))
         continue;
+
+      // Apply search filter
+      if (searchQuery.isNotEmpty) {
+        final recipientMatch = r.recipient.toLowerCase().contains(searchQuery);
+        final maskedMatch =
+            r.maskedRecipient?.toLowerCase().contains(searchQuery) ?? false;
+        final contactName = _getContactNameForPhone(r.recipient);
+        final contactMatch =
+            contactName?.toLowerCase().contains(searchQuery) ?? false;
+        final amountStr = r.amount.toString();
+        final amountMatch = amountStr.contains(searchQuery);
+        final formattedAmount = _formatCurrency(r.amount).toLowerCase();
+        final formattedAmountMatch = formattedAmount.contains(searchQuery);
+        final dateStr =
+            DateFormat('MMM dd, yyyy').format(r.timestamp).toLowerCase();
+        final dateMatch = dateStr.contains(searchQuery);
+        final typeMatch = r.recipientType.toLowerCase().contains(searchQuery) ||
+            (r.recipientType == 'phone' && 'mobile'.contains(searchQuery)) ||
+            (r.recipientType == 'momo' && 'mocode'.contains(searchQuery)) ||
+            (r.recipientType == 'misc' &&
+                'miscellaneous'.contains(searchQuery));
+        final reasonMatch =
+            r.reason?.toLowerCase().contains(searchQuery) ?? false;
+        final ussdCodeMatch = r.ussdCode.toLowerCase().contains(searchQuery);
+        final feeMatch =
+            r.fee != null && r.fee.toString().contains(searchQuery);
+
+        if (!(recipientMatch ||
+            maskedMatch ||
+            contactMatch ||
+            amountMatch ||
+            formattedAmountMatch ||
+            dateMatch ||
+            typeMatch ||
+            reasonMatch ||
+            ussdCodeMatch ||
+            feeMatch)) {
+          continue;
+        }
+      }
+
       total += r.amount;
+      count++;
     }
 
     setState(() {
       filteredTotal = total;
+      filteredRecordsCount = count;
     });
   }
 
@@ -1435,13 +1504,28 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                 (record.recipientType == 'misc' &&
                     'miscellaneous'.contains(searchQuery));
 
+        // Search in reason
+        final reasonMatch =
+            record.reason?.toLowerCase().contains(searchQuery) ?? false;
+
+        // Search in USSD code
+        final ussdCodeMatch =
+            record.ussdCode.toLowerCase().contains(searchQuery);
+
+        // Search in fee
+        final feeMatch =
+            record.fee != null && record.fee.toString().contains(searchQuery);
+
         return recipientMatch ||
             maskedMatch ||
             contactMatch ||
             amountMatch ||
             formattedAmountMatch ||
             dateMatch ||
-            typeMatch;
+            typeMatch ||
+            reasonMatch ||
+            ussdCodeMatch ||
+            feeMatch;
       }).toList();
     }
 
