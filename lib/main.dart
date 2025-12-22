@@ -15,6 +15,8 @@ import 'firebase_options.dart';
 import 'package:workmanager/workmanager.dart';
 import 'services/daily_total_service.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'services/sms_listener_service.dart';
+import 'services/notification_service.dart';
 
 @pragma('vm:entry-point')
 void callbackDispatcher() {
@@ -55,6 +57,12 @@ void main() async {
 
   // Schedule daily task at 11:59 PM CAT
   await DailyTotalService.scheduleDailyTask();
+
+  // Initialize notification service
+  await NotificationService.initialize();
+
+  // Initialize SMS listener
+  await SmsListenerService.initialize();
 
   final localeProvider = LocaleProvider();
   final themeProvider = ThemeProvider();

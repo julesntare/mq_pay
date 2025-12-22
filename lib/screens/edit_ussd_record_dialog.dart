@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/ussd_record.dart';
+import '../models/transaction_status.dart';
 import '../services/ussd_record_service.dart';
 import '../widgets/scroll_indicator.dart';
 
@@ -23,6 +24,7 @@ class _EditUssdRecordDialogState extends State<EditUssdRecordDialog> {
   String recipientType = 'phone';
   bool isLoading = false;
   late bool applyFee; // Track whether to apply fee
+  late TransactionStatus status; // Track transaction status
 
   @override
   void initState() {
@@ -35,6 +37,7 @@ class _EditUssdRecordDialogState extends State<EditUssdRecordDialog> {
     reasonController = TextEditingController(text: widget.record.reason ?? '');
     recipientType = widget.record.recipientType;
     applyFee = widget.record.applyFee; // Initialize from existing record
+    status = widget.record.status; // Initialize from existing record
   }
 
   @override
@@ -200,6 +203,8 @@ class _EditUssdRecordDialogState extends State<EditUssdRecordDialog> {
             ? null
             : reasonController.text.trim(),
         applyFee: applyFee,
+        status: status,
+        statusUpdatedAt: status != widget.record.status ? DateTime.now() : widget.record.statusUpdatedAt,
       );
 
       await UssdRecordService.updateUssdRecord(updatedRecord);
@@ -306,6 +311,102 @@ class _EditUssdRecordDialogState extends State<EditUssdRecordDialog> {
                             applyFee = value;
                           });
                         },
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Transaction Status Selector
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: theme.colorScheme.outline),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Transaction Status',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: TransactionStatus.values.map((s) {
+                          final isSelected = s == status;
+                          Color color;
+                          IconData icon;
+
+                          switch (s) {
+                            case TransactionStatus.pending:
+                              color = Colors.orange;
+                              icon = Icons.schedule;
+                              break;
+                            case TransactionStatus.success:
+                              color = Colors.green;
+                              icon = Icons.check_circle;
+                              break;
+                            case TransactionStatus.failed:
+                              color = Colors.red;
+                              icon = Icons.error;
+                              break;
+                          }
+
+                          return Expanded(
+                            child: GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  status = s;
+                                });
+                              },
+                              child: Container(
+                                margin: const EdgeInsets.symmetric(horizontal: 4),
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? color.withValues(alpha: 0.15)
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: isSelected
+                                        ? color
+                                        : theme.colorScheme.outline,
+                                    width: isSelected ? 2 : 1,
+                                  ),
+                                ),
+                                child: Column(
+                                  children: [
+                                    Icon(
+                                      icon,
+                                      color: isSelected
+                                          ? color
+                                          : theme.colorScheme.onSurface
+                                              .withValues(alpha: 0.6),
+                                      size: 24,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      s.displayName,
+                                      style: theme.textTheme.bodySmall?.copyWith(
+                                        color: isSelected
+                                            ? color
+                                            : theme.colorScheme.onSurface
+                                                .withValues(alpha: 0.6),
+                                        fontWeight: isSelected
+                                            ? FontWeight.w600
+                                            : FontWeight.normal,
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
                       ),
                     ],
                   ),

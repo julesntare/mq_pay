@@ -1,4 +1,5 @@
 import '../services/tariff_service.dart';
+import 'transaction_status.dart';
 
 class UssdRecord {
   final String id;
@@ -12,6 +13,10 @@ class UssdRecord {
   final String? reason;
   final double? fee; // Transaction fee
   final bool applyFee; // Whether to apply fee to this transaction
+  final TransactionStatus status; // Transaction status
+  final String? confirmationCode; // Reference/Transaction ID from SMS
+  final String? smsRawText; // Raw SMS text for debugging
+  final DateTime? statusUpdatedAt; // When status was last updated
 
   UssdRecord({
     required this.id,
@@ -25,6 +30,10 @@ class UssdRecord {
     this.reason,
     this.fee,
     this.applyFee = true, // Default to true for backward compatibility
+    this.status = TransactionStatus.pending, // Default to pending
+    this.confirmationCode,
+    this.smsRawText,
+    this.statusUpdatedAt,
   });
 
   Map<String, dynamic> toJson() {
@@ -40,6 +49,10 @@ class UssdRecord {
       'reason': reason,
       'fee': fee,
       'applyFee': applyFee,
+      'status': status.toJson(),
+      'confirmationCode': confirmationCode,
+      'smsRawText': smsRawText,
+      'statusUpdatedAt': statusUpdatedAt?.toIso8601String(),
     };
   }
 
@@ -57,6 +70,14 @@ class UssdRecord {
       fee: json['fee'] != null ? (json['fee'] as num).toDouble() : null,
       applyFee:
           json['applyFee'] as bool? ?? true, // Default to true for old records
+      status: json['status'] != null
+          ? TransactionStatusExtension.fromJson(json['status'] as String)
+          : TransactionStatus.pending,
+      confirmationCode: json['confirmationCode'] as String?,
+      smsRawText: json['smsRawText'] as String?,
+      statusUpdatedAt: json['statusUpdatedAt'] != null
+          ? DateTime.parse(json['statusUpdatedAt'] as String)
+          : null,
     );
   }
 
@@ -72,6 +93,10 @@ class UssdRecord {
     String? reason,
     double? fee,
     bool? applyFee,
+    TransactionStatus? status,
+    String? confirmationCode,
+    String? smsRawText,
+    DateTime? statusUpdatedAt,
   }) {
     return UssdRecord(
       id: id ?? this.id,
@@ -85,6 +110,10 @@ class UssdRecord {
       reason: reason ?? this.reason,
       fee: fee ?? this.fee,
       applyFee: applyFee ?? this.applyFee,
+      status: status ?? this.status,
+      confirmationCode: confirmationCode ?? this.confirmationCode,
+      smsRawText: smsRawText ?? this.smsRawText,
+      statusUpdatedAt: statusUpdatedAt ?? this.statusUpdatedAt,
     );
   }
 

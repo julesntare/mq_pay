@@ -1,9 +1,11 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/ussd_record.dart';
+import '../models/transaction_status.dart';
 
 class UssdRecordService {
   static const String _ussdRecordsKey = 'ussd_records';
+  static const String _migrationKey = 'historical_status_migrated';
 
   static Future<List<UssdRecord>> getUssdRecords() async {
     final prefs = await SharedPreferences.getInstance();
@@ -14,7 +16,49 @@ class UssdRecordService {
     }
 
     final List<dynamic> recordsList = jsonDecode(recordsJson);
-    return recordsList.map((json) => UssdRecord.fromJson(json)).toList();
+    final records = recordsList.map((json) => UssdRecord.fromJson(json)).toList();
+
+    // Perform one-time migration: set historical transactions to success
+    await _migrateHistoricalTransactions(prefs, records);
+
+    return records;
+  }
+
+  /// Migrate historical transactions (before today) to Success status
+  static Future<void> _migrateHistoricalTransactions(
+    SharedPreferences prefs,
+    List<UssdRecord> records,
+  ) async {
+    // Check if migration already done
+    final migrated = prefs.getBool(_migrationKey) ?? false;
+    if (migrated) {
+      return;
+    }
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    bool hasChanges = false;
+
+    // Update all pending transactions from before today to success
+    for (int i = 0; i < records.length; i++) {
+      if (records[i].status == TransactionStatus.pending &&
+          records[i].timestamp.isBefore(today)) {
+        records[i] = records[i].copyWith(
+          status: TransactionStatus.success,
+          statusUpdatedAt: DateTime.now(),
+        );
+        hasChanges = true;
+      }
+    }
+
+    // Save changes if any
+    if (hasChanges) {
+      final recordsJson = jsonEncode(records.map((r) => r.toJson()).toList());
+      await prefs.setString(_ussdRecordsKey, recordsJson);
+    }
+
+    // Mark migration as complete
+    await prefs.setBool(_migrationKey, true);
   }
 
   static Future<void> saveUssdRecord(UssdRecord record) async {

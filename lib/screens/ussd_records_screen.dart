@@ -8,6 +8,7 @@ import 'edit_ussd_record_dialog.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import '../widgets/scroll_indicator.dart';
 import 'package:dropdown_search/dropdown_search.dart';
+import '../widgets/transaction_status_badge.dart';
 
 class UssdRecordsScreen extends StatefulWidget {
   const UssdRecordsScreen({super.key});
@@ -1946,6 +1947,21 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                             color: theme.colorScheme.onSurface
                                 .withValues(alpha: 0.5),
                           ),
+                        ),
+                        // Only show status badge for today's transactions
+                        Builder(
+                          builder: (context) {
+                            final now = DateTime.now();
+                            final today =
+                                DateTime(now.year, now.month, now.day);
+                            final isToday = record.timestamp.isAfter(today);
+
+                            if (isToday) {
+                              return TransactionStatusBadge(
+                                  status: record.status);
+                            }
+                            return const SizedBox.shrink();
+                          },
                         ),
                       ],
                     ),
