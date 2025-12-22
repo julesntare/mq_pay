@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/ussd_record.dart';
+import '../models/transaction_status.dart';
 import '../services/ussd_record_service.dart';
 import '../helpers/app_theme.dart';
 import '../helpers/launcher.dart';
@@ -184,22 +185,62 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
     return null;
   }
 
+  Future<void> _cleanupExpiredPendingTransactions() async {
+    try {
+      final allRecords = await UssdRecordService.getUssdRecords();
+      final now = DateTime.now();
+      final fiveMinutesAgo = now.subtract(const Duration(minutes: 5));
+
+      // Find pending transactions older than 5 minutes
+      final expiredPendingRecords = allRecords.where((record) {
+        return record.status == TransactionStatus.pending &&
+               record.timestamp.isBefore(fiveMinutesAgo);
+      }).toList();
+
+      // Delete expired pending transactions
+      for (final record in expiredPendingRecords) {
+        await UssdRecordService.deleteUssdRecord(record.id);
+      }
+
+      // Show notification if any were deleted
+      if (expiredPendingRecords.isNotEmpty && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Automatically removed ${expiredPendingRecords.length} expired pending transaction${expiredPendingRecords.length != 1 ? 's' : ''}',
+            ),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      // Silently fail - this is a background cleanup operation
+      debugPrint('Error cleaning up expired pending transactions: $e');
+    }
+  }
+
   Future<void> _loadRecords() async {
     setState(() => isLoading = true);
 
     try {
+      // Clean up expired pending transactions before loading
+      await _cleanupExpiredPendingTransactions();
+
       final loadedRecords = await UssdRecordService.getUssdRecords();
       final allRecords = loadedRecords;
       final count = allRecords.length;
-      final total = allRecords.fold<double>(0.0, (s, r) => s + r.amount);
-      final fees = allRecords.fold<double>(0.0, (s, r) => s + r.calculateFee());
+
+      // Only include non-pending transactions in totals
+      final confirmedRecords = allRecords.where((r) => r.status != TransactionStatus.pending).toList();
+      final total = confirmedRecords.fold<double>(0.0, (s, r) => s + r.amount);
+      final fees = confirmedRecords.fold<double>(0.0, (s, r) => s + r.calculateFee());
 
       final typeAmounts = <String, double>{
         'phone': 0.0,
         'momo': 0.0,
         'misc': 0.0
       };
-      for (final r in allRecords) {
+      for (final r in confirmedRecords) {
         if (r.recipientType == 'phone') {
           typeAmounts['phone'] = (typeAmounts['phone'] ?? 0) + r.amount;
         } else if (r.recipientType == 'momo') {
@@ -248,7 +289,10 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
   void _calculateMonthsWithData(List<UssdRecord> allRecords) {
     Map<String, double> monthlyTotals = {};
 
-    for (var record in allRecords) {
+    // Only include non-pending transactions in monthly totals
+    final confirmedRecords = allRecords.where((r) => r.status != TransactionStatus.pending).toList();
+
+    for (var record in confirmedRecords) {
       final monthKey = DateFormat('yyyy-MM').format(record.timestamp);
       monthlyTotals[monthKey] =
           (monthlyTotals[monthKey] ?? 0.0) + record.amount;
@@ -285,9 +329,11 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
     final currentMonth = monthsWithData[currentMonthIndex];
     final monthKey = DateFormat('yyyy-MM').format(currentMonth);
 
+    // Only include non-pending transactions in monthly totals
     final monthRecords = records
         .where((record) =>
-            DateFormat('yyyy-MM').format(record.timestamp) == monthKey)
+            DateFormat('yyyy-MM').format(record.timestamp) == monthKey &&
+            record.status != TransactionStatus.pending)
         .toList();
 
     final total = monthRecords.fold(0.0, (sum, record) => sum + record.amount);
@@ -833,6 +879,9 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
     int count = 0;
 
     for (final r in records) {
+      // Skip pending transactions from totals
+      if (r.status == TransactionStatus.pending) continue;
+
       if (recipientTypeFilter != null && r.recipientType != recipientTypeFilter)
         continue;
       if (selectedReason != null &&
@@ -1631,11 +1680,14 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
     final dateKey = DateFormat('yyyy-MM-dd').format(dateObj);
     final isExpanded = expandedGroups.contains(dateKey);
 
-    // Calculate total amount for this day (with or without fees based on toggle)
-    final dayTotal = dayRecords.fold<double>(0, (sum, record) {
+    // Calculate total amount for this day (excluding pending transactions)
+    final dayTotal = dayRecords.where((r) => r.status != TransactionStatus.pending).fold<double>(0, (sum, record) {
       return sum +
           (includeFees ? record.amount + record.calculateFee() : record.amount);
     });
+
+    // Count pending transactions for this day
+    final pendingCount = dayRecords.where((r) => r.status == TransactionStatus.pending).length;
 
     // Determine color based on active filter
     Color totalColor = theme.colorScheme.onSurface;
@@ -1734,7 +1786,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                     ],
                   ),
                 ),
-                // Total amount
+                // Total amount and pending badge
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
@@ -1746,12 +1798,50 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                       ),
                     ),
                     const SizedBox(height: 2),
-                    Text(
-                      'Total',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color:
-                            theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                      ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Total',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color:
+                                theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                          ),
+                        ),
+                        if (pendingCount > 0) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppTheme.warningColor.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: AppTheme.warningColor.withValues(alpha: 0.5),
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.hourglass_empty_rounded,
+                                  size: 10,
+                                  color: AppTheme.warningColor,
+                                ),
+                                const SizedBox(width: 3),
+                                Text(
+                                  '$pendingCount',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.warningColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ],
                 ),
