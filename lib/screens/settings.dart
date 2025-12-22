@@ -12,6 +12,7 @@ import 'dart:convert';
 import '../widgets/scroll_indicator.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
+import '../widgets/accessibility_permission_card.dart';
 
 // Payment Method Model
 class PaymentMethod {
@@ -444,6 +445,10 @@ class _SettingsPageState extends State<SettingsPage> {
                   // Header Section
                   _buildHeaderSection(context, theme),
                   const SizedBox(height: 30),
+
+                  // USSD Auto-Detection
+                  const AccessibilityPermissionCard(),
+                  const SizedBox(height: 20),
 
                   // Payment Configuration
                   _buildPaymentConfigSection(context, theme),

@@ -12,6 +12,7 @@ import 'ussd_records_screen.dart';
 import '../models/ussd_record.dart';
 import '../services/ussd_record_service.dart';
 import '../services/tariff_service.dart';
+import '../services/ussd_transaction_manager.dart';
 import 'dart:convert';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../widgets/scroll_indicator.dart';
@@ -1851,7 +1852,8 @@ class _HomeState extends State<Home> {
       applyFee: applyFee,
     );
 
-    await UssdRecordService.saveUssdRecord(record);
+    // Save as PENDING transaction - will be confirmed/rejected by USSD response
+    await UssdTransactionManager.savePendingTransaction(record);
   }
 
   bool _isValidAmount() {

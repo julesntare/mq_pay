@@ -17,6 +17,8 @@ import 'services/daily_total_service.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'services/sms_listener_service.dart';
 import 'services/notification_service.dart';
+import 'services/ussd_detector_service.dart';
+import 'services/ussd_transaction_manager.dart';
 
 @pragma('vm:entry-point')
 void callbackDispatcher() {
@@ -63,6 +65,12 @@ void main() async {
 
   // Initialize SMS listener
   await SmsListenerService.initialize();
+
+  // Initialize USSD transaction manager
+  UssdTransactionManager.initialize();
+
+  // Initialize USSD detector service
+  await UssdDetectorService.initialize();
 
   final localeProvider = LocaleProvider();
   final themeProvider = ThemeProvider();

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">MQ Pay</string>
+    <string name="accessibility_service_description">MQ Pay USSD Detector: This service helps detect USSD transaction responses to automatically validate and save your mobile money transactions. It only monitors USSD dialogs from your mobile network provider and does not access any other data.</string>
+</resources>
