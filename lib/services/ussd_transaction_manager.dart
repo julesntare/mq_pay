@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../models/ussd_record.dart';
+import '../models/transaction_status.dart';
 import 'ussd_record_service.dart';
 import 'ussd_keyword_detector.dart';
 import 'dart:async';
@@ -28,15 +29,18 @@ class UssdTransactionManager {
     // Store in pending transactions map
     _pendingTransactions[transactionId] = record;
 
-    debugPrint('[UssdTransactionManager] Pending transaction saved: $transactionId');
-    debugPrint('[UssdTransactionManager] Amount: ${record.amount}, Recipient: ${record.recipient}');
+    debugPrint(
+        '[UssdTransactionManager] Pending transaction saved: $transactionId');
+    debugPrint(
+        '[UssdTransactionManager] Amount: ${record.amount}, Recipient: ${record.recipient}');
 
     return transactionId;
   }
 
   /// Validate USSD response and confirm/reject transaction
   static Future<bool> validateUssdResponse(String ussdResponse) async {
-    debugPrint('[UssdTransactionManager] Validating USSD response: $ussdResponse');
+    debugPrint(
+        '[UssdTransactionManager] Validating USSD response: $ussdResponse');
 
     // Check if response should save transaction
     final shouldSave = UssdKeywordDetector.shouldSaveTransaction(ussdResponse);
@@ -67,14 +71,21 @@ class UssdTransactionManager {
     final transactionId = mostRecent.key;
     final record = mostRecent.value;
 
-    // Save to permanent storage
-    await UssdRecordService.saveUssdRecord(record);
+    // Update the transaction to success status in permanent storage
+    await UssdRecordService.updateUssdRecord(
+      record.copyWith(
+        status: TransactionStatus.success,
+        statusUpdatedAt: DateTime.now(),
+      ),
+    );
 
     // Remove from pending
     _pendingTransactions.remove(transactionId);
 
-    debugPrint('[UssdTransactionManager] ✅ Transaction CONFIRMED and saved: $transactionId');
-    debugPrint('[UssdTransactionManager] Amount: ${record.amount}, Recipient: ${record.recipient}');
+    debugPrint(
+        '[UssdTransactionManager] ✅ Transaction CONFIRMED and updated to success: $transactionId');
+    debugPrint(
+        '[UssdTransactionManager] Amount: ${record.amount}, Recipient: ${record.recipient}');
   }
 
   /// Reject the most recent pending transaction
@@ -92,14 +103,26 @@ class UssdTransactionManager {
     final transactionId = mostRecent.key;
     final record = mostRecent.value;
 
-    // Remove from pending WITHOUT saving
+    final failureReason =
+        UssdKeywordDetector.extractFailureReason(ussdResponse);
+
+    // Update the transaction to failed status in permanent storage
+    await UssdRecordService.updateUssdRecord(
+      record.copyWith(
+        status: TransactionStatus.failed,
+        statusUpdatedAt: DateTime.now(),
+      ),
+    );
+
+    // Remove from pending
     _pendingTransactions.remove(transactionId);
 
-    final failureReason = UssdKeywordDetector.extractFailureReason(ussdResponse);
-
-    debugPrint('[UssdTransactionManager] ❌ Transaction REJECTED and NOT saved: $transactionId');
-    debugPrint('[UssdTransactionManager] Amount: ${record.amount}, Recipient: ${record.recipient}');
-    debugPrint('[UssdTransactionManager] Reason: ${failureReason ?? "No success keywords found"}');
+    debugPrint(
+        '[UssdTransactionManager] ❌ Transaction REJECTED and marked as failed: $transactionId');
+    debugPrint(
+        '[UssdTransactionManager] Amount: ${record.amount}, Recipient: ${record.recipient}');
+    debugPrint(
+        '[UssdTransactionManager] Reason: ${failureReason ?? "No success keywords found"}');
   }
 
   /// Clean up pending transactions older than 2 minutes
@@ -117,7 +140,8 @@ class UssdTransactionManager {
     for (final id in expiredIds) {
       final record = _pendingTransactions[id];
       _pendingTransactions.remove(id);
-      debugPrint('[UssdTransactionManager] 🗑️ Expired pending transaction removed: $id (Age: ${now.difference(record!.timestamp).inMinutes} min)');
+      debugPrint(
+          '[UssdTransactionManager] 🗑️ Expired pending transaction removed: $id (Age: ${now.difference(record!.timestamp).inMinutes} min)');
     }
   }
 

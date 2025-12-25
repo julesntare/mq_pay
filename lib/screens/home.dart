@@ -10,6 +10,7 @@ import 'settings.dart';
 import 'qr_scanner_screen.dart';
 import 'ussd_records_screen.dart';
 import '../models/ussd_record.dart';
+import '../models/transaction_status.dart';
 import '../services/ussd_record_service.dart';
 import '../services/tariff_service.dart';
 import '../services/ussd_transaction_manager.dart';
@@ -1852,8 +1853,21 @@ class _HomeState extends State<Home> {
       applyFee: applyFee,
     );
 
-    // Save as PENDING transaction - will be confirmed/rejected by USSD response
-    await UssdTransactionManager.savePendingTransaction(record);
+    // Check if this is a record-only transaction (no actual USSD to dial)
+    if (ussdCode.startsWith('RECORD-ONLY-')) {
+      // Record-only transactions should be saved directly with success status
+      // since there's no USSD response to validate
+      await UssdRecordService.saveUssdRecord(
+        record.copyWith(status: TransactionStatus.success),
+      );
+    } else {
+      // For actual USSD transactions:
+      // 1. Save to permanent storage immediately with pending status
+      // 2. Also save to pending transaction manager for USSD validation
+      // This ensures the transaction is persisted even if USSD validation fails
+      await UssdRecordService.saveUssdRecord(record);
+      await UssdTransactionManager.savePendingTransaction(record);
+    }
   }
 
   bool _isValidAmount() {
