@@ -2280,6 +2280,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
 
   void _showRecordActions(UssdRecord record) {
     final theme = Theme.of(context);
+    final isPending = record.status == TransactionStatus.pending;
 
     showModalBottomSheet(
       context: context,
@@ -2307,6 +2308,31 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
               ),
             ),
             const SizedBox(height: 24),
+            // Show Update Status option for pending transactions
+            if (isPending) ...[
+              _buildActionTile(
+                icon: Icons.check_circle_rounded,
+                title: 'Mark as Successful',
+                subtitle: 'Confirm this transaction completed',
+                color: Colors.green,
+                onTap: () {
+                  Navigator.pop(context);
+                  _updateTransactionStatus(record, TransactionStatus.success);
+                },
+              ),
+              const SizedBox(height: 12),
+              _buildActionTile(
+                icon: Icons.error_rounded,
+                title: 'Mark as Failed',
+                subtitle: 'This transaction did not complete',
+                color: Colors.red,
+                onTap: () {
+                  Navigator.pop(context);
+                  _updateTransactionStatus(record, TransactionStatus.failed);
+                },
+              ),
+              const SizedBox(height: 12),
+            ],
             _buildActionTile(
               icon: Icons.refresh_rounded,
               title: 'Redial',
@@ -2355,6 +2381,23 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _updateTransactionStatus(UssdRecord record, TransactionStatus newStatus) async {
+    final updatedRecord = record.copyWith(
+      status: newStatus,
+      statusUpdatedAt: DateTime.now(),
+    );
+
+    await UssdRecordService.updateUssdRecord(updatedRecord);
+    _loadRecords();
+
+    if (mounted) {
+      final statusText = newStatus == TransactionStatus.success ? 'successful' : 'failed';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Transaction marked as $statusText')),
+      );
+    }
   }
 
   Widget _buildActionTile({

@@ -6,9 +6,14 @@ import 'ussd_record_service.dart';
 class TransactionMatcherService {
   /// Match SMS to pending transactions within a time window
   /// Returns the updated transaction if matched, null otherwise
+  ///
+  /// [timeWindowSeconds] - Maximum age of transaction to match (default: 60 seconds for real-time matching)
+  /// [smsTimestamp] - The timestamp of the SMS message (used for retry matching)
   static Future<UssdRecord?> matchSmsToTransaction(
-    Map<String, dynamic> parsedSms,
-  ) async {
+    Map<String, dynamic> parsedSms, {
+    int timeWindowSeconds = 60,
+    DateTime? smsTimestamp,
+  }) async {
     final amount = parsedSms['amount'] as double?;
     final recipient = parsedSms['recipient'] as String?;
     final status = parsedSms['status'] as String;
@@ -32,12 +37,16 @@ class TransactionMatcherService {
     // Sort by timestamp (most recent first)
     pendingRecords.sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
-    // Find matching transaction within 60 seconds
+    // Use SMS timestamp for matching if provided, otherwise use current time
+    final referenceTime = smsTimestamp ?? now;
+
+    // Find matching transaction within time window
     for (final record in pendingRecords) {
-      final timeDifference = now.difference(record.timestamp).inSeconds;
+      // Calculate time difference between transaction and SMS/reference time
+      final timeDifference = referenceTime.difference(record.timestamp).inSeconds.abs();
 
       // Skip if outside time window
-      if (timeDifference > 60) {
+      if (timeDifference > timeWindowSeconds) {
         continue;
       }
 

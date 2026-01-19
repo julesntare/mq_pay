@@ -136,7 +136,7 @@ class MainWrapper extends StatefulWidget {
   State<MainWrapper> createState() => _MainWrapperState();
 }
 
-class _MainWrapperState extends State<MainWrapper> {
+class _MainWrapperState extends State<MainWrapper> with WidgetsBindingObserver {
   int _selectedIndex = 0;
   late String mobileNumber;
   late String momoCode;
@@ -147,6 +147,7 @@ class _MainWrapperState extends State<MainWrapper> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     mobileNumber = widget.pref.getString('mobileNumber') ?? '';
     momoCode = widget.pref.getString('momoCode') ?? '';
     selectedLanguage = widget.pref.getString('selectedLanguage') ?? 'en';
@@ -158,6 +159,31 @@ class _MainWrapperState extends State<MainWrapper> {
           initialMomoCode: momoCode,
           selectedLanguage: selectedLanguage!),
     ];
+
+    // Retry matching pending transactions on app start
+    _retryPendingTransactions();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // App came back to foreground - retry matching pending transactions
+      _retryPendingTransactions();
+    }
+  }
+
+  Future<void> _retryPendingTransactions() async {
+    final matchedCount = await SmsListenerService.retryPendingTransactionMatching();
+    if (matchedCount > 0) {
+      // Show notification that transactions were matched
+      await NotificationService.showTransactionStatusNotification();
+    }
   }
 
   @override
