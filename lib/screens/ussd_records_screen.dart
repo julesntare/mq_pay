@@ -2284,14 +2284,19 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
 
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) => Container(
         padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.7,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
             Container(
               width: 50,
               height: 4,
@@ -2378,6 +2383,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
             ),
             const SizedBox(height: 20),
           ],
+        ),
         ),
       ),
     );
