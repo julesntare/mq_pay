@@ -43,6 +43,7 @@ class _HomeState extends State<Home> {
 
   // Multistep form variables
   int currentStep = 0;
+  bool recipientFirst = false;
   bool isPhoneNumberMomo = false;
   bool isRecordOnlyMode = false; // true = Record Only, false = Dial Now
   bool isReceiveMode =
@@ -167,16 +168,18 @@ class _HomeState extends State<Home> {
         currentStep++;
       });
 
-      // Focus on phone number field when moving to step 2
+      // Focus on the appropriate field for step 2
       if (currentStep == 1) {
         Future.delayed(const Duration(milliseconds: 350), () {
-          phoneFocusNode.requestFocus();
+          final focusNode =
+              recipientFirst ? amountFocusNode : phoneFocusNode;
+          focusNode.requestFocus();
 
           // Scroll to ensure the input field is visible when keyboard appears
           Future.delayed(const Duration(milliseconds: 300), () {
-            if (context.mounted) {
+            if (context.mounted && focusNode.context != null) {
               Scrollable.ensureVisible(
-                phoneFocusNode.context!,
+                focusNode.context!,
                 duration: const Duration(milliseconds: 300),
                 curve: Curves.easeInOut,
               );
@@ -193,10 +196,12 @@ class _HomeState extends State<Home> {
         currentStep--;
       });
 
-      // Focus on amount field when going back to step 1
+      // Focus on the appropriate field when going back to step 1
       if (currentStep == 0) {
         Future.delayed(const Duration(milliseconds: 350), () {
-          amountFocusNode.requestFocus();
+          final focusNode =
+              recipientFirst ? phoneFocusNode : amountFocusNode;
+          focusNode.requestFocus();
         });
       }
     }
@@ -624,20 +629,56 @@ class _HomeState extends State<Home> {
                         color: theme.colorScheme.primary,
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        'Step ${currentStep + 1} of 2',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.primary,
-                          fontWeight: FontWeight.w600,
+                    Row(
+                      children: [
+                        Tooltip(
+                          message: recipientFirst
+                              ? 'Number first — tap to switch'
+                              : 'Amount first — tap to switch',
+                          child: InkWell(
+                            onTap: () {
+                              setState(() {
+                                recipientFirst = !recipientFirst;
+                              });
+                            },
+                            borderRadius: BorderRadius.circular(20),
+                            child: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.secondary
+                                    .withValues(alpha: 0.1),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: theme.colorScheme.secondary
+                                      .withValues(alpha: 0.3),
+                                ),
+                              ),
+                              child: Icon(
+                                Icons.swap_vert_rounded,
+                                size: 18,
+                                color: theme.colorScheme.secondary,
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primary
+                                .withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            'Step ${currentStep + 1} of 2',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -699,8 +740,12 @@ class _HomeState extends State<Home> {
                 AnimatedSwitcher(
                   duration: const Duration(milliseconds: 300),
                   child: currentStep == 0
-                      ? _buildAmountStep(theme)
-                      : _buildPhoneStep(theme),
+                      ? (recipientFirst
+                          ? _buildPhoneStep(theme)
+                          : _buildAmountStep(theme))
+                      : (recipientFirst
+                          ? _buildAmountStep(theme)
+                          : _buildPhoneStep(theme)),
                 ),
 
                 const SizedBox(height: 30),
@@ -920,7 +965,13 @@ class _HomeState extends State<Home> {
           onChanged: (value) => setState(() {}),
           onSubmitted: (value) {
             if (_isValidAmount()) {
-              _nextStep();
+              if (recipientFirst && currentStep == 1) {
+                if (_canProceedWithPayment()) {
+                  _processPayment(context);
+                }
+              } else {
+                _nextStep();
+              }
             }
           },
         ),
@@ -1124,7 +1175,13 @@ class _HomeState extends State<Home> {
                 _filterContacts(value);
               },
               onSubmitted: (value) {
-                if (_canProceedWithPayment()) {
+                if (recipientFirst && currentStep == 0) {
+                  final hasValidRecipient = isRecordOnlyMode ||
+                      (_isValidPhoneNumber(value) || _isValidMomoCode(value));
+                  if (hasValidRecipient) {
+                    _nextStep();
+                  }
+                } else if (_canProceedWithPayment()) {
                   _processPayment(context);
                 }
               },
@@ -1193,7 +1250,16 @@ class _HomeState extends State<Home> {
 
   VoidCallback? _getNextButtonAction() {
     if (currentStep == 0) {
-      return _isValidAmount() ? _nextStep : null;
+      if (recipientFirst) {
+        // Step 0 is recipient - need valid phone/momo (or optional in record-only)
+        final hasValidRecipient = isRecordOnlyMode ||
+            (mobileController.text.isNotEmpty &&
+                (_isValidPhoneNumber(mobileController.text) ||
+                    _isValidMomoCode(mobileController.text)));
+        return hasValidRecipient ? _nextStep : null;
+      } else {
+        return _isValidAmount() ? _nextStep : null;
+      }
     } else {
       return _canProceedWithPayment() ? () => _processPayment(context) : null;
     }
