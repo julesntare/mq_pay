@@ -185,47 +185,10 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
     return null;
   }
 
-  Future<void> _cleanupExpiredPendingTransactions() async {
-    try {
-      final allRecords = await UssdRecordService.getUssdRecords();
-      final now = DateTime.now();
-      final fiveMinutesAgo = now.subtract(const Duration(minutes: 5));
-
-      // Find pending transactions older than 5 minutes
-      final expiredPendingRecords = allRecords.where((record) {
-        return record.status == TransactionStatus.pending &&
-               record.timestamp.isBefore(fiveMinutesAgo);
-      }).toList();
-
-      // Delete expired pending transactions
-      for (final record in expiredPendingRecords) {
-        await UssdRecordService.deleteUssdRecord(record.id);
-      }
-
-      // Show notification if any were deleted
-      if (expiredPendingRecords.isNotEmpty && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Automatically removed ${expiredPendingRecords.length} expired pending transaction${expiredPendingRecords.length != 1 ? 's' : ''}',
-            ),
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
-    } catch (e) {
-      // Silently fail - this is a background cleanup operation
-      debugPrint('Error cleaning up expired pending transactions: $e');
-    }
-  }
-
   Future<void> _loadRecords() async {
     setState(() => isLoading = true);
 
     try {
-      // Clean up expired pending transactions before loading
-      await _cleanupExpiredPendingTransactions();
-
       final loadedRecords = await UssdRecordService.getUssdRecords();
       final allRecords = loadedRecords;
       final count = allRecords.length;

@@ -63,6 +63,36 @@ class UssdKeywordDetector {
     return false;
   }
 
+  /// Returns the transaction detection result as a tri-state:
+  /// - 'success': explicit success keywords found
+  /// - 'failure': explicit failure keywords found
+  /// - 'unknown': no success or failure keywords detected
+  static String detectTransactionResult(String ussdResponse) {
+    if (ussdResponse.isEmpty) {
+      debugPrint('[UssdKeywordDetector] Empty USSD response - unknown');
+      return 'unknown';
+    }
+
+    final lowerResponse = ussdResponse.toLowerCase();
+
+    for (final keyword in _failureKeywords) {
+      if (lowerResponse.contains(keyword)) {
+        debugPrint('[UssdKeywordDetector] Failure keyword detected: "$keyword"');
+        return 'failure';
+      }
+    }
+
+    for (final keyword in _successKeywords) {
+      if (lowerResponse.contains(keyword)) {
+        debugPrint('[UssdKeywordDetector] Success keyword detected: "$keyword"');
+        return 'success';
+      }
+    }
+
+    debugPrint('[UssdKeywordDetector] No keywords found - unknown');
+    return 'unknown';
+  }
+
   /// Checks if the response indicates a successful transaction
   static bool isSuccessResponse(String ussdResponse) {
     final lowerResponse = ussdResponse.toLowerCase();

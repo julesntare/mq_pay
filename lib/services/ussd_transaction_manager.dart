@@ -38,21 +38,26 @@ class UssdTransactionManager {
   }
 
   /// Validate USSD response and confirm/reject transaction
-  static Future<bool> validateUssdResponse(String ussdResponse) async {
+  /// Returns true if success, false if failure, null if unknown (left pending)
+  static Future<bool?> validateUssdResponse(String ussdResponse) async {
     debugPrint(
         '[UssdTransactionManager] Validating USSD response: $ussdResponse');
 
-    // Check if response should save transaction
-    final shouldSave = UssdKeywordDetector.shouldSaveTransaction(ussdResponse);
+    final result = UssdKeywordDetector.detectTransactionResult(ussdResponse);
 
-    if (shouldSave) {
+    if (result == 'success') {
       // Success - confirm the most recent pending transaction
       await _confirmMostRecentTransaction(ussdResponse);
       return true;
-    } else {
-      // Failure - delete the most recent pending transaction
+    } else if (result == 'failure') {
+      // Explicit failure - mark the most recent pending transaction as failed
       await _rejectMostRecentTransaction(ussdResponse);
       return false;
+    } else {
+      // Unknown - leave the transaction as pending for manual resolution
+      debugPrint(
+          '[UssdTransactionManager] No success/failure keywords detected - leaving transaction as pending for manual resolution');
+      return null;
     }
   }
 

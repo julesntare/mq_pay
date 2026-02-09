@@ -44,7 +44,8 @@ class UssdDetectorService {
         debugPrint('[UssdDetectorService] Received USSD response: $ussdText');
 
         // Validate the USSD response and confirm/reject pending transaction
-        final shouldSave = await UssdTransactionManager.validateUssdResponse(ussdText);
+        final result = await UssdTransactionManager.validateUssdResponse(ussdText);
+        final shouldSave = result == true;
         UssdKeywordDetector.logValidation(ussdText, shouldSave);
 
         // Invoke callback if set
