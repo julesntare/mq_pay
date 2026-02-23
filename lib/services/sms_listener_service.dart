@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_sms_inbox/flutter_sms_inbox.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'transaction_matcher_service.dart';
@@ -71,7 +72,7 @@ class SmsListenerService {
       }
     } catch (e) {
       // Silently fail - SMS reading is optional feature
-      print('Error checking SMS: $e');
+      if (kDebugMode) debugPrint('Error checking SMS: $e');
     }
   }
 
@@ -167,7 +168,7 @@ class SmsListenerService {
 
       return matchedCount;
     } catch (e) {
-      print('Error in retry matching: $e');
+      if (kDebugMode) debugPrint('Error in retry matching: $e');
       return 0;
     }
   }

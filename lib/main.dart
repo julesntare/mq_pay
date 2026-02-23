@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'screens/home.dart';
 import 'screens/settings.dart';
@@ -24,6 +25,7 @@ import 'services/ussd_transaction_manager.dart';
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
     try {
+      await dotenv.load(fileName: ".env");
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
       );
@@ -51,7 +53,7 @@ void main() async {
     await SupabaseBackupService.initialize();
   } catch (e) {
     // Supabase initialization is optional, so we don't crash the app
-    print('Supabase initialization skipped: $e');
+    if (kDebugMode) debugPrint('Supabase initialization skipped: $e');
   }
 
   // Initialize Workmanager

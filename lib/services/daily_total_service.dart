@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:workmanager/workmanager.dart';
@@ -63,7 +64,7 @@ class DailyTotalService {
       }, SetOptions(merge: true));
     } catch (e) {
       // Log error but don't throw to prevent background task failure
-      print('Error sending daily total: $e');
+      if (kDebugMode) debugPrint('Error sending daily total: $e');
     }
   }
 
@@ -100,7 +101,7 @@ class DailyTotalService {
         ),
       );
     } catch (e) {
-      print('Error scheduling daily task: $e');
+      if (kDebugMode) debugPrint('Error scheduling daily task: $e');
     }
   }
 
@@ -119,7 +120,7 @@ class DailyTotalService {
       }
       return null;
     } catch (e) {
-      print('Error getting daily total: $e');
+      if (kDebugMode) debugPrint('Error getting daily total: $e');
       return null;
     }
   }
@@ -146,7 +147,7 @@ class DailyTotalService {
               try {
                 allTotals.add(DailyTotal.fromJson(dailyData));
               } catch (e) {
-                print('Error parsing daily total for date $dateKey: $e');
+                if (kDebugMode) debugPrint('Error parsing daily total for date $dateKey: $e');
               }
             }
           }
@@ -158,7 +159,7 @@ class DailyTotalService {
 
       return allTotals;
     } catch (e) {
-      print('Error getting all daily totals: $e');
+      if (kDebugMode) debugPrint('Error getting all daily totals: $e');
       return [];
     }
   }
@@ -202,7 +203,7 @@ class DailyTotalService {
           }
           monthlyData[monthKey]![dateString] = dailyTotal;
         } catch (e) {
-          print('Error preparing date $dateString: $e');
+          if (kDebugMode) debugPrint('Error preparing date $dateString: $e');
           errorCount++;
           errorDates.add(dateString);
         }
@@ -230,7 +231,7 @@ class DailyTotalService {
           syncedCount += datesData.length;
           syncedDates.addAll(datesData.keys);
         } catch (e) {
-          print('Error syncing month $monthKey: $e');
+          if (kDebugMode) debugPrint('Error syncing month $monthKey: $e');
           errorCount += datesData.length;
           errorDates.addAll(datesData.keys);
         }
@@ -245,7 +246,7 @@ class DailyTotalService {
         'monthsProcessed': monthlyData.length,
       };
     } catch (e) {
-      print('Error syncing all date totals: $e');
+      if (kDebugMode) debugPrint('Error syncing all date totals: $e');
       throw Exception('Failed to sync all date totals: $e');
     }
   }

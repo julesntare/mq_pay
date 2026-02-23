@@ -44,7 +44,6 @@ dependencies:
   intl: any
   flutter_native_contact_picker: ^0.0.10
   flutter_contacts: ^1.1.9
-  geolocator: ^14.0.2
   flutter_phone_direct_caller: ^2.2.1
   http: ^1.1.0
   connectivity_plus: ^7.0.0

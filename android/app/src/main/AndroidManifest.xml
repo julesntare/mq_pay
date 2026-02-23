@@ -17,15 +17,24 @@
             <action android:name="android.support.customtabs.action.CustomTabsService" />
         </intent>
     </queries>
-    <uses-permission android:name="android.permission.CAMERA" />
-    <uses-permission android:name="android.permission.READ_CONTACTS" />
-    <uses-permission android:name="android.permission.WRITE_CONTACTS" />
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <uses-permission android:name="android.permission.CALL_PHONE" />
-    <uses-permission android:name="android.permission.READ_SMS" />
-    <uses-permission android:name="android.permission.RECEIVE_SMS" />
+    <!-- Explicitly block location permissions - not used by this app.
+         tools:node="remove" prevents dependency manifests from re-adding them. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" tools:node="remove" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" tools:node="remove" />
+
+    <!-- QR code scanning - runtime permission required on API 23+ -->
+    <uses-permission-sdk-23 android:name="android.permission.CAMERA" />
+    <!-- Contact picker for selecting payment recipients (read-only) - runtime permission required on API 23+ -->
+    <uses-permission-sdk-23 android:name="android.permission.READ_CONTACTS" />
+    <!-- Direct phone/USSD dialing - runtime permission required on API 23+ -->
+    <uses-permission-sdk-23 android:name="android.permission.CALL_PHONE" />
+    <!-- SMS reading for automatic transaction detection - runtime permission required on API 23+ -->
+    <uses-permission-sdk-23 android:name="android.permission.READ_SMS" />
+    <!-- Real-time SMS listening for transaction detection - runtime permission required on API 23+ -->
+    <uses-permission-sdk-23 android:name="android.permission.RECEIVE_SMS" />
+    <!-- Transaction status and background task notifications - runtime permission required on API 33+ -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- USSD response detection via accessibility -->
     <uses-permission android:name="android.permission.BIND_ACCESSIBILITY_SERVICE"
         tools:ignore="ProtectedPermissions" />
     <application android:label="MQ Pay" android:name="${applicationName}" android:icon="@mipmap/launcher_icon">
