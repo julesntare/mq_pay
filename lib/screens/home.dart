@@ -2285,7 +2285,7 @@ class _HomeState extends State<Home> {
   }
 
   // Load all contacts from device
-  Future<void> _loadAllContacts() async {
+  Future<void> _loadAllContacts({bool silent = false}) async {
     if (isLoadingContacts) return;
 
     setState(() {
@@ -2309,7 +2309,7 @@ class _HomeState extends State<Home> {
         setState(() {
           isLoadingContacts = false;
         });
-        if (mounted) {
+        if (mounted && !silent) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Contact permission denied')),
           );
@@ -2338,7 +2338,7 @@ class _HomeState extends State<Home> {
 
     // Load contacts if not already loaded
     if (allContacts.isEmpty && !isLoadingContacts) {
-      _loadAllContacts();
+      _loadAllContacts(silent: true);
     }
 
     final queryLower = query.toLowerCase();
