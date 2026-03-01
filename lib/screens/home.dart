@@ -4,6 +4,7 @@ import '../generated/l10n.dart';
 import 'package:flutter_native_contact_picker/flutter_native_contact_picker.dart';
 import 'package:flutter_native_contact_picker/model/contact.dart' as picker;
 import 'package:flutter_contacts/flutter_contacts.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../helpers/launcher.dart';
 import '../helpers/app_theme.dart';
 import 'settings.dart';
@@ -2293,8 +2294,16 @@ class _HomeState extends State<Home> {
     });
 
     try {
-      // Request permission
-      if (await FlutterContacts.requestPermission()) {
+      final status = await Permission.contacts.status;
+      bool hasPermission = status.isGranted;
+
+      // Only request permission if not yet granted (avoids repeated dialogs and
+      // the "Reply already submitted" crash from FlutterPhoneDirectCaller)
+      if (!hasPermission && status.isDenied) {
+        hasPermission = await FlutterContacts.requestPermission();
+      }
+
+      if (hasPermission) {
         // Get all contacts with phone numbers
         final contacts = await FlutterContacts.getContacts(
           withProperties: true,

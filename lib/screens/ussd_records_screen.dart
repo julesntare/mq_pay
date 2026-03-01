@@ -7,6 +7,7 @@ import '../helpers/app_theme.dart';
 import '../helpers/launcher.dart';
 import 'edit_ussd_record_dialog.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../widgets/scroll_indicator.dart';
 import 'package:dropdown_search/dropdown_search.dart';
 import '../widgets/transaction_status_badge.dart';
@@ -82,7 +83,16 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
 
   Future<void> _loadContacts() async {
     try {
-      if (await FlutterContacts.requestPermission()) {
+      final status = await Permission.contacts.status;
+      bool hasPermission = status.isGranted;
+
+      // Only request permission if not yet granted (avoids repeated dialogs and
+      // the "Reply already submitted" crash from FlutterPhoneDirectCaller)
+      if (!hasPermission && status.isDenied) {
+        hasPermission = await FlutterContacts.requestPermission();
+      }
+
+      if (hasPermission) {
         final contacts = await FlutterContacts.getContacts(
           withProperties: true,
           withPhoto: false,
@@ -93,6 +103,10 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
         });
         // Build contact name cache after contacts are loaded
         _buildContactNameCache();
+      } else {
+        setState(() {
+          contactsLoaded = true;
+        });
       }
     } catch (e) {
       // Silently fail if contacts can't be loaded
