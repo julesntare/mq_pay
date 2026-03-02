@@ -164,14 +164,18 @@ class UssdRecordService {
     }
   }
 
-  // Return a sorted list of unique non-empty reasons (most recent first)
+  // Return a sorted list of unique non-empty reasons (most recent first).
+  // Comma-separated reasons are split into individual entries.
   static Future<List<String>> getUniqueReasons() async {
     final records = await getUssdRecords();
     final Set<String> reasons = {};
     // iterate newest first
     for (final r in records.reversed) {
       if (r.reason != null && r.reason!.trim().isNotEmpty) {
-        reasons.add(r.reason!.trim());
+        for (final part in r.reason!.split(',')) {
+          final trimmed = part.trim();
+          if (trimmed.isNotEmpty) reasons.add(trimmed);
+        }
       }
     }
     return reasons.toList();
