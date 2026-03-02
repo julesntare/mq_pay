@@ -17,6 +17,8 @@ class UssdRecord {
   final String? confirmationCode; // Reference/Transaction ID from SMS
   final String? smsRawText; // Raw SMS text for debugging
   final DateTime? statusUpdatedAt; // When status was last updated
+  final bool isLoan; // Whether this transaction is a loan
+  final bool loanRecovered; // Whether the loan has been recovered
 
   UssdRecord({
     required this.id,
@@ -34,6 +36,8 @@ class UssdRecord {
     this.confirmationCode,
     this.smsRawText,
     this.statusUpdatedAt,
+    this.isLoan = false,
+    this.loanRecovered = false,
   });
 
   Map<String, dynamic> toJson() {
@@ -53,6 +57,8 @@ class UssdRecord {
       'confirmationCode': confirmationCode,
       'smsRawText': smsRawText,
       'statusUpdatedAt': statusUpdatedAt?.toIso8601String(),
+      'isLoan': isLoan,
+      'loanRecovered': loanRecovered,
     };
   }
 
@@ -78,6 +84,8 @@ class UssdRecord {
       statusUpdatedAt: json['statusUpdatedAt'] != null
           ? DateTime.parse(json['statusUpdatedAt'] as String)
           : null,
+      isLoan: json['isLoan'] as bool? ?? false,
+      loanRecovered: json['loanRecovered'] as bool? ?? false,
     );
   }
 
@@ -97,6 +105,8 @@ class UssdRecord {
     String? confirmationCode,
     String? smsRawText,
     DateTime? statusUpdatedAt,
+    bool? isLoan,
+    bool? loanRecovered,
   }) {
     return UssdRecord(
       id: id ?? this.id,
@@ -114,6 +124,8 @@ class UssdRecord {
       confirmationCode: confirmationCode ?? this.confirmationCode,
       smsRawText: smsRawText ?? this.smsRawText,
       statusUpdatedAt: statusUpdatedAt ?? this.statusUpdatedAt,
+      isLoan: isLoan ?? this.isLoan,
+      loanRecovered: loanRecovered ?? this.loanRecovered,
     );
   }
 

@@ -41,7 +41,9 @@ class DailyTotalService {
       );
 
       // Calculate total with fees for today's records only
-      final calculatedTotalWithFees = todayRecords.fold<double>(
+      // Exclude recovered loans from the total
+      final billableRecords = todayRecords.where((r) => !(r.isLoan && r.loanRecovered)).toList();
+      final calculatedTotalWithFees = billableRecords.fold<double>(
         0.0,
         (sum, record) => sum + record.amount + record.calculateFee(),
       );
@@ -54,7 +56,7 @@ class DailyTotalService {
         total: totalAmount,
         sentAt: DateTime.now(),
         totalWithFees: totalAmount, // Use the same value as total
-        recordCount: todayRecords.length,
+        recordCount: billableRecords.length,
       );
 
       // Store in monthly document: daily_totals/yyyy-MM

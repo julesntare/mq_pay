@@ -214,6 +214,7 @@ class UssdRecordService {
   }
 
   // Get total amount (with fees) for a specific date (yyyy-MM-dd format)
+  // Recovered loans are excluded from the total
   static Future<Map<String, dynamic>> getTotalForDate(String dateString) async {
     final dateParts = dateString.split('-');
     final year = int.parse(dateParts[0]);
@@ -224,15 +225,16 @@ class UssdRecordService {
     final endOfDay = DateTime(year, month, day, 23, 59, 59);
 
     final records = await getRecordsByDateRange(startOfDay, endOfDay);
+    final billableRecords = records.where((r) => !(r.isLoan && r.loanRecovered)).toList();
 
-    final totalWithFees = records.fold<double>(
+    final totalWithFees = billableRecords.fold<double>(
       0.0,
       (sum, record) => sum + record.amount + record.calculateFee(),
     );
 
     return {
       'total': totalWithFees,
-      'recordCount': records.length,
+      'recordCount': billableRecords.length,
     };
   }
 }

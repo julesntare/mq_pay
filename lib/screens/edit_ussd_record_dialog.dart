@@ -25,6 +25,8 @@ class _EditUssdRecordDialogState extends State<EditUssdRecordDialog> {
   bool isLoading = false;
   late bool applyFee; // Track whether to apply fee
   late TransactionStatus status; // Track transaction status
+  late bool isLoan;
+  late bool loanRecovered;
 
   @override
   void initState() {
@@ -38,6 +40,8 @@ class _EditUssdRecordDialogState extends State<EditUssdRecordDialog> {
     recipientType = widget.record.recipientType;
     applyFee = widget.record.applyFee; // Initialize from existing record
     status = widget.record.status; // Initialize from existing record
+    isLoan = widget.record.isLoan;
+    loanRecovered = widget.record.loanRecovered;
   }
 
   @override
@@ -205,6 +209,8 @@ class _EditUssdRecordDialogState extends State<EditUssdRecordDialog> {
         applyFee: applyFee,
         status: status,
         statusUpdatedAt: status != widget.record.status ? DateTime.now() : widget.record.statusUpdatedAt,
+        isLoan: isLoan,
+        loanRecovered: isLoan ? loanRecovered : false,
       );
 
       await UssdRecordService.updateUssdRecord(updatedRecord);
@@ -312,6 +318,101 @@ class _EditUssdRecordDialogState extends State<EditUssdRecordDialog> {
                           });
                         },
                       ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Loan Toggle
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: theme.colorScheme.outline),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Mark as Loan',
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  isLoan
+                                      ? 'This transaction is a loan'
+                                      : 'Not a loan',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurface
+                                        .withValues(alpha: 0.6),
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Switch(
+                            value: isLoan,
+                            onChanged: (value) {
+                              setState(() {
+                                isLoan = value;
+                                if (!value) loanRecovered = false;
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                      if (isLoan) ...[
+                        const Divider(height: 20),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Mark as Recovered',
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    loanRecovered
+                                        ? 'Excluded from daily total'
+                                        : 'Still counted in daily total',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: loanRecovered
+                                          ? Colors.teal
+                                          : theme.colorScheme.onSurface
+                                              .withValues(alpha: 0.6),
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Switch(
+                              value: loanRecovered,
+                              activeThumbColor: Colors.teal,
+                              onChanged: (value) {
+                                setState(() {
+                                  loanRecovered = value;
+                                });
+                              },
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
                 ),

@@ -207,8 +207,10 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
       final allRecords = loadedRecords;
       final count = allRecords.length;
 
-      // Only include non-pending transactions in totals
-      final confirmedRecords = allRecords.where((r) => r.status != TransactionStatus.pending).toList();
+      // Only include non-pending, non-recovered-loan transactions in totals
+      final confirmedRecords = allRecords
+          .where((r) => r.status != TransactionStatus.pending && !(r.isLoan && r.loanRecovered))
+          .toList();
       final total = confirmedRecords.fold<double>(0.0, (s, r) => s + r.amount);
       final fees = confirmedRecords.fold<double>(0.0, (s, r) => s + r.calculateFee());
 
@@ -266,8 +268,10 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
   void _calculateMonthsWithData(List<UssdRecord> allRecords) {
     Map<String, double> monthlyTotals = {};
 
-    // Only include non-pending transactions in monthly totals
-    final confirmedRecords = allRecords.where((r) => r.status != TransactionStatus.pending).toList();
+    // Only include non-pending, non-recovered-loan transactions in monthly totals
+    final confirmedRecords = allRecords
+        .where((r) => r.status != TransactionStatus.pending && !(r.isLoan && r.loanRecovered))
+        .toList();
 
     for (var record in confirmedRecords) {
       final monthKey = DateFormat('yyyy-MM').format(record.timestamp);
@@ -306,11 +310,12 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
     final currentMonth = monthsWithData[currentMonthIndex];
     final monthKey = DateFormat('yyyy-MM').format(currentMonth);
 
-    // Only include non-pending transactions in monthly totals
+    // Only include non-pending, non-recovered-loan transactions in monthly totals
     final monthRecords = records
         .where((record) =>
             DateFormat('yyyy-MM').format(record.timestamp) == monthKey &&
-            record.status != TransactionStatus.pending)
+            record.status != TransactionStatus.pending &&
+            !(record.isLoan && record.loanRecovered))
         .toList();
 
     final total = monthRecords.fold(0.0, (sum, record) => sum + record.amount);
@@ -2015,20 +2020,30 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                                 .withValues(alpha: 0.5),
                           ),
                         ),
-                        // Only show status badge for today's transactions
-                        Builder(
-                          builder: (context) {
-                            final now = DateTime.now();
-                            final today =
-                                DateTime(now.year, now.month, now.day);
-                            final isToday = record.timestamp.isAfter(today);
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Loan badge
+                            if (record.isLoan) ...[
+                              _LoanBadge(recovered: record.loanRecovered),
+                              const SizedBox(width: 4),
+                            ],
+                            // Only show status badge for today's transactions
+                            Builder(
+                              builder: (context) {
+                                final now = DateTime.now();
+                                final today =
+                                    DateTime(now.year, now.month, now.day);
+                                final isToday = record.timestamp.isAfter(today);
 
-                            if (isToday) {
-                              return TransactionStatusBadge(
-                                  status: record.status);
-                            }
-                            return const SizedBox.shrink();
-                          },
+                                if (isToday) {
+                                  return TransactionStatusBadge(
+                                      status: record.status);
+                                }
+                                return const SizedBox.shrink();
+                              },
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -2531,6 +2546,44 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
             child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LoanBadge extends StatelessWidget {
+  final bool recovered;
+
+  const _LoanBadge({required this.recovered});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = recovered ? Colors.teal : Colors.deepPurple;
+    final label = recovered ? 'Recovered' : 'Loan';
+    final icon = recovered ? Icons.undo_rounded : Icons.handshake_rounded;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 14),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w600,
+              fontSize: 11,
+            ),
           ),
         ],
       ),
