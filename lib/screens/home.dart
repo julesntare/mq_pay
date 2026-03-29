@@ -64,6 +64,7 @@ class _HomeState extends State<Home> {
   List<Contact> allContacts = [];
   List<ContactSuggestion> filteredContacts = [];
   bool isLoadingContacts = false;
+  bool _suggestionDismissed = false;
 
   @override
   void initState() {
@@ -391,39 +392,45 @@ class _HomeState extends State<Home> {
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       resizeToAvoidBottomInset: true,
-      body: SafeArea(
-        child: ScrollIndicatorWrapper(
-          controller: _scrollController,
-          child: SingleChildScrollView(
-            controller: _scrollController,
-            padding: EdgeInsets.only(
-              left: 20,
-              right: 20,
-              top: 20,
-              bottom: 20 +
-                  keyboardHeight *
-                      0.1, // Add small padding when keyboard is open
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // App Title
-                _buildAppHeader(context, theme),
-                const SizedBox(height: 30),
+      body: Stack(
+        children: [
+          SafeArea(
+            child: ScrollIndicatorWrapper(
+              controller: _scrollController,
+              child: SingleChildScrollView(
+                controller: _scrollController,
+                padding: EdgeInsets.only(
+                  left: 20,
+                  right: 20,
+                  top: 20,
+                  bottom: 20 +
+                      keyboardHeight *
+                          0.1, // Add small padding when keyboard is open
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // App Title
+                    _buildAppHeader(context, theme),
+                    const SizedBox(height: 30),
 
-                // Quick Actions (Scan QR & Load Contact)
-                _buildQuickActions(context, theme),
-                const SizedBox(height: 30),
+                    // Quick Actions (Scan QR & Load Contact)
+                    _buildQuickActions(context, theme),
+                    const SizedBox(height: 30),
 
-                // Streamlined Payment Form
-                _buildStreamlinedPaymentForm(context, theme),
+                    // Streamlined Payment Form
+                    _buildStreamlinedPaymentForm(context, theme),
 
-                // Add extra space when keyboard is visible
-                if (keyboardHeight > 0) SizedBox(height: 100),
-              ],
+                    // Add extra space when keyboard is visible
+                    if (keyboardHeight > 0) SizedBox(height: 100),
+                  ],
+                ),
+              ),
             ),
           ),
-        ),
+          if (_shouldShowSuggestionsOverlay())
+            _buildSuggestionsOverlay(theme),
+        ],
       ),
     );
   }
@@ -1012,62 +1019,6 @@ class _HomeState extends State<Home> {
         const SizedBox(height: 24),
         Column(
           children: [
-            // Contact suggestions dropdown
-            if (filteredContacts.isNotEmpty)
-              Container(
-                margin: const EdgeInsets.only(top: 8),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surface,
-                  borderRadius: BorderRadius.circular(15),
-                  border: Border.all(
-                    color: theme.colorScheme.outline.withValues(alpha: 0.3),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.1),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: filteredContacts.length,
-                  separatorBuilder: (context, index) => Divider(
-                    height: 1,
-                    color: theme.colorScheme.outline.withValues(alpha: 0.2),
-                  ),
-                  itemBuilder: (context, index) {
-                    final contact = filteredContacts[index];
-                    return ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor:
-                            theme.colorScheme.primary.withValues(alpha: 0.1),
-                        child: Icon(
-                          Icons.person,
-                          color: theme.colorScheme.primary,
-                          size: 20,
-                        ),
-                      ),
-                      title: Text(
-                        contact.name,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      subtitle: Text(
-                        contact.phoneNumber,
-                        style: theme.textTheme.bodySmall,
-                      ),
-                      onTap: () => _selectContactSuggestion(contact),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(15),
-                      ),
-                    );
-                  },
-                ),
-              ),
             // Name field (optional)
             TextField(
               controller: recipientNameController,
@@ -1170,6 +1121,7 @@ class _HomeState extends State<Home> {
                 setState(() {
                   isPhoneNumberMomo =
                       _isValidMomoCode(value) && !_isValidPhoneNumber(value);
+                  _suggestionDismissed = false;
                 });
 
                 // Filter contacts for autocomplete
@@ -2445,7 +2397,118 @@ class _HomeState extends State<Home> {
       recipientNameController.text = suggestion.name;
       filteredContacts = [];
       selectedName = suggestion.name;
+      _suggestionDismissed = true;
     });
+  }
+
+  bool _shouldShowSuggestionsOverlay() {
+    if (_suggestionDismissed) return false;
+    final phoneQuery = mobileController.text;
+    if (filteredContacts.isNotEmpty) return true;
+    if (phoneQuery.isNotEmpty &&
+        (_isValidPhoneNumber(phoneQuery) || _isValidMomoCode(phoneQuery))) {
+      return true;
+    }
+    return false;
+  }
+
+  Widget _buildSuggestionsOverlay(ThemeData theme) {
+    final phoneQuery = mobileController.text;
+    final bool hasExactMatch = filteredContacts.any(
+      (c) => c.phoneNumber == phoneQuery || c.originalPhone == phoneQuery,
+    );
+    final bool showUnknown = phoneQuery.isNotEmpty &&
+        (_isValidPhoneNumber(phoneQuery) || _isValidMomoCode(phoneQuery)) &&
+        !hasExactMatch;
+
+    return Positioned.fill(
+      child: Material(
+        color: theme.colorScheme.surface,
+        child: SafeArea(
+          child: Column(
+            children: [
+              // Header
+              Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back_rounded),
+                    onPressed: () => setState(() {
+                          filteredContacts = [];
+                          _suggestionDismissed = true;
+                        }),
+                  ),
+                  Expanded(
+                    child: Text(
+                      phoneQuery.isNotEmpty ? phoneQuery : 'Suggestions',
+                      style: theme.textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w600),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              Divider(
+                  height: 1,
+                  color: theme.colorScheme.outline.withValues(alpha: 0.2)),
+              // List
+              Expanded(
+                child: ListView(
+                  children: [
+                    ...filteredContacts.map((contact) => ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: theme.colorScheme.primary
+                                .withValues(alpha: 0.1),
+                            child: Icon(Icons.person,
+                                color: theme.colorScheme.primary, size: 20),
+                          ),
+                          title: Text(contact.name,
+                              style: theme.textTheme.bodyMedium
+                                  ?.copyWith(fontWeight: FontWeight.w600)),
+                          subtitle: Text(contact.phoneNumber,
+                              style: theme.textTheme.bodySmall),
+                          onTap: () => _selectContactSuggestion(contact),
+                        )),
+                    if (showUnknown)
+                      ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor:
+                              theme.colorScheme.secondary.withValues(alpha: 0.1),
+                          child: Icon(Icons.phone_rounded,
+                              color: theme.colorScheme.secondary, size: 20),
+                        ),
+                        title: Text(phoneQuery,
+                            style: theme.textTheme.bodyMedium
+                                ?.copyWith(fontWeight: FontWeight.w600)),
+                        subtitle: Text(
+                            _isValidPhoneNumber(phoneQuery)
+                                ? 'Phone number'
+                                : (phoneQuery.startsWith('0') &&
+                                        phoneQuery
+                                                .replaceAll(
+                                                    RegExp(r'[^0-9]'), '')
+                                                .length >
+                                            10)
+                                    ? 'Probably invalid number'
+                                    : 'Probably a momo code',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.5))),
+                        onTap: () {
+                          setState(() {
+                            mobileController.text = phoneQuery;
+                            filteredContacts = [];
+                            _suggestionDismissed = true;
+                          });
+                        },
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   // Show payment method selector dialog
