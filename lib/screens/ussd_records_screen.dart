@@ -2028,15 +2028,17 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                               _LoanBadge(recovered: record.loanRecovered),
                               const SizedBox(width: 4),
                             ],
-                            // Only show status badge for today's transactions
+                            // Show status badge for pending transactions (any date) or today's transactions
                             Builder(
                               builder: (context) {
                                 final now = DateTime.now();
                                 final today =
                                     DateTime(now.year, now.month, now.day);
                                 final isToday = record.timestamp.isAfter(today);
+                                final isPending = record.status ==
+                                    TransactionStatus.pending;
 
-                                if (isToday) {
+                                if (isPending || isToday) {
                                   return TransactionStatusBadge(
                                       status: record.status);
                                 }
