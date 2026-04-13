@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:intl/intl.dart';
+import '../helpers/safe_date_format.dart';
 import 'package:workmanager/workmanager.dart';
 import '../models/daily_total.dart';
 import '../services/ussd_record_service.dart';
@@ -12,7 +12,7 @@ class DailyTotalService {
 
   /// Get month key from date (format: yyyy-MM)
   static String _getMonthKey(DateTime date) {
-    return DateFormat('yyyy-MM').format(date);
+    return safeDateFormat('yyyy-MM').format(date);
   }
 
   /// Get month key from date string (format: yyyy-MM-dd -> yyyy-MM)
@@ -27,7 +27,7 @@ class DailyTotalService {
     try {
       // Get today's date in yyyy-MM-dd format
       final now = DateTime.now();
-      final today = DateFormat('yyyy-MM-dd').format(now);
+      final today = safeDateFormat('yyyy-MM-dd').format(now);
       final monthKey = _getMonthKey(now);
 
       // Get start and end of today

@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:excel/excel.dart';
-import 'package:intl/intl.dart';
+import '../helpers/safe_date_format.dart';
 import '../models/ussd_record.dart';
 import 'ussd_record_service.dart';
 
@@ -492,8 +492,8 @@ class BackupService {
         final rowIndex = i + 1;
 
         // Format date and time
-        final dateFormat = DateFormat('yyyy-MM-dd');
-        final timeFormat = DateFormat('HH:mm:ss');
+        final dateFormat = safeDateFormat('yyyy-MM-dd');
+        final timeFormat = safeDateFormat('HH:mm:ss');
 
         final rowData = [
           dateFormat.format(record.timestamp),

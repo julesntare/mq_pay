@@ -354,7 +354,7 @@ class _HomeState extends State<Home> {
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Scanned: $result'),
+            content: Text(S.of(context).scannedResult(result)),
             backgroundColor: Colors.green,
           ),
         );
@@ -450,7 +450,7 @@ class _HomeState extends State<Home> {
               ),
             ),
             Text(
-              'Quick Payment',
+              S.of(context).quickPayment,
               style: theme.textTheme.bodyLarge?.copyWith(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
               ),
@@ -557,14 +557,16 @@ class _HomeState extends State<Home> {
                                           .withValues(alpha: 0.5),
                                 ),
                                 const SizedBox(width: 6),
-                                Text(
-                                  'Send Money',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    color: !isReceiveMode
-                                        ? Colors.white
-                                        : theme.colorScheme.onSurface
-                                            .withValues(alpha: 0.5),
+                                Flexible(
+                                  child: Text(S.of(context).sendMoney,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: !isReceiveMode
+                                          ? Colors.white
+                                          : theme.colorScheme.onSurface
+                                              .withValues(alpha: 0.5),
+                                    ),
                                   ),
                                 ),
                               ],
@@ -604,14 +606,16 @@ class _HomeState extends State<Home> {
                                           .withValues(alpha: 0.5),
                                 ),
                                 const SizedBox(width: 6),
-                                Text(
-                                  'Get Paid',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    color: isReceiveMode
-                                        ? Colors.white
-                                        : theme.colorScheme.onSurface
-                                            .withValues(alpha: 0.5),
+                                Flexible(
+                                  child: Text(S.of(context).getPaid,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: isReceiveMode
+                                          ? Colors.white
+                                          : theme.colorScheme.onSurface
+                                              .withValues(alpha: 0.5),
+                                    ),
                                   ),
                                 ),
                               ],
@@ -630,8 +634,7 @@ class _HomeState extends State<Home> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'Send Money',
+                    Text(S.of(context).sendMoney,
                       style: theme.textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: theme.colorScheme.primary,
@@ -679,7 +682,7 @@ class _HomeState extends State<Home> {
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
-                            'Step ${currentStep + 1} of 2',
+                            S.of(context).stepOf(currentStep + 1),
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: theme.colorScheme.primary,
                               fontWeight: FontWeight.w600,
@@ -693,7 +696,7 @@ class _HomeState extends State<Home> {
                 const SizedBox(height: 30),
               ] else ...[
                 Text(
-                  'Generate Payment QR',
+                  S.of(context).generatePaymentQr,
                   style: theme.textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: theme.colorScheme.primary,
@@ -701,7 +704,7 @@ class _HomeState extends State<Home> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Create a QR code for someone to pay you',
+                  S.of(context).createQrCodeDesc,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                   ),
@@ -766,7 +769,7 @@ class _HomeState extends State<Home> {
                         child: OutlinedButton.icon(
                           onPressed: _previousStep,
                           icon: Icon(Icons.arrow_back_rounded),
-                          label: Text('Back'),
+                          label: Text(S.of(context).back),
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(
@@ -786,8 +789,8 @@ class _HomeState extends State<Home> {
                                 : Icons.send_rounded)),
                         label: Text(
                           currentStep == 0
-                              ? 'Next'
-                              : (isRecordOnlyMode ? 'Save Record' : 'Pay Now'),
+                              ? S.of(context).next
+                              : (isRecordOnlyMode ? S.of(context).saveRecord : S.of(context).payNow),
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -830,8 +833,8 @@ class _HomeState extends State<Home> {
             fontWeight: FontWeight.w600,
           ),
           decoration: InputDecoration(
-            labelText: 'Amount (RWF)',
-            hintText: 'Enter amount...',
+            labelText: S.of(context).amountRwf,
+            hintText: S.of(context).enterAmount,
             prefixIcon: Icon(Icons.attach_money_rounded),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(15),
@@ -866,7 +869,7 @@ class _HomeState extends State<Home> {
           onPressed: _isValidAmount() ? () => _showQrCodeDialog(context) : null,
           icon: Icon(Icons.qr_code_2_rounded, size: 24),
           label: Text(
-            'Generate QR Code',
+            S.of(context).generateQrCode,
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
@@ -905,7 +908,7 @@ class _HomeState extends State<Home> {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'Enter the amount you want to receive, then generate a QR code to show the payer',
+                  S.of(context).generateQrHint,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                   ),
@@ -923,7 +926,7 @@ class _HomeState extends State<Home> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Enter Amount',
+          S.of(context).enterAmount,
           style: theme.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.bold,
             color: theme.colorScheme.onSurface,
@@ -931,7 +934,7 @@ class _HomeState extends State<Home> {
         ),
         const SizedBox(height: 8),
         Text(
-          'How much do you want to send?',
+          S.of(context).howMuchSend,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
           ),
@@ -952,8 +955,8 @@ class _HomeState extends State<Home> {
             fontWeight: FontWeight.w600,
           ),
           decoration: InputDecoration(
-            labelText: 'Amount (RWF)',
-            hintText: 'Enter amount...',
+            labelText: S.of(context).amountRwf,
+            hintText: S.of(context).enterAmount,
             prefixIcon: Icon(Icons.attach_money_rounded),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(15),
@@ -1000,8 +1003,7 @@ class _HomeState extends State<Home> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Recipient Information',
+        Text(S.of(context).recipientInfo,
           style: theme.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.bold,
             color: theme.colorScheme.onSurface,
@@ -1010,8 +1012,8 @@ class _HomeState extends State<Home> {
         const SizedBox(height: 8),
         Text(
           isRecordOnlyMode
-              ? 'Enter recipient details (optional for side payments)'
-              : 'Enter phone number or momo code',
+              ? S.of(context).optionalSidePaymentsHint
+              : S.of(context).enterPhoneOrMomoHint,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
           ),
@@ -1028,8 +1030,8 @@ class _HomeState extends State<Home> {
                 fontWeight: FontWeight.w500,
               ),
               decoration: InputDecoration(
-                labelText: 'Recipient Name (Optional)',
-                hintText: 'Enter name for this recipient',
+                labelText: S.of(context).recipientName,
+                hintText: S.of(context).recipientNameHint,
                 prefixIcon: Icon(Icons.person_rounded),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(15),
@@ -1067,11 +1069,11 @@ class _HomeState extends State<Home> {
               ),
               decoration: InputDecoration(
                 labelText: isRecordOnlyMode
-                    ? 'Phone Number or Momo Code (Optional)'
-                    : 'Phone Number or Momo Code',
+                    ? S.of(context).phoneOrMomoOptional
+                    : S.of(context).phoneOrMomo,
                 hintText: isRecordOnlyMode
-                    ? 'Optional - leave blank for side payments'
-                    : 'Type name, phone or momo code',
+                    ? S.of(context).optionalSidePaymentsHint
+                    : S.of(context).typeNamePhoneOrMomoHint,
                 prefixIcon: Icon(Icons.phone_rounded),
                 suffixIcon: isLoadingContacts
                     ? Padding(
@@ -1098,7 +1100,7 @@ class _HomeState extends State<Home> {
                                     .clear(); // Also clear name field
                               });
                             },
-                            tooltip: 'Clear',
+                            tooltip: S.of(context).clearAction,
                           )
                         : null,
                 border: OutlineInputBorder(
@@ -1128,6 +1130,11 @@ class _HomeState extends State<Home> {
                 _filterContacts(value);
               },
               onSubmitted: (value) {
+                // If suggestions are visible, select the top one
+                if (filteredContacts.isNotEmpty && !_suggestionDismissed) {
+                  _selectContactSuggestion(filteredContacts[0]);
+                  return;
+                }
                 if (recipientFirst && currentStep == 0) {
                   final hasValidRecipient = isRecordOnlyMode ||
                       (_isValidPhoneNumber(value) || _isValidMomoCode(value));
@@ -1174,8 +1181,8 @@ class _HomeState extends State<Home> {
                 Expanded(
                   child: Text(
                     _isValidPhoneNumber(mobileController.text)
-                        ? 'Valid phone number detected'
-                        : 'Valid momo code detected',
+                        ? S.of(context).validPhoneDetected
+                        : S.of(context).validMomoDetected,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.primary,
                       fontWeight: FontWeight.w500,
@@ -1191,13 +1198,13 @@ class _HomeState extends State<Home> {
 
   String _getInputHelperText() {
     if (mobileController.text.isEmpty) {
-      return 'Phone: 078xxxxxxx or Momo: 123456';
+      return S.of(context).phoneOrMomoExample;
     } else if (_isValidPhoneNumber(mobileController.text)) {
-      return 'Phone number format detected';
+      return S.of(context).phoneFormatDetected;
     } else if (_isValidMomoCode(mobileController.text)) {
-      return 'Momo code format detected';
+      return S.of(context).momoFormatDetected;
     } else {
-      return 'Enter valid phone number or momo code';
+      return S.of(context).enterValidPhoneOrMomo;
     }
   }
 
@@ -1262,7 +1269,7 @@ class _HomeState extends State<Home> {
     } else {
       // Should not reach here due to validation, but handle gracefully
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Invalid phone number or momo code')),
+        SnackBar(content: Text(S.of(context).invalidPhoneOrMomo)),
       );
       return;
     }
@@ -1303,8 +1310,7 @@ class _HomeState extends State<Home> {
                     color: theme.colorScheme.primary,
                   ),
                   SizedBox(width: 12),
-                  Text(
-                    'USSD Code',
+                  Text(S.of(context).ussdCode,
                     style: theme.textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -1320,14 +1326,14 @@ class _HomeState extends State<Home> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Payment Details:',
+                      '${S.of(context).paymentDetails}:',
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     SizedBox(height: 10),
                     Text(
-                      'Amount: ${amountController.text} RWF',
+                      S.of(context).amountRwfLabel(amountController.text),
                       style: theme.textTheme.bodyLarge,
                     ),
                     SizedBox(height: 12),
@@ -1345,8 +1351,7 @@ class _HomeState extends State<Home> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  'Apply Transaction Fee',
+                                Text(S.of(context).applyTransactionFee,
                                   style: theme.textTheme.bodyMedium?.copyWith(
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -1354,8 +1359,8 @@ class _HomeState extends State<Home> {
                                 SizedBox(height: 2),
                                 Text(
                                   applyFee
-                                      ? 'Fee will be added to total'
-                                      : 'No fee will be applied',
+                                      ? S.of(context).feeWillBeAdded
+                                      : S.of(context).noFeeApplied,
                                   style: theme.textTheme.bodySmall?.copyWith(
                                     color: theme.colorScheme.onSurface
                                         .withValues(alpha: 0.6),
@@ -1378,18 +1383,18 @@ class _HomeState extends State<Home> {
                     ),
                     SizedBox(height: 8),
                     if (applyFee) ...[
-                      Text('Fee: ${feeBreakdown['formattedFee']}',
+                      Text(S.of(context).feeLabel(feeBreakdown['formattedFee']),
                           style: TextStyle(
                             color: theme.colorScheme.secondary,
                             fontSize: 14,
                           )),
                       Divider(height: 12, thickness: 1),
-                      Text('Total: ${feeBreakdown['formattedTotal']}',
+                      Text(S.of(context).totalLabel(feeBreakdown['formattedTotal']),
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                             color: theme.colorScheme.primary,
                           )),
-                      Text('Tariff Type: ${feeBreakdown['tariffType']}',
+                      Text(S.of(context).tariffTypeLabel(feeBreakdown['tariffType']),
                           style: TextStyle(
                             fontSize: 12,
                             color: theme.colorScheme.onSurface
@@ -1398,13 +1403,13 @@ class _HomeState extends State<Home> {
                       SizedBox(height: 8),
                     ],
                     if (selectedName != null && selectedName!.isNotEmpty)
-                      Text('To: $selectedName'),
+                      Text(S.of(context).toRecipient(selectedName!)),
                     Text(isPhoneNumber
-                        ? 'Phone: ${_maskPhoneNumber(paymentInfo)}'
-                        : 'Momo Code: ${paymentInfo.length > 3 ? paymentInfo.substring(0, 3) + "***" : paymentInfo}'),
+                        ? S.of(context).phoneLabel(_maskPhoneNumber(paymentInfo))
+                        : S.of(context).momoCodeLabel(paymentInfo.length > 3 ? paymentInfo.substring(0, 3) + "***" : paymentInfo)),
                     SizedBox(height: 20),
                     Text(
-                      'Dial this USSD code:',
+                      S.of(context).dialUssdCode,
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -1437,7 +1442,7 @@ class _HomeState extends State<Home> {
                             onPressed: () {
                               // Copy to clipboard functionality can be added here
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('USSD code copied!')),
+                                SnackBar(content: Text(S.of(context).ussdCodeCopied)),
                               );
                             },
                             icon: Icon(Icons.copy_rounded),
@@ -1474,7 +1479,7 @@ class _HomeState extends State<Home> {
                               focusNode: focusNode,
                               decoration: InputDecoration(
                                 labelText: 'Reason (optional)',
-                                hintText: 'Why are you sending this money?',
+                                hintText: S.of(context).reasonHint,
                                 prefixIcon: Icon(Icons.note_rounded),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(10),
@@ -1491,14 +1496,14 @@ class _HomeState extends State<Home> {
               ),
               actions: <Widget>[
                 TextButton(
-                  child: Text('Close'),
+                  child: Text(S.of(context).close),
                   onPressed: () {
                     Navigator.of(context).pop();
                   },
                 ),
                 ElevatedButton.icon(
                   icon: Icon(Icons.phone_rounded),
-                  label: Text('Dial'),
+                  label: Text(S.of(context).dial),
                   onPressed: () async {
                     Navigator.of(context).pop();
 
@@ -1590,7 +1595,7 @@ class _HomeState extends State<Home> {
                   ),
                   SizedBox(width: 12),
                   Text(
-                    'Save Payment Record',
+                    S.of(context).savePaymentRecord,
                     style: theme.textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -1605,14 +1610,14 @@ class _HomeState extends State<Home> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Payment Details:',
+                      '${S.of(context).paymentDetails}:',
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     SizedBox(height: 10),
                     Text(
-                      'Amount: ${amountController.text} RWF',
+                      S.of(context).amountRwfLabel(amountController.text),
                       style: theme.textTheme.bodyLarge,
                     ),
                     SizedBox(height: 12),
@@ -1630,8 +1635,7 @@ class _HomeState extends State<Home> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  'Apply Transaction Fee',
+                                Text(S.of(context).applyTransactionFee,
                                   style: theme.textTheme.bodyMedium?.copyWith(
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -1640,11 +1644,11 @@ class _HomeState extends State<Home> {
                                 Text(
                                   feeBreakdown != null
                                       ? (applyFee
-                                          ? 'Fee will be added to total'
-                                          : 'No fee will be applied')
+                                          ? S.of(context).feeWillBeAdded
+                                          : S.of(context).noFeeApplied)
                                       : (applyFee
-                                          ? 'Fee tracking enabled (no fee calculated for this type)'
-                                          : 'No fee will be tracked'),
+                                          ? S.of(context).feeTrackingEnabled
+                                          : S.of(context).noFeeTracked),
                                   style: theme.textTheme.bodySmall?.copyWith(
                                     color: theme.colorScheme.onSurface
                                         .withValues(alpha: 0.6),
@@ -1696,7 +1700,7 @@ class _HomeState extends State<Home> {
                       Padding(
                         padding: const EdgeInsets.only(top: 4),
                         child: Text(
-                          'To: $selectedName',
+                          S.of(context).toRecipient(selectedName!),
                           style: theme.textTheme.bodyMedium,
                         ),
                       ),
@@ -1705,10 +1709,10 @@ class _HomeState extends State<Home> {
                         padding: const EdgeInsets.only(top: 4),
                         child: Text(
                           _isValidPhoneNumber(paymentInfo)
-                              ? 'Phone: ${_maskPhoneNumber(paymentInfo)}'
+                              ? S.of(context).phoneLabel(_maskPhoneNumber(paymentInfo))
                               : _isValidMomoCode(paymentInfo)
-                                  ? 'Momo Code: ${paymentInfo.length > 3 ? paymentInfo.substring(0, 3) + "***" : paymentInfo}'
-                                  : 'Recipient: $paymentInfo',
+                                  ? S.of(context).momoCodeLabel(paymentInfo.length > 3 ? paymentInfo.substring(0, 3) + "***" : paymentInfo)
+                                  : S.of(context).recipientLabel(paymentInfo),
                           style: theme.textTheme.bodyMedium,
                         ),
                       ),
@@ -1716,7 +1720,7 @@ class _HomeState extends State<Home> {
                       Padding(
                         padding: const EdgeInsets.only(top: 4),
                         child: Text(
-                          'Type: Side Payment',
+                          S.of(context).typeSidePayment,
                           style: theme.textTheme.bodyMedium?.copyWith(
                             fontStyle: FontStyle.italic,
                             color: theme.colorScheme.onSurface
@@ -1753,7 +1757,7 @@ class _HomeState extends State<Home> {
                               focusNode: focusNode,
                               decoration: InputDecoration(
                                 labelText: 'Reason (optional)',
-                                hintText: 'Why was this payment made?',
+                                hintText: S.of(context).reasonHint,
                                 prefixIcon: Icon(Icons.note_rounded),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(10),
@@ -1770,14 +1774,14 @@ class _HomeState extends State<Home> {
               ),
               actions: <Widget>[
                 TextButton(
-                  child: Text('Cancel'),
+                  child: Text(S.of(context).cancel),
                   onPressed: () {
                     Navigator.of(context).pop();
                   },
                 ),
                 ElevatedButton.icon(
                   icon: Icon(Icons.save_rounded),
-                  label: Text('Save Record'),
+                  label: Text(S.of(context).saveRecord),
                   onPressed: () async {
                     Navigator.of(context).pop();
 
@@ -1824,7 +1828,7 @@ class _HomeState extends State<Home> {
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text('Payment record saved successfully!'),
+                          content: Text(S.of(context).paymentRecordSaved),
                           backgroundColor: Colors.green,
                           duration: const Duration(seconds: 2),
                         ),
@@ -1914,7 +1918,7 @@ class _HomeState extends State<Home> {
             context: context,
             theme: theme,
             icon: Icons.contacts_rounded,
-            title: 'Contact',
+            title: S.of(context).contact,
             onTap: _loadContact,
             gradient: LinearGradient(
               colors: [
@@ -1998,16 +2002,15 @@ class _HomeState extends State<Home> {
 
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Contact loaded: ${formattedNumber}'),
+                content: Text(S.of(context).contactLoaded(formattedNumber)),
                 duration: const Duration(seconds: 2),
               ),
             );
           } else {
             _showErrorDialog(
               context: context,
-              title: 'Invalid Phone Number',
-              message:
-                  'The selected contact has an invalid phone number format. Please select a contact with a valid Rwanda phone number.',
+              title: S.of(context).invalidPhoneNumber,
+              message: S.of(context).invalidContactPhone,
             );
           }
         }
@@ -2015,7 +2018,7 @@ class _HomeState extends State<Home> {
     } catch (e) {
       _showErrorDialog(
         context: context,
-        title: 'Error',
+        title: S.of(context).error,
         message: 'Failed to load contact: $e',
       );
     }
@@ -2034,7 +2037,7 @@ class _HomeState extends State<Home> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
+            child: Text(S.of(context).ok),
           ),
         ],
       ),
@@ -2051,7 +2054,7 @@ class _HomeState extends State<Home> {
   Future<void> _showQrCodeDialog(BuildContext context) async {
     if (!_isValidAmount()) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid amount first')),
+        SnackBar(content: Text(S.of(context).pleaseEnterValidAmount)),
       );
       return;
     }
@@ -2125,8 +2128,7 @@ class _HomeState extends State<Home> {
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: Text(
-                          'Payment Request QR',
+                        child: Text(S.of(context).paymentRequestQR,
                           style: theme.textTheme.headlineSmall?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
@@ -2208,7 +2210,7 @@ class _HomeState extends State<Home> {
                         ],
                         const SizedBox(height: 8),
                         Text(
-                          'Show this QR code to receive payment',
+                          S.of(context).showQrToReceive,
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: theme.colorScheme.onSurface
                                 .withValues(alpha: 0.7),
@@ -2221,8 +2223,8 @@ class _HomeState extends State<Home> {
                   const SizedBox(height: 12),
                   Text(
                     selectedPaymentNumber != null
-                        ? 'The payer can scan this code to pay you the exact amount at the specified number'
-                        : 'The payer can scan this code to quickly pay you the exact amount',
+                        ? S.of(context).payerScanWithNumber
+                        : S.of(context).payerScanQuick,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                     ),
@@ -2272,7 +2274,7 @@ class _HomeState extends State<Home> {
         });
         if (mounted && !silent) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Contact permission denied')),
+            SnackBar(content: Text(S.of(context).contactPermissionDenied)),
           );
         }
       }
@@ -2399,6 +2401,12 @@ class _HomeState extends State<Home> {
       selectedName = suggestion.name;
       _suggestionDismissed = true;
     });
+    // Go directly to dial popup if amount is already filled, otherwise advance step
+    if (_canProceedWithPayment()) {
+      _processPayment(context);
+    } else if (recipientFirst && currentStep == 0) {
+      _nextStep();
+    }
   }
 
   bool _shouldShowSuggestionsOverlay() {
@@ -2439,7 +2447,7 @@ class _HomeState extends State<Home> {
                   ),
                   Expanded(
                     child: Text(
-                      phoneQuery.isNotEmpty ? phoneQuery : 'Suggestions',
+                      phoneQuery.isNotEmpty ? phoneQuery : S.of(context).suggestions,
                       style: theme.textTheme.titleMedium
                           ?.copyWith(fontWeight: FontWeight.w600),
                       overflow: TextOverflow.ellipsis,
@@ -2454,20 +2462,29 @@ class _HomeState extends State<Home> {
               Expanded(
                 child: ListView(
                   children: [
-                    ...filteredContacts.map((contact) => ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: theme.colorScheme.primary
-                                .withValues(alpha: 0.1),
-                            child: Icon(Icons.person,
-                                color: theme.colorScheme.primary, size: 20),
-                          ),
-                          title: Text(contact.name,
-                              style: theme.textTheme.bodyMedium
-                                  ?.copyWith(fontWeight: FontWeight.w600)),
-                          subtitle: Text(contact.phoneNumber,
-                              style: theme.textTheme.bodySmall),
-                          onTap: () => _selectContactSuggestion(contact),
-                        )),
+                    ...List.generate(filteredContacts.length, (index) {
+                          final contact = filteredContacts[index];
+                          return ListTile(
+                            tileColor: index == 0
+                                ? theme.colorScheme.primary
+                                    .withValues(alpha: 0.1)
+                                : null,
+                            leading: CircleAvatar(
+                              backgroundColor: theme.colorScheme.primary
+                                  .withValues(alpha: 0.1),
+                              child: Icon(Icons.person,
+                                  color: theme.colorScheme.primary, size: 20),
+                            ),
+                            title: Text(contact.name,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                    fontWeight: index == 0
+                                        ? FontWeight.w700
+                                        : FontWeight.w600)),
+                            subtitle: Text(contact.phoneNumber,
+                                style: theme.textTheme.bodySmall),
+                            onTap: () => _selectContactSuggestion(contact),
+                          );
+                        }),
                     if (showUnknown)
                       ListTile(
                         leading: CircleAvatar(
@@ -2481,15 +2498,15 @@ class _HomeState extends State<Home> {
                                 ?.copyWith(fontWeight: FontWeight.w600)),
                         subtitle: Text(
                             _isValidPhoneNumber(phoneQuery)
-                                ? 'Phone number'
+                                ? S.of(context).phoneNumberLabel
                                 : (phoneQuery.startsWith('0') &&
                                         phoneQuery
                                                 .replaceAll(
                                                     RegExp(r'[^0-9]'), '')
                                                 .length >
                                             10)
-                                    ? 'Probably invalid number'
-                                    : 'Probably a momo code',
+                                    ? S.of(context).probablyInvalidNumber
+                                    : S.of(context).probablyMomoCode,
                             style: theme.textTheme.bodySmall?.copyWith(
                                 color: theme.colorScheme.onSurface
                                     .withValues(alpha: 0.5))),
@@ -2529,8 +2546,7 @@ class _HomeState extends State<Home> {
                 color: theme.colorScheme.primary,
               ),
               const SizedBox(width: 12),
-              Text(
-                'Select Payment Method',
+              Text(S.of(context).selectPaymentMethod,
                 style: theme.textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
@@ -2542,7 +2558,7 @@ class _HomeState extends State<Home> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'Which number should receive the payment?',
+                  S.of(context).whichNumberReceive,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                   ),
@@ -2600,14 +2616,13 @@ class _HomeState extends State<Home> {
                         color: theme.colorScheme.primary,
                       ),
                     ),
-                    title: Text(
-                      'Enter manually',
+                    title: Text(S.of(context).enterManually,
                       style: TextStyle(
                         fontWeight: FontWeight.w600,
                         color: theme.colorScheme.primary,
                       ),
                     ),
-                    subtitle: const Text('Type a different number'),
+                    subtitle: Text(S.of(context).typeDifferentNumber),
                     trailing: Icon(
                       Icons.arrow_forward_ios_rounded,
                       size: 16,
@@ -2625,7 +2640,7 @@ class _HomeState extends State<Home> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
+              child: Text(S.of(context).cancel),
             ),
           ],
         );
@@ -2657,7 +2672,7 @@ class _HomeState extends State<Home> {
                     color: theme.colorScheme.primary,
                   ),
                   const SizedBox(width: 12),
-                  const Text('Enter Payment Number'),
+                  Text(S.of(context).enterPaymentNumber),
                 ],
               ),
               content: SingleChildScrollView(
@@ -2666,7 +2681,7 @@ class _HomeState extends State<Home> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Enter the phone number or momo code to receive payment',
+                      S.of(context).enterPhoneOrMomoDesc,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color:
                             theme.colorScheme.onSurface.withValues(alpha: 0.7),
@@ -2682,8 +2697,8 @@ class _HomeState extends State<Home> {
                         fontWeight: FontWeight.w500,
                       ),
                       decoration: InputDecoration(
-                        labelText: 'Phone Number or Momo Code',
-                        hintText: 'Phone: 078xxxxxxx or Momo: 123456',
+                        labelText: S.of(context).phoneOrMomo,
+                        hintText: S.of(context).phoneOrMomoExample,
                         prefixIcon: Icon(Icons.phone_rounded),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(15),
@@ -2696,12 +2711,12 @@ class _HomeState extends State<Home> {
                           ),
                         ),
                         helperText: manualController.text.isEmpty
-                            ? 'Phone: 078xxxxxxx or Momo: 123456'
+                            ? S.of(context).phoneOrMomoExample
                             : (isPhoneDetected
-                                ? 'Phone number format detected'
+                                ? S.of(context).phoneFormatDetected
                                 : isMomoDetected
-                                    ? 'Momo code format detected'
-                                    : 'Enter valid phone number or momo code'),
+                                    ? S.of(context).momoFormatDetected
+                                    : S.of(context).enterValidPhoneOrMomo),
                       ),
                       onChanged: (value) {
                         setState(() {
@@ -2743,8 +2758,8 @@ class _HomeState extends State<Home> {
                             Expanded(
                               child: Text(
                                 isPhoneDetected
-                                    ? 'Valid phone number detected'
-                                    : 'Valid momo code detected',
+                                    ? S.of(context).validPhoneDetected
+                                    : S.of(context).validMomoDetected,
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   color: theme.colorScheme.primary,
                                   fontWeight: FontWeight.w500,
@@ -2760,7 +2775,7 @@ class _HomeState extends State<Home> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Cancel'),
+                  child: Text(S.of(context).cancel),
                 ),
                 ElevatedButton(
                   onPressed: (isPhoneDetected || isMomoDetected)
@@ -2783,7 +2798,7 @@ class _HomeState extends State<Home> {
                           Navigator.of(context).pop(method);
                         }
                       : null,
-                  child: const Text('Use This Number'),
+                  child: Text(S.of(context).useThisNumber),
                 ),
               ],
             );
@@ -2808,7 +2823,7 @@ class _HomeState extends State<Home> {
             child: Row(
               children: [
                 Text(
-                  'Record Only',
+                  S.of(context).recordOnly,
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 15,
@@ -2821,14 +2836,12 @@ class _HomeState extends State<Home> {
                     showDialog(
                       context: context,
                       builder: (context) => AlertDialog(
-                        title: const Text('Record Only Mode'),
-                        content: const Text(
-                          'When enabled, transactions are saved as records without executing the payment. This is useful for tracking side payments or manually handled transactions.',
-                        ),
+                        title: Text(S.of(context).recordOnlyMode),
+                        content: Text(S.of(context).recordOnlyExplain),
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.of(context).pop(),
-                            child: const Text('Got it'),
+                            child: Text(S.of(context).gotIt),
                           ),
                         ],
                       ),

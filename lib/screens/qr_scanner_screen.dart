@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import '../generated/l10n.dart';
 
 class QrScannerScreen extends StatefulWidget {
   const QrScannerScreen({super.key});
@@ -28,7 +29,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Scan QR Code'),
+        title: Text(S.of(context).scanQrCode),
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [
@@ -84,8 +85,8 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                   color: Colors.black.withOpacity(0.7),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Text(
-                  'Position the QR code within the frame to scan',
+                child: Text(
+                  S.of(context).positionQrCode,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Colors.white,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../generated/l10n.dart';
 import '../services/ussd_detector_service.dart';
 
 /// Widget to check and request Accessibility Service permission
@@ -64,8 +65,7 @@ class _AccessibilityPermissionCardState extends State<AccessibilityPermissionCar
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'USSD Auto-Detection',
+                      Text(S.of(context).ussdAutoDetection,
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
@@ -73,10 +73,10 @@ class _AccessibilityPermissionCardState extends State<AccessibilityPermissionCar
                       const SizedBox(height: 4),
                       Text(
                         _isChecking
-                            ? 'Checking status...'
+                            ? S.of(context).checkingStatus
                             : _isEnabled
-                                ? 'Active'
-                                : 'Not Enabled',
+                                ? S.of(context).activeStatus
+                                : S.of(context).notEnabled,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: _isEnabled ? Colors.green : Colors.orange,
                           fontWeight: FontWeight.w600,
@@ -89,13 +89,13 @@ class _AccessibilityPermissionCardState extends State<AccessibilityPermissionCar
                   IconButton(
                     icon: Icon(Icons.refresh_rounded),
                     onPressed: _checkPermissionStatus,
-                    tooltip: 'Refresh status',
+                    tooltip: S.of(context).refreshStatus,
                   ),
               ],
             ),
             const SizedBox(height: 16),
             Text(
-              'Enables automatic detection of USSD transaction responses. Only successful transactions will be saved.',
+              S.of(context).ussdAutoDetectionDesc,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
               ),
@@ -117,8 +117,7 @@ class _AccessibilityPermissionCardState extends State<AccessibilityPermissionCar
                     Icon(Icons.info_outline, color: Colors.blue, size: 20),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: Text(
-                        'Tap below to enable in Settings',
+                      child: Text(S.of(context).tapToEnable,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: Colors.blue.shade700,
                         ),
@@ -132,7 +131,7 @@ class _AccessibilityPermissionCardState extends State<AccessibilityPermissionCar
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   icon: const Icon(Icons.settings_rounded),
-                  label: const Text('Open Accessibility Settings'),
+                  label: Text(S.of(context).openAccessibilitySettings),
                   onPressed: () async {
                     await UssdDetectorService.openAccessibilitySettings();
                     // Check status again after a delay (user might enable it)
@@ -154,10 +153,7 @@ class _AccessibilityPermissionCardState extends State<AccessibilityPermissionCar
               ),
               const SizedBox(height: 12),
               Text(
-                'Steps to enable:\n'
-                '1. Find "MQ Pay" in the list\n'
-                '2. Toggle the switch to ON\n'
-                '3. Grant permission',
+                S.of(context).stepsToEnable,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                   fontSize: 11,
@@ -181,7 +177,7 @@ class _AccessibilityPermissionCardState extends State<AccessibilityPermissionCar
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        'USSD detection is active. Transactions will be auto-validated.',
+                        S.of(context).ussdDetectionActive,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: Colors.green.shade700,
                         ),

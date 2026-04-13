@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../generated/l10n.dart';
 import '../models/ussd_record.dart';
 import '../models/transaction_status.dart';
 import '../services/ussd_record_service.dart';
@@ -175,18 +176,18 @@ class _EditUssdRecordDialogState extends State<EditUssdRecordDialog> {
 
   Future<void> _saveChanges() async {
     if (!_isValidAmount()) {
-      _showErrorSnackBar('Please enter a valid amount');
+      _showErrorSnackBar(S.of(context).invalidAmount);
       return;
     }
 
     String recipient = recipientController.text.trim();
     if (recipientType == 'phone' && !_isValidPhoneNumber(recipient)) {
-      _showErrorSnackBar('Please enter a valid phone number');
+      _showErrorSnackBar(S.of(context).pleaseEnterValidPhone);
       return;
     }
 
     if (recipientType == 'momo' && !_isValidMomoCode(recipient)) {
-      _showErrorSnackBar('Please enter a valid momo code');
+      _showErrorSnackBar(S.of(context).pleaseEnterValidMomo);
       return;
     }
 
@@ -242,7 +243,7 @@ class _EditUssdRecordDialogState extends State<EditUssdRecordDialog> {
         children: [
           Icon(Icons.edit_rounded, color: theme.colorScheme.primary),
           const SizedBox(width: 12),
-          const Text('Edit Transaction'),
+          Text(S.of(context).editTransaction),
         ],
       ),
       content: ScrollIndicatorWrapper(
@@ -261,7 +262,7 @@ class _EditUssdRecordDialogState extends State<EditUssdRecordDialog> {
                   controller: amountController,
                   keyboardType: TextInputType.number,
                   decoration: InputDecoration(
-                    labelText: 'Amount (RWF)',
+                    labelText: S.of(context).amountRwf,
                     prefixIcon: const Icon(Icons.attach_money_rounded),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -523,8 +524,8 @@ class _EditUssdRecordDialogState extends State<EditUssdRecordDialog> {
                   child: Column(
                     children: [
                       RadioListTile<String>(
-                        title: const Text('Phone Payment'),
-                        subtitle: const Text('078xxxxxxx'),
+                        title: Text(S.of(context).phonePayment),
+                        subtitle: Text(S.of(context).phoneNumberHint),
                         value: 'phone',
                         groupValue: recipientType,
                         onChanged: (value) {
@@ -534,8 +535,8 @@ class _EditUssdRecordDialogState extends State<EditUssdRecordDialog> {
                         },
                       ),
                       RadioListTile<String>(
-                        title: const Text('Momo Payment'),
-                        subtitle: const Text('Momo Code'),
+                        title: Text(S.of(context).momoPayment),
+                        subtitle: Text(S.of(context).momoCode),
                         value: 'momo',
                         groupValue: recipientType,
                         onChanged: (value) {
@@ -554,12 +555,12 @@ class _EditUssdRecordDialogState extends State<EditUssdRecordDialog> {
                   controller: contactNameController,
                   keyboardType: TextInputType.text,
                   decoration: InputDecoration(
-                    labelText: 'Contact Name (Optional)',
+                    labelText: S.of(context).contactNameOptional,
                     prefixIcon: Icon(Icons.person_rounded),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    hintText: 'Enter name for this contact',
+                    hintText: S.of(context).enterNameForContact,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -571,16 +572,18 @@ class _EditUssdRecordDialogState extends State<EditUssdRecordDialog> {
                       ? TextInputType.phone
                       : TextInputType.text,
                   decoration: InputDecoration(
-                    labelText:
-                        recipientType == 'phone' ? 'Phone Number' : 'Momo Code',
+                    labelText: recipientType == 'phone'
+                        ? S.of(context).phoneNumberLabel
+                        : S.of(context).momoCode,
                     prefixIcon: Icon(recipientType == 'phone'
                         ? Icons.phone_rounded
                         : Icons.qr_code_rounded),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    hintText:
-                        recipientType == 'phone' ? '078xxxxxxx' : '123456',
+                    hintText: recipientType == 'phone'
+                        ? S.of(context).phoneNumberHint
+                        : '123456',
                     errorText: recipientController.text.isNotEmpty &&
                             ((recipientType == 'phone' &&
                                     !_isValidPhoneNumber(
@@ -588,7 +591,9 @@ class _EditUssdRecordDialogState extends State<EditUssdRecordDialog> {
                                 (recipientType == 'momo' &&
                                     !_isValidMomoCode(
                                         recipientController.text)))
-                        ? 'Enter valid ${recipientType == 'phone' ? 'phone number' : 'momo code'}'
+                        ? (recipientType == 'phone'
+                            ? S.of(context).pleaseEnterValidPhone
+                            : S.of(context).pleaseEnterValidMomo)
                         : null,
                   ),
                   onChanged: (value) => setState(() {}),
@@ -623,8 +628,8 @@ class _EditUssdRecordDialogState extends State<EditUssdRecordDialog> {
                           controller: controller,
                           focusNode: focusNode,
                           decoration: InputDecoration(
-                            labelText: 'Reason (optional)',
-                            hintText: 'Optional note about this transaction',
+                            labelText: S.of(context).reasonOptional,
+                            hintText: S.of(context).optionalTransactionNote,
                             prefixIcon: Icon(Icons.note_rounded),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -645,7 +650,7 @@ class _EditUssdRecordDialogState extends State<EditUssdRecordDialog> {
       actions: [
         TextButton(
           onPressed: isLoading ? null : () => Navigator.of(context).pop(false),
-          child: const Text('Cancel'),
+          child: Text(S.of(context).cancel),
         ),
         ElevatedButton(
           onPressed: isLoading ? null : _saveChanges,
@@ -660,7 +665,7 @@ class _EditUssdRecordDialogState extends State<EditUssdRecordDialog> {
                   height: 20,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Text('Save Changes'),
+              : Text(S.of(context).saveChanges),
         ),
       ],
     );

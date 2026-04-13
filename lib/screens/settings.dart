@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../generated/l10n.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../helpers/localProvider.dart';
@@ -9,7 +10,7 @@ import '../services/supabase_backup_service.dart';
 import 'dart:convert';
 import '../widgets/scroll_indicator.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:intl/intl.dart';
+import '../helpers/safe_date_format.dart';
 import '../widgets/accessibility_permission_card.dart';
 
 // Payment Method Model
@@ -203,7 +204,7 @@ class _SettingsPageState extends State<SettingsPage> {
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Available Backups'),
+          title: Text(S.of(context).availableBackups),
           content: SizedBox(
             width: double.maxFinite,
             child: ListView.builder(
@@ -241,7 +242,7 @@ class _SettingsPageState extends State<SettingsPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Close'),
+              child: Text(S.of(context).close),
             ),
           ],
         ),
@@ -264,7 +265,7 @@ class _SettingsPageState extends State<SettingsPage> {
       final confirm = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Restore Backup?'),
+          title: Text(S.of(context).restoreBackupTitle),
           content: const Text(
             'This will merge the backup data with your current data. '
             'Duplicates will be automatically skipped.\n\n'
@@ -273,11 +274,11 @@ class _SettingsPageState extends State<SettingsPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
+              child: Text(S.of(context).cancel),
             ),
             ElevatedButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Restore'),
+              child: Text(S.of(context).restore),
             ),
           ],
         ),
@@ -288,7 +289,7 @@ class _SettingsPageState extends State<SettingsPage> {
       // Show loading indicator
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Row(
               children: [
                 SizedBox(
@@ -297,7 +298,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 ),
                 SizedBox(width: 16),
-                Text('Restoring backup...'),
+                Text(S.of(context).restoringBackup),
               ],
             ),
             duration: Duration(seconds: 30),
@@ -328,18 +329,18 @@ class _SettingsPageState extends State<SettingsPage> {
         showDialog(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Row(
+            title: Row(
               children: [
                 Icon(Icons.check_circle, color: Colors.green),
                 SizedBox(width: 8),
-                Text('Restore Complete'),
+                Text(S.of(context).backupRestoredTitle),
               ],
             ),
             content: Text(message.toString()),
             actions: [
               ElevatedButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('OK'),
+                child: Text(S.of(context).ok),
               ),
             ],
           ),
@@ -356,7 +357,7 @@ class _SettingsPageState extends State<SettingsPage> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('OK'),
+                child: Text(S.of(context).ok),
               ),
             ],
           ),
@@ -404,6 +405,8 @@ class _SettingsPageState extends State<SettingsPage> {
         return '🇫🇷';
       case 'sw':
         return '🇹🇿';
+      case 'rw':
+        return '🇷🇼';
       default:
         return '🇺🇸';
     }
@@ -417,6 +420,8 @@ class _SettingsPageState extends State<SettingsPage> {
         return 'Français';
       case 'sw':
         return 'Kiswahili';
+      case 'rw':
+        return 'Kinyarwanda';
       default:
         return 'English';
     }
@@ -509,16 +514,14 @@ class _SettingsPageState extends State<SettingsPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Settings',
+                    Text(S.of(context).settings,
                       style: theme.textTheme.headlineMedium?.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      'Configure your payment preferences',
+                    Text(S.of(context).settingsSubtitle,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: Colors.white70,
                       ),
@@ -550,8 +553,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   size: 24,
                 ),
                 const SizedBox(width: 12),
-                Text(
-                  'Payment Methods',
+                Text(S.of(context).paymentMethods,
                   style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -559,8 +561,7 @@ class _SettingsPageState extends State<SettingsPage> {
               ],
             ),
             const SizedBox(height: 8),
-            Text(
-              'Manage your mobile numbers and payment options',
+            Text(S.of(context).paymentMethodsDesc,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
               ),
@@ -588,8 +589,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: Text(
-                        'No payment methods configured. Add your first payment method below.',
+                      child: Text(S.of(context).noPaymentMethods,
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -607,7 +607,7 @@ class _SettingsPageState extends State<SettingsPage> {
               child: OutlinedButton.icon(
                 onPressed: () => _showAddPaymentMethodDialog(context, theme),
                 icon: const Icon(Icons.add_rounded),
-                label: const Text('Add Payment Method'),
+                label: Text(S.of(context).addPaymentMethod),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
@@ -733,7 +733,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   children: [
                     Icon(Icons.delete_rounded, color: Colors.red),
                     SizedBox(width: 8),
-                    Text('Delete', style: TextStyle(color: Colors.red)),
+                    Text(S.of(context).delete, style: TextStyle(color: Colors.red)),
                   ],
                 ),
               ),
@@ -776,13 +776,13 @@ class _SettingsPageState extends State<SettingsPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Payment Method'),
+        title: Text(S.of(context).deletePaymentMethod),
         content: Text(
             'Are you sure you want to delete "${method.provider} - ${method.value}"?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(S.of(context).cancel),
           ),
           TextButton(
             onPressed: () {
@@ -797,7 +797,7 @@ class _SettingsPageState extends State<SettingsPage> {
               Navigator.pop(context);
             },
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Delete'),
+            child: Text(S.of(context).delete),
           ),
         ],
       ),
@@ -859,8 +859,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 // Provider Selection
                 DropdownButtonFormField<String>(
                   value: _selectedProvider,
-                  decoration: const InputDecoration(
-                    labelText: 'Provider',
+                  decoration: InputDecoration(
+                    labelText: S.of(context).providerLabel,
                     prefixIcon: Icon(Icons.business_rounded),
                   ),
                   items: _selectedType == 'mobile'
@@ -869,13 +869,13 @@ class _SettingsPageState extends State<SettingsPage> {
                           DropdownMenuItem(
                               value: 'Airtel', child: Text('Airtel')),
                         ]
-                      : const [
+                      : [
                           DropdownMenuItem(
-                              value: 'General', child: Text('General')),
+                              value: 'General', child: Text(S.of(context).general)),
                           DropdownMenuItem(
-                              value: 'MTN', child: Text('MTN MoMo')),
+                              value: 'MTN', child: Text(S.of(context).mtnMomo)),
                           DropdownMenuItem(
-                              value: 'Airtel', child: Text('Airtel Money')),
+                              value: 'Airtel', child: Text(S.of(context).airtelMoney)),
                         ],
                   onChanged: (value) {
                     setDialogState(() {
@@ -911,7 +911,7 @@ class _SettingsPageState extends State<SettingsPage> {
               onPressed: () {
                 Navigator.pop(context);
               },
-              child: const Text('Cancel'),
+              child: Text(S.of(context).cancel),
             ),
             ElevatedButton(
               onPressed: () {
@@ -931,7 +931,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
     if (value.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid value')),
+        SnackBar(content: Text(S.of(context).pleaseEnterValidValue)),
       );
       return;
     }
@@ -975,8 +975,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   size: 24,
                 ),
                 const SizedBox(width: 12),
-                Text(
-                  'Language Preferences',
+                Text(S.of(context).languagePreferences,
                   style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -1000,7 +999,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     Icons.expand_more_rounded,
                     color: theme.colorScheme.primary,
                   ),
-                  items: ['en', 'fr', 'sw'].map((String locale) {
+                  items: ['en', 'fr', 'sw', 'rw'].map((String locale) {
                     final flag = _getFlag(locale);
                     final name = _getLanguageName(locale);
                     return DropdownMenuItem<String>(
@@ -1070,8 +1069,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       size: 24,
                     ),
                     const SizedBox(width: 12),
-                    Text(
-                      'Theme Preferences',
+                    Text(S.of(context).themePreferences,
                       style: theme.textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -1220,8 +1218,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   size: 24,
                 ),
                 const SizedBox(width: 12),
-                Text(
-                  'Backup & Restore',
+                Text(S.of(context).backupRestore,
                   style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -1229,8 +1226,7 @@ class _SettingsPageState extends State<SettingsPage> {
               ],
             ),
             const SizedBox(height: 8),
-            Text(
-              'Export your data to keep it safe or restore from a previous backup',
+            Text(S.of(context).backupRestoreDesc,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
               ),
@@ -1274,8 +1270,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       color: Colors.white,
                     ),
                     const SizedBox(width: 8),
-                    Text(
-                      'Export Backup',
+                    Text(S.of(context).exportBackup,
                       style: theme.textTheme.titleMedium?.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.w600,
@@ -1324,8 +1319,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       color: Colors.white,
                     ),
                     const SizedBox(width: 8),
-                    Text(
-                      'Export to Excel',
+                    Text(S.of(context).exportToExcel,
                       style: theme.textTheme.titleMedium?.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.w600,
@@ -1365,8 +1359,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       color: theme.colorScheme.primary,
                     ),
                     const SizedBox(width: 8),
-                    Text(
-                      'Import Backup',
+                    Text(S.of(context).importBackup,
                       style: theme.textTheme.titleMedium?.copyWith(
                         color: theme.colorScheme.primary,
                         fontWeight: FontWeight.w600,
@@ -1399,8 +1392,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   size: 24,
                 ),
                 const SizedBox(width: 12),
-                Text(
-                  'Auto-Backup',
+                Text(S.of(context).autoBackup,
                   style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -1408,8 +1400,7 @@ class _SettingsPageState extends State<SettingsPage> {
               ],
             ),
             const SizedBox(height: 8),
-            Text(
-              'Automatically backup your data periodically',
+            Text(S.of(context).autoBackupDesc,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
               ),
@@ -1429,15 +1420,13 @@ class _SettingsPageState extends State<SettingsPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Enable Auto-Backup',
+                        Text(S.of(context).enableAutoBackup,
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                         const SizedBox(height: 4),
-                        Text(
-                          'Backup data automatically in the background',
+                        Text(S.of(context).autoBackupDesc,
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurface
                                 .withValues(alpha: 0.6),
@@ -1463,8 +1452,7 @@ class _SettingsPageState extends State<SettingsPage> {
             // Frequency Selection (only show when enabled)
             if (_autoBackupEnabled) ...[
               const SizedBox(height: 16),
-              Text(
-                'Backup Frequency',
+              Text(S.of(context).backupFrequency,
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
@@ -1502,8 +1490,7 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
               const SizedBox(height: 16),
               // Backup Location Selection
-              Text(
-                'Backup Location',
+              Text(S.of(context).backupLocation,
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
@@ -1568,7 +1555,7 @@ class _SettingsPageState extends State<SettingsPage> {
               ElevatedButton.icon(
                 onPressed: _showBackupsDialog,
                 icon: const Icon(Icons.restore_rounded),
-                label: const Text('View & Restore Backups'),
+                label: Text(S.of(context).viewRestoreBackups),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: theme.colorScheme.primaryContainer,
                   foregroundColor: theme.colorScheme.onPrimaryContainer,
@@ -1682,8 +1669,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   size: 24,
                 ),
                 const SizedBox(width: 12),
-                Text(
-                  'App Information',
+                Text(S.of(context).appInformation,
                   style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -1772,7 +1758,7 @@ class _SettingsPageState extends State<SettingsPage> {
         context: context,
         barrierDismissible: false,
         builder: (BuildContext context) {
-          return const Center(
+          return Center(
             child: Card(
               child: Padding(
                 padding: EdgeInsets.all(20),
@@ -1781,7 +1767,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   children: [
                     CircularProgressIndicator(),
                     SizedBox(height: 16),
-                    Text('Exporting backup...'),
+                    Text(S.of(context).exportingBackup),
                   ],
                 ),
               ),
@@ -1820,9 +1806,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                const Expanded(
-                  child: Text(
-                    'Backup exported successfully!',
+                Expanded(
+                  child: Text(S.of(context).backupExportedSuccess,
                     style: TextStyle(fontWeight: FontWeight.w500),
                   ),
                 ),
@@ -1878,7 +1863,7 @@ class _SettingsPageState extends State<SettingsPage> {
         context: context,
         barrierDismissible: false,
         builder: (BuildContext context) {
-          return const Center(
+          return Center(
             child: Card(
               child: Padding(
                 padding: EdgeInsets.all(20),
@@ -1887,7 +1872,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   children: [
                     CircularProgressIndicator(),
                     SizedBox(height: 16),
-                    Text('Exporting to Excel...'),
+                    Text(S.of(context).exportingToExcel),
                   ],
                 ),
               ),
@@ -1926,9 +1911,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                const Expanded(
-                  child: Text(
-                    'Excel file exported successfully!',
+                Expanded(
+                  child: Text(S.of(context).excelExportedSuccess,
                     style: TextStyle(fontWeight: FontWeight.w500),
                   ),
                 ),
@@ -1991,7 +1975,7 @@ class _SettingsPageState extends State<SettingsPage> {
             children: [
               Icon(Icons.warning_amber_rounded, color: theme.colorScheme.error),
               const SizedBox(width: 12),
-              const Text('Import Backup'),
+              Text(S.of(context).importBackup),
             ],
           ),
           content: const Text(
@@ -2000,7 +1984,7 @@ class _SettingsPageState extends State<SettingsPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
+              child: Text(S.of(context).cancel),
             ),
             ElevatedButton(
               onPressed: () => Navigator.pop(context, true),
@@ -2026,7 +2010,7 @@ class _SettingsPageState extends State<SettingsPage> {
         context: context,
         barrierDismissible: false,
         builder: (BuildContext context) {
-          return const Center(
+          return Center(
             child: Card(
               child: Padding(
                 padding: EdgeInsets.all(20),
@@ -2035,7 +2019,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   children: [
                     CircularProgressIndicator(),
                     SizedBox(height: 16),
-                    Text('Importing backup...'),
+                    Text(S.of(context).importingBackup),
                   ],
                 ),
               ),
@@ -2081,7 +2065,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Your data has been restored successfully!'),
+                  Text(S.of(context).backupRestoredMsg),
                   const SizedBox(height: 16),
                   Container(
                     padding: const EdgeInsets.all(12),
@@ -2110,8 +2094,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  const Text(
-                    'Please restart the app to see all changes.',
+                  Text(S.of(context).pleaseRestartApp,
                     style: TextStyle(
                       fontStyle: FontStyle.italic,
                       fontSize: 12,
@@ -2133,7 +2116,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: const Text('OK'),
+                  child: Text(S.of(context).ok),
                 ),
               ],
             );
@@ -2220,8 +2203,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Supabase Cloud Backup',
+                      Text(S.of(context).supabaseCloudBackup,
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
@@ -2304,7 +2286,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     child: ElevatedButton.icon(
                       onPressed: _uploadToSupabase,
                       icon: const Icon(Icons.cloud_upload_rounded),
-                      label: const Text('Upload Backup'),
+                      label: Text(S.of(context).uploadBackup),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: theme.colorScheme.primary,
                         foregroundColor: Colors.white,
@@ -2317,7 +2299,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     child: OutlinedButton.icon(
                       onPressed: _viewSupabaseBackups,
                       icon: const Icon(Icons.cloud_download_rounded),
-                      label: const Text('View Backups'),
+                      label: Text(S.of(context).viewBackups),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: theme.colorScheme.primary,
                         padding: const EdgeInsets.symmetric(vertical: 14),
@@ -2349,7 +2331,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         const SizedBox(width: 8),
                         Text(
                           lastBackup != null
-                              ? 'Last backup: ${DateFormat('MMM d, y h:mm a').format(lastBackup)}'
+                              ? 'Last backup: ${safeDateFormat('MMM d, y h:mm a').format(lastBackup)}'
                               : 'No backups yet',
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurface
@@ -2373,7 +2355,7 @@ class _SettingsPageState extends State<SettingsPage> {
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => const Center(
+        builder: (context) => Center(
           child: Card(
             child: Padding(
               padding: EdgeInsets.all(24),
@@ -2382,7 +2364,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 children: [
                   CircularProgressIndicator(),
                   SizedBox(height: 16),
-                  Text('Uploading to Supabase...'),
+                  Text(S.of(context).uploadingToSupabase),
                 ],
               ),
             ),
@@ -2414,7 +2396,7 @@ class _SettingsPageState extends State<SettingsPage> {
             actions: [
               ElevatedButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('OK'),
+                child: Text(S.of(context).ok),
               ),
             ],
           ),
@@ -2462,8 +2444,8 @@ class _SettingsPageState extends State<SettingsPage> {
 
         if (backups.isEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('No backups found'),
+            SnackBar(
+              content: Text(S.of(context).noBackupsFound),
               backgroundColor: Colors.orange,
             ),
           );
@@ -2495,7 +2477,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           color: theme.colorScheme.primary,
                         ),
                         title: Text(
-                          DateFormat('MMM d, y h:mm a').format(localCreated),
+                          safeDateFormat('MMM d, y h:mm a').format(localCreated),
                           style: const TextStyle(fontWeight: FontWeight.w600),
                         ),
                         subtitle: Text('Size: $sizeInKB KB'),
@@ -2518,14 +2500,13 @@ class _SettingsPageState extends State<SettingsPage> {
                               final confirm = await showDialog<bool>(
                                 context: context,
                                 builder: (context) => AlertDialog(
-                                  title: const Text('Delete Backup?'),
-                                  content: const Text(
-                                      'Are you sure you want to delete this backup?'),
+                                  title: Text(S.of(context).deleteBackupTitle),
+                                  content: Text(S.of(context).deleteBackupMessage),
                                   actions: [
                                     TextButton(
                                       onPressed: () =>
                                           Navigator.pop(context, false),
-                                      child: const Text('Cancel'),
+                                      child: Text(S.of(context).cancel),
                                     ),
                                     ElevatedButton(
                                       onPressed: () =>
@@ -2533,7 +2514,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: Colors.red,
                                       ),
-                                      child: const Text('Delete'),
+                                      child: Text(S.of(context).delete),
                                     ),
                                   ],
                                 ),
@@ -2556,7 +2537,7 @@ class _SettingsPageState extends State<SettingsPage> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Close'),
+                child: Text(S.of(context).close),
               ),
             ],
             );
@@ -2580,7 +2561,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Restore Backup?'),
+        title: Text(S.of(context).restoreBackupTitle),
         content: const Text(
           'This will merge the backup data with your current data. '
           'Duplicates will be automatically skipped.\n\n'
@@ -2589,11 +2570,11 @@ class _SettingsPageState extends State<SettingsPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(S.of(context).cancel),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Restore'),
+            child: Text(S.of(context).restore),
           ),
         ],
       ),
@@ -2605,7 +2586,7 @@ class _SettingsPageState extends State<SettingsPage> {
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => const Center(
+        builder: (context) => Center(
           child: Card(
             child: Padding(
               padding: EdgeInsets.all(24),
@@ -2614,7 +2595,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 children: [
                   CircularProgressIndicator(),
                   SizedBox(height: 16),
-                  Text('Restoring from Supabase...'),
+                  Text(S.of(context).restoringFromSupabase),
                 ],
               ),
             ),
@@ -2633,11 +2614,11 @@ class _SettingsPageState extends State<SettingsPage> {
         showDialog(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Row(
+            title: Row(
               children: [
                 Icon(Icons.check_circle, color: Colors.green),
                 SizedBox(width: 8),
-                Text('Restore Complete'),
+                Text(S.of(context).backupRestoredTitle),
               ],
             ),
             content: Text(
@@ -2650,7 +2631,7 @@ class _SettingsPageState extends State<SettingsPage> {
             actions: [
               ElevatedButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('OK'),
+                child: Text(S.of(context).ok),
               ),
             ],
           ),
@@ -2675,8 +2656,8 @@ class _SettingsPageState extends State<SettingsPage> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Backup deleted successfully'),
+          SnackBar(
+            content: Text(S.of(context).backupDeletedSuccess),
             backgroundColor: Colors.green,
           ),
         );

@@ -4,6 +4,7 @@ import 'screens/home.dart';
 import 'screens/settings.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'generated/l10n.dart';
 import 'helpers/localProvider.dart';
 import 'helpers/app_theme.dart';
@@ -39,6 +40,17 @@ void callbackDispatcher() {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize date formatting for all app locales so DateFormat works
+  // regardless of which language is active. 'rw' is not in intl's CLDR data
+  // so we catch and ignore failures for unsupported locales.
+  for (final locale in ['en', 'fr', 'sw', 'rw']) {
+    try {
+      await initializeDateFormatting(locale);
+    } catch (_) {
+      // locale not supported by intl — DateFormat will fall back to 'en'
+    }
+  }
 
   // Load environment variables
   await dotenv.load(fileName: ".env");
@@ -95,6 +107,27 @@ void main() async {
   );
 }
 
+/// Falls back to English MaterialLocalizations for locales not supported by
+/// GlobalMaterialLocalizations (e.g. 'rw' / Kinyarwanda).
+class _MaterialLocalizationsFallbackDelegate
+    extends LocalizationsDelegate<MaterialLocalizations> {
+  const _MaterialLocalizationsFallbackDelegate();
+
+  @override
+  bool isSupported(Locale locale) => true;
+
+  @override
+  Future<MaterialLocalizations> load(Locale locale) {
+    final effectiveLocale = GlobalMaterialLocalizations.delegate.isSupported(locale)
+        ? locale
+        : const Locale('en');
+    return GlobalMaterialLocalizations.delegate.load(effectiveLocale);
+  }
+
+  @override
+  bool shouldReload(_MaterialLocalizationsFallbackDelegate old) => false;
+}
+
 class MyApp extends StatelessWidget {
   final SharedPreferences pref;
 
@@ -114,7 +147,7 @@ class MyApp extends StatelessWidget {
           locale: Provider.of<LocaleProvider>(context).locale,
           localizationsDelegates: const [
             S.delegate,
-            GlobalMaterialLocalizations.delegate,
+            _MaterialLocalizationsFallbackDelegate(),
             GlobalWidgetsLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,
           ],
@@ -122,6 +155,7 @@ class MyApp extends StatelessWidget {
             Locale('en'),
             Locale('fr'),
             Locale('sw'),
+            Locale('rw'),
           ],
         );
       },

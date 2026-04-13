@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import '../generated/l10n.dart';
 import 'package:intl/intl.dart';
+import '../helpers/safe_date_format.dart';
 import '../models/ussd_record.dart';
 import '../models/transaction_status.dart';
 import '../services/ussd_record_service.dart';
@@ -274,7 +276,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
         .toList();
 
     for (var record in confirmedRecords) {
-      final monthKey = DateFormat('yyyy-MM').format(record.timestamp);
+      final monthKey = safeDateFormat('yyyy-MM').format(record.timestamp);
       monthlyTotals[monthKey] =
           (monthlyTotals[monthKey] ?? 0.0) + record.amount;
     }
@@ -308,12 +310,12 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
     }
 
     final currentMonth = monthsWithData[currentMonthIndex];
-    final monthKey = DateFormat('yyyy-MM').format(currentMonth);
+    final monthKey = safeDateFormat('yyyy-MM').format(currentMonth);
 
     // Only include non-pending, non-recovered-loan transactions in monthly totals
     final monthRecords = records
         .where((record) =>
-            DateFormat('yyyy-MM').format(record.timestamp) == monthKey &&
+            safeDateFormat('yyyy-MM').format(record.timestamp) == monthKey &&
             record.status != TransactionStatus.pending &&
             !(record.isLoan && record.loanRecovered))
         .toList();
@@ -372,7 +374,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
       _loadRecords();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('All records cleared successfully')),
+          SnackBar(content: Text(S.of(context).allRecordsCleared)),
         );
       }
     }
@@ -388,7 +390,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Cancel'),
+                child: Text(S.of(context).cancel),
               ),
               ElevatedButton(
                 onPressed: () => Navigator.of(context).pop(true),
@@ -408,7 +410,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
-        title: const Text('USSD Records'),
+        title: Text(S.of(context).ussdRecordsTitle),
         backgroundColor: Colors.transparent,
         elevation: 0,
         foregroundColor: theme.colorScheme.onSurface,
@@ -417,12 +419,12 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
             IconButton(
               onPressed: _clearAllRecords,
               icon: const Icon(Icons.clear_all_rounded),
-              tooltip: 'Clear all records',
+              tooltip: S.of(context).clearAllRecords,
             ),
           IconButton(
             onPressed: _loadRecords,
             icon: const Icon(Icons.refresh_rounded),
-            tooltip: 'Refresh',
+            tooltip: S.of(context).refresh,
           ),
         ],
       ),
@@ -515,7 +517,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
               _computeFilteredTotal();
             },
             decoration: InputDecoration(
-              hintText: 'Search by name, number, amount, reason...',
+              hintText: S.of(context).searchHint,
               prefixIcon: Icon(Icons.search, color: theme.colorScheme.primary),
               suffixIcon: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -649,7 +651,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('Filters', style: theme.textTheme.headlineSmall),
+                Text(S.of(context).filtersLabel, style: theme.textTheme.headlineSmall),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String?>(
                   isExpanded: true,
@@ -657,9 +659,9 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                   decoration:
                       const InputDecoration(labelText: 'Type', isDense: true),
                   items: [
-                    const DropdownMenuItem(value: null, child: Text('All')),
-                    const DropdownMenuItem(
-                        value: 'phone', child: Text('Phone')),
+                    DropdownMenuItem(value: null, child: Text(S.of(context).allFilter)),
+                    DropdownMenuItem(
+                        value: 'phone', child: Text(S.of(context).phoneFilter)),
                     const DropdownMenuItem(
                         value: 'momo', child: Text('MoCode')),
                     const DropdownMenuItem(value: 'misc', child: Text('Misc')),
@@ -726,13 +728,13 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                       isSelected: [singleDateMode, !singleDateMode],
                       onPressed: (i) =>
                           setLocalState(() => singleDateMode = i == 0),
-                      children: const [
+                      children: [
                         Padding(
                             padding: EdgeInsets.symmetric(horizontal: 12),
-                            child: Text('Single')),
+                            child: Text(S.of(context).singleDate)),
                         Padding(
                             padding: EdgeInsets.symmetric(horizontal: 12),
-                            child: Text('Range'))
+                            child: Text(S.of(context).dateRange))
                       ],
                     ),
                   ],
@@ -756,13 +758,13 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                           },
                           child: InputDecorator(
                             decoration: InputDecoration(
-                              labelText: 'Date',
+                              labelText: S.of(context).dateLabel,
                               isDense: true,
                               border: OutlineInputBorder(),
                             ),
                             child: Text(localStart == null
                                 ? ''
-                                : DateFormat('yyyy-MM-dd').format(localStart!)),
+                                : safeDateFormat('yyyy-MM-dd').format(localStart!)),
                           ),
                         ),
                       ),
@@ -785,13 +787,13 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                           },
                           child: InputDecorator(
                             decoration: InputDecoration(
-                              labelText: 'Start date',
+                              labelText: S.of(context).startDate,
                               isDense: true,
                               border: OutlineInputBorder(),
                             ),
                             child: Text(localStart == null
                                 ? ''
-                                : DateFormat('yyyy-MM-dd').format(localStart!)),
+                                : safeDateFormat('yyyy-MM-dd').format(localStart!)),
                           ),
                         ),
                       ),
@@ -810,13 +812,13 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                           },
                           child: InputDecorator(
                             decoration: InputDecoration(
-                              labelText: 'End date',
+                              labelText: S.of(context).endDate,
                               isDense: true,
                               border: OutlineInputBorder(),
                             ),
                             child: Text(localEnd == null
                                 ? ''
-                                : DateFormat('yyyy-MM-dd').format(localEnd!)),
+                                : safeDateFormat('yyyy-MM-dd').format(localEnd!)),
                           ),
                         ),
                       ),
@@ -886,7 +888,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
         final formattedAmount = _formatCurrency(r.amount).toLowerCase();
         final formattedAmountMatch = formattedAmount.contains(searchQuery);
         final dateStr =
-            DateFormat('MMM dd, yyyy').format(r.timestamp).toLowerCase();
+            safeDateFormat('MMM dd, yyyy').format(r.timestamp).toLowerCase();
         final dateMatch = dateStr.contains(searchQuery);
         final typeMatch = r.recipientType.toLowerCase().contains(searchQuery) ||
             (r.recipientType == 'phone' && 'mobile'.contains(searchQuery)) ||
@@ -1019,32 +1021,32 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
   String _getFilterDisplayName(String filterKey) {
     switch (filterKey) {
       case 'phone':
-        return 'Phone Number';
+        return S.current.phoneNumberLabel;
       case 'momo':
-        return 'Momo Code';
+        return S.current.momoCode;
       case 'misc':
-        return 'Side Payments';
+        return S.current.sidePayments;
       default:
-        return 'All';
+        return S.current.allFilter;
     }
   }
 
   Widget _buildSummaryCards(ThemeData theme) {
     final tabData = [
       {
-        'title': 'Phone Number',
+        'title': S.of(context).phoneNumberLabel,
         'icon': Icons.phone_rounded,
         'color': AppTheme.successColor,
         'key': 'phone'
       },
       {
-        'title': 'Momo Code',
+        'title': S.of(context).momoCode,
         'icon': Icons.qr_code_rounded,
         'color': AppTheme.warningColor,
         'key': 'momo'
       },
       {
-        'title': 'Side Payments',
+        'title': S.of(context).sidePayments,
         'icon': Icons.code_rounded,
         'color': const Color(0xFF06B6D4), // Cyan for better contrast
         'key': 'misc'
@@ -1087,7 +1089,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                'Overall Total',
+                                S.of(context).overallTotal,
                                 style: theme.textTheme.titleSmall?.copyWith(
                                   color: Colors.white,
                                   fontWeight: FontWeight.w600,
@@ -1136,8 +1138,8 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                                   const SizedBox(width: 8),
                                   Text(
                                     includeFees
-                                        ? 'Fees Included in All Totals'
-                                        : 'Fees Excluded from All Totals',
+                                        ? S.of(context).feesIncludedInTotals
+                                        : S.of(context).feesExcludedFromTotals,
                                     style: theme.textTheme.bodyMedium?.copyWith(
                                       color: Colors.white,
                                       fontWeight: FontWeight.w600,
@@ -1181,7 +1183,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                                   ),
                                   const SizedBox(width: 6),
                                   Text(
-                                    'Total Fees Paid',
+                                    S.of(context).totalFeesPaid,
                                     style: theme.textTheme.bodySmall?.copyWith(
                                       color: Colors.white70,
                                       fontSize: 11,
@@ -1226,7 +1228,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                                 ),
                                 const SizedBox(width: 8),
                                 Text(
-                                  DateFormat('MMM yyyy').format(
+                                  safeDateFormat('MMM yyyy').format(
                                       monthsWithData[currentMonthIndex]),
                                   style: theme.textTheme.bodySmall?.copyWith(
                                     color: Colors.white70,
@@ -1265,7 +1267,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                                 ),
                                 if (currentMonthTotalFees > 0)
                                   Text(
-                                    '+ ${_formatCurrency(currentMonthTotalFees)} fees',
+                                    '+ ${_formatCurrency(currentMonthTotalFees)} ${S.of(context).fees}',
                                     style: theme.textTheme.bodySmall?.copyWith(
                                       color: Colors.white60,
                                       fontSize: 9,
@@ -1429,7 +1431,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        '${currentTab['title']} Total',
+                        '${currentTab['title']} ${S.of(context).total}',
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: Colors.white70,
                         ),
@@ -1453,7 +1455,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          DateFormat('MMM yyyy')
+                          safeDateFormat('MMM yyyy')
                               .format(monthsWithData[currentMonthIndex]),
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: Colors.white60,
@@ -1523,7 +1525,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
 
         // Search in date
         final dateStr =
-            DateFormat('MMM dd, yyyy').format(record.timestamp).toLowerCase();
+            safeDateFormat('MMM dd, yyyy').format(record.timestamp).toLowerCase();
         final dateMatch = dateStr.contains(searchQuery);
 
         // Search in type
@@ -1579,8 +1581,8 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
               const SizedBox(height: 16),
               Text(
                 searchQuery.isNotEmpty
-                    ? 'No results for "$searchQuery"'
-                    : 'No ${activeFilter == 'phone' ? 'Mobile' : activeFilter == 'momo' ? 'MoCode' : 'Misc'} transactions',
+                    ? S.of(context).noResultsFor(searchQuery)
+                    : S.of(context).noFilterTransactions(activeFilter == 'phone' ? S.of(context).phoneFilter : activeFilter == 'momo' ? S.of(context).moCode : S.of(context).misc),
                 style: theme.textTheme.titleMedium?.copyWith(
                   color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                 ),
@@ -1636,7 +1638,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
     final Map<String, List<UssdRecord>> map = {};
 
     for (final r in records) {
-      final key = DateFormat('yyyy-MM-dd').format(r.timestamp);
+      final key = safeDateFormat('yyyy-MM-dd').format(r.timestamp);
       map.putIfAbsent(key, () => []).add(r);
     }
 
@@ -1659,7 +1661,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
 
   Widget _buildDayGroup(
       ThemeData theme, DateTime dateObj, List<UssdRecord> dayRecords) {
-    final dateKey = DateFormat('yyyy-MM-dd').format(dateObj);
+    final dateKey = safeDateFormat('yyyy-MM-dd').format(dateObj);
     final isExpanded = expandedGroups.contains(dateKey);
 
     // Calculate total amount for this day (excluding pending transactions)
@@ -1691,11 +1693,13 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
 
     String dateLabel;
     if (recordDate == today) {
-      dateLabel = 'Today';
+      dateLabel = S.of(context).today;
     } else if (recordDate == yesterday) {
-      dateLabel = 'Yesterday';
+      dateLabel = S.of(context).yesterday;
     } else {
-      dateLabel = DateFormat('EEEE, MMM dd, yyyy').format(dateObj);
+      final locale = Localizations.localeOf(context).languageCode;
+      final pattern = locale == 'rw' ? 'yyyy-MM-dd' : 'EEE, MMM dd, yyyy';
+      dateLabel = safeDateFormat(pattern).format(dateObj);
     }
 
     return Column(
@@ -1759,7 +1763,9 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '${dayRecords.length} transaction${dayRecords.length != 1 ? 's' : ''}',
+                        Localizations.localeOf(context).languageCode == 'rw'
+                            ? '${dayRecords.length != 1 ? S.of(context).transactionPlural : S.of(context).transactionSingular} ${dayRecords.length}'
+                            : '${dayRecords.length} ${dayRecords.length != 1 ? S.of(context).transactionPlural : S.of(context).transactionSingular}',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurface
                               .withValues(alpha: 0.6),
@@ -1784,7 +1790,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'Total',
+                          S.of(context).total,
                           style: theme.textTheme.bodySmall?.copyWith(
                             color:
                                 theme.colorScheme.onSurface.withValues(alpha: 0.5),
@@ -2013,7 +2019,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          DateFormat('MMM dd, yyyy • HH:mm')
+                          safeDateFormat('MMM dd, yyyy • HH:mm')
                               .format(record.timestamp),
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurface
@@ -2069,7 +2075,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
       _loadRecords(); // Refresh the list
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Transaction updated successfully')),
+          SnackBar(content: Text(S.of(context).transactionUpdated)),
         );
       }
     }
@@ -2133,7 +2139,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
             children: [
               Icon(Icons.refresh_rounded, color: theme.colorScheme.primary),
               const SizedBox(width: 12),
-              const Text('Redial Transaction'),
+              Text(S.of(context).redialTransaction),
             ],
           ),
           content: Column(
@@ -2141,7 +2147,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'You are about to redial this transaction:',
+                S.of(context).aboutToRedial,
                 style: theme.textTheme.bodyMedium,
               ),
               const SizedBox(height: 12),
@@ -2241,11 +2247,11 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(null),
-              child: const Text('Cancel'),
+              child: Text(S.of(context).cancel),
             ),
             ElevatedButton(
               onPressed: () => Navigator.of(context).pop(transactionFailed),
-              child: const Text('Redial'),
+              child: Text(S.of(context).redial),
             ),
           ],
         ),
@@ -2265,8 +2271,8 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
       _loadRecords();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Invalid transaction deleted successfully')),
+          SnackBar(
+              content: Text(S.of(context).invalidTransactionDeleted)),
         );
       }
     }
@@ -2301,7 +2307,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
             ),
             const SizedBox(height: 20),
             Text(
-              'Transaction Actions',
+              S.of(context).transactionActions,
               style: theme.textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -2311,8 +2317,8 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
             if (isPending) ...[
               _buildActionTile(
                 icon: Icons.check_circle_rounded,
-                title: 'Mark as Successful',
-                subtitle: 'Confirm this transaction completed',
+                title: S.of(context).markSuccessful,
+                subtitle: S.of(context).confirmTransactionComplete,
                 color: Colors.green,
                 onTap: () {
                   Navigator.pop(context);
@@ -2322,8 +2328,8 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
               const SizedBox(height: 12),
               _buildActionTile(
                 icon: Icons.error_rounded,
-                title: 'Mark as Failed',
-                subtitle: 'This transaction did not complete',
+                title: S.of(context).markFailed,
+                subtitle: S.of(context).transactionDidNotComplete,
                 color: Colors.red,
                 onTap: () {
                   Navigator.pop(context);
@@ -2334,8 +2340,8 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
             ],
             _buildActionTile(
               icon: Icons.refresh_rounded,
-              title: 'Redial',
-              subtitle: 'Make the same payment again',
+              title: S.of(context).redial,
+              subtitle: S.of(context).makeSamePaymentAgain,
               color: AppTheme.successColor,
               onTap: () {
                 Navigator.pop(context);
@@ -2345,8 +2351,8 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
             const SizedBox(height: 12),
             _buildActionTile(
               icon: Icons.edit_rounded,
-              title: 'Edit',
-              subtitle: 'Modify transaction details',
+              title: S.of(context).edit,
+              subtitle: S.of(context).modifyTransactionDetails,
               color: theme.colorScheme.primary,
               onTap: () {
                 Navigator.pop(context);
@@ -2356,8 +2362,8 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
             const SizedBox(height: 12),
             _buildActionTile(
               icon: Icons.visibility_rounded,
-              title: 'View USSD Code',
-              subtitle: 'See the full USSD code used',
+              title: S.of(context).viewUssdCode,
+              subtitle: S.of(context).seeFullUssdCode,
               color: AppTheme.warningColor,
               onTap: () {
                 Navigator.pop(context);
@@ -2367,8 +2373,8 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
             const SizedBox(height: 12),
             _buildActionTile(
               icon: Icons.cancel_rounded,
-              title: 'Mark as Invalid',
-              subtitle: 'Delete failed or duplicate transaction',
+              title: S.of(context).markInvalid,
+              subtitle: S.of(context).deleteFailedOrDuplicate,
               color: Colors.red,
               onTap: () {
                 Navigator.pop(context);
@@ -2393,9 +2399,11 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
     _loadRecords();
 
     if (mounted) {
-      final statusText = newStatus == TransactionStatus.success ? 'successful' : 'failed';
+      final statusMsg = newStatus == TransactionStatus.success
+          ? S.of(context).transactionMarkedSuccessful
+          : S.of(context).transactionMarkedFailed;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Transaction marked as $statusText')),
+        SnackBar(content: Text(statusMsg)),
       );
     }
   }
@@ -2468,7 +2476,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
           children: [
             Icon(Icons.dialpad_rounded, color: theme.colorScheme.primary),
             const SizedBox(width: 12),
-            const Text('USSD Code'),
+            Text(S.of(context).ussdCode),
           ],
         ),
         content: Column(
@@ -2506,7 +2514,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
               },
             ),
             Text(
-                'Date: ${DateFormat('MMM dd, yyyy • HH:mm').format(record.timestamp)}'),
+                'Date: ${safeDateFormat('MMM dd, yyyy • HH:mm').format(record.timestamp)}'),
             if (record.reason != null && record.reason!.isNotEmpty) ...[
               const SizedBox(height: 8),
               Text(
@@ -2547,7 +2555,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
+            child: Text(S.of(context).close),
           ),
         ],
       ),
