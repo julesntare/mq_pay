@@ -869,7 +869,8 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
       if (recipientTypeFilter != null && r.recipientType != recipientTypeFilter)
         continue;
       if (selectedReason != null &&
-          (r.reason == null || r.reason!.trim() != selectedReason)) continue;
+          (r.reason == null ||
+              !r.reason!.split(',').map((s) => s.trim()).contains(selectedReason))) continue;
       if (filterStartDate != null && r.timestamp.isBefore(filterStartDate!))
         continue;
       if (filterEndDate != null && r.timestamp.isAfter(filterEndDate!))
@@ -1489,7 +1490,8 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
       if (recipientTypeFilter != null &&
           record.recipientType != recipientTypeFilter) return false;
       if (selectedReason != null &&
-          (record.reason == null || record.reason!.trim() != selectedReason))
+          (record.reason == null ||
+              !record.reason!.split(',').map((s) => s.trim()).contains(selectedReason)))
         return false;
       if (filterStartDate != null &&
           record.timestamp.isBefore(filterStartDate!)) return false;

@@ -67,10 +67,7 @@ class UssdRecordService {
 
     existingRecords.add(record);
 
-    // Keep only the last 100 records to prevent storage bloat
-    if (existingRecords.length > 100) {
-      existingRecords.removeRange(0, existingRecords.length - 100);
-    }
+
 
     final recordsJson =
         jsonEncode(existingRecords.map((r) => r.toJson()).toList());
