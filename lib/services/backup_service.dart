@@ -79,7 +79,7 @@ class BackupService {
     }
   }
 
-  /// Import and restore data from a JSON backup file
+  /// Import and restore data from a JSON backup file, merging with existing data
   static Future<Map<String, dynamic>> importBackup() async {
     try {
       // Pick a file
@@ -108,24 +108,70 @@ class BackupService {
       final data = backupData['data'] as Map<String, dynamic>;
       final prefs = await SharedPreferences.getInstance();
 
-      // Restore USSD records
-      if (data.containsKey('ussdRecords')) {
-        final List<dynamic> ussdRecordsList = data['ussdRecords'] as List;
-        final records =
-            ussdRecordsList.map((json) => UssdRecord.fromJson(json)).toList();
+      int newRecordsAdded = 0;
+      int duplicateRecordsSkipped = 0;
+      int newPaymentMethodsAdded = 0;
+      int duplicatePaymentMethodsSkipped = 0;
 
-        // Save to SharedPreferences
-        final recordsJson = jsonEncode(records.map((r) => r.toJson()).toList());
+      // Merge USSD records (keep existing, add only new ones)
+      if (data.containsKey('ussdRecords')) {
+        final List<dynamic> backupRecordsList = data['ussdRecords'] as List;
+        final backupRecords = backupRecordsList
+            .map((json) => UssdRecord.fromJson(json))
+            .toList();
+
+        final existingRecords = await UssdRecordService.getUssdRecords();
+
+        final existingRecordIds = existingRecords.map((r) =>
+          '${r.timestamp.millisecondsSinceEpoch}_${r.recipient}_${r.amount}'
+        ).toSet();
+
+        final newRecords = <UssdRecord>[];
+        for (final record in backupRecords) {
+          final recordId = '${record.timestamp.millisecondsSinceEpoch}_${record.recipient}_${record.amount}';
+          if (!existingRecordIds.contains(recordId)) {
+            newRecords.add(record);
+            newRecordsAdded++;
+          } else {
+            duplicateRecordsSkipped++;
+          }
+        }
+
+        final allRecords = [...existingRecords, ...newRecords];
+        allRecords.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+
+        final recordsJson = jsonEncode(allRecords.map((r) => r.toJson()).toList());
         await prefs.setString('ussd_records', recordsJson);
       }
 
-      // Restore payment methods
+      // Merge payment methods (keep existing, add only new ones)
       if (data.containsKey('paymentMethods')) {
-        final paymentMethodsJson = jsonEncode(data['paymentMethods']);
+        final List<dynamic> backupPaymentMethods = data['paymentMethods'] as List;
+
+        final existingPaymentMethodsJson = prefs.getString('paymentMethods') ?? '[]';
+        final List<dynamic> existingPaymentMethods = jsonDecode(existingPaymentMethodsJson);
+
+        final existingPaymentIds = existingPaymentMethods.map((pm) =>
+          '${pm['type']}_${pm['value']}'
+        ).toSet();
+
+        final newPaymentMethods = <Map<String, dynamic>>[];
+        for (final pm in backupPaymentMethods) {
+          final pmId = '${pm['type']}_${pm['value']}';
+          if (!existingPaymentIds.contains(pmId)) {
+            newPaymentMethods.add(pm as Map<String, dynamic>);
+            newPaymentMethodsAdded++;
+          } else {
+            duplicatePaymentMethodsSkipped++;
+          }
+        }
+
+        final allPaymentMethods = [...existingPaymentMethods, ...newPaymentMethods];
+        final paymentMethodsJson = jsonEncode(allPaymentMethods);
         await prefs.setString('paymentMethods', paymentMethodsJson);
       }
 
-      // Restore settings
+      // Restore settings only if not already set
       if (data.containsKey('settings')) {
         final settings = data['settings'] as Map<String, dynamic>;
 
@@ -147,13 +193,15 @@ class BackupService {
         }
       }
 
-      // Return summary
+      // Return detailed summary
       return {
         'success': true,
         'backupVersion': backupData['version'],
         'backupTimestamp': backupData['timestamp'],
-        'recordsCount': (data['ussdRecords'] as List?)?.length ?? 0,
-        'paymentMethodsCount': (data['paymentMethods'] as List?)?.length ?? 0,
+        'newRecordsAdded': newRecordsAdded,
+        'duplicateRecordsSkipped': duplicateRecordsSkipped,
+        'newPaymentMethodsAdded': newPaymentMethodsAdded,
+        'duplicatePaymentMethodsSkipped': duplicatePaymentMethodsSkipped,
       };
     } catch (e) {
       throw Exception('Failed to import backup: $e');

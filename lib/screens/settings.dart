@@ -2078,16 +2078,23 @@ class _SettingsPageState extends State<SettingsPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Restored:',
+                          'Merged:',
                           style: theme.textTheme.labelSmall,
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          '${result['recordsCount']} transactions',
+                          '${result['newRecordsAdded']} new transactions added',
                           style: theme.textTheme.bodyMedium,
                         ),
+                        if ((result['duplicateRecordsSkipped'] ?? 0) > 0)
+                          Text(
+                            '${result['duplicateRecordsSkipped']} duplicates skipped',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
                         Text(
-                          '${result['paymentMethodsCount']} payment methods',
+                          '${result['newPaymentMethodsAdded']} new payment methods added',
                           style: theme.textTheme.bodyMedium,
                         ),
                       ],
