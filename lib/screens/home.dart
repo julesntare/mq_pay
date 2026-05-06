@@ -1579,7 +1579,7 @@ class _HomeState extends State<Home> {
     return showDialog<void>(
       context: context,
       builder: (BuildContext context) {
-        bool applyFee = true; // Default to applying fee
+        bool applyFee = false; // Default to no fee in record-only mode
 
         return StatefulBuilder(
           builder: (context, setState) {
