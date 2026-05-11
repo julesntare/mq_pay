@@ -30,7 +30,6 @@ class _HomeState extends State<Home> {
   final TextEditingController amountController = TextEditingController();
   final TextEditingController reasonController = TextEditingController();
   final TextEditingController mobileController = TextEditingController();
-  final TextEditingController recipientNameController = TextEditingController();
   final TextEditingController manualMobileController = TextEditingController();
   final TextEditingController momoCodeController = TextEditingController();
   final FlutterNativeContactPicker _contactPicker =
@@ -41,10 +40,10 @@ class _HomeState extends State<Home> {
   String? selectedNumber;
   String? selectedName;
   bool showManualInput = true;
+  ContactSuggestion? _selectedContact;
 
   // Multistep form variables
   int currentStep = 0;
-  bool recipientFirst = false;
   bool isPhoneNumberMomo = false;
   bool isRecordOnlyMode = false; // true = Record Only, false = Dial Now
   bool isReceiveMode =
@@ -170,18 +169,13 @@ class _HomeState extends State<Home> {
         currentStep++;
       });
 
-      // Focus on the appropriate field for step 2
       if (currentStep == 1) {
         Future.delayed(const Duration(milliseconds: 350), () {
-          final focusNode =
-              recipientFirst ? amountFocusNode : phoneFocusNode;
-          focusNode.requestFocus();
-
-          // Scroll to ensure the input field is visible when keyboard appears
+          phoneFocusNode.requestFocus();
           Future.delayed(const Duration(milliseconds: 300), () {
-            if (context.mounted && focusNode.context != null) {
+            if (context.mounted && phoneFocusNode.context != null) {
               Scrollable.ensureVisible(
-                focusNode.context!,
+                phoneFocusNode.context!,
                 duration: const Duration(milliseconds: 300),
                 curve: Curves.easeInOut,
               );
@@ -198,12 +192,9 @@ class _HomeState extends State<Home> {
         currentStep--;
       });
 
-      // Focus on the appropriate field when going back to step 1
       if (currentStep == 0) {
         Future.delayed(const Duration(milliseconds: 350), () {
-          final focusNode =
-              recipientFirst ? phoneFocusNode : amountFocusNode;
-          focusNode.requestFocus();
+          amountFocusNode.requestFocus();
         });
       }
     }
@@ -214,12 +205,13 @@ class _HomeState extends State<Home> {
       currentStep = 0;
       amountController.clear();
       mobileController.clear();
-      recipientNameController.clear();
       reasonController.clear();
       isPhoneNumberMomo = false;
-      isRecordOnlyMode = false; // Reset to Dial Now mode
+      isRecordOnlyMode = false;
       selectedName = null;
+      _selectedContact = null;
       filteredContacts = [];
+      _suggestionDismissed = false;
     });
     Future.delayed(const Duration(milliseconds: 350), () {
       amountFocusNode.requestFocus();
@@ -260,7 +252,6 @@ class _HomeState extends State<Home> {
     amountController.dispose();
     reasonController.dispose();
     mobileController.dispose();
-    recipientNameController.dispose();
     manualMobileController.dispose();
     momoCodeController.dispose();
     amountFocusNode.dispose();
@@ -314,7 +305,9 @@ class _HomeState extends State<Home> {
             if (recipient != null && recipient.isNotEmpty) {
               mobileController.text = recipient;
             }
-            currentStep = 1; // Move to recipient step
+            _selectedContact = null;
+            _suggestionDismissed = true;
+            currentStep = 1;
           });
 
           // Focus on phone field for next input
@@ -344,7 +337,9 @@ class _HomeState extends State<Home> {
         // Populate the mobile field and advance to step 2
         setState(() {
           mobileController.text = result;
+          _selectedContact = null;
           currentStep = 1;
+          _suggestionDismissed = true;
         });
 
         // Focus on amount field for next input
@@ -428,8 +423,7 @@ class _HomeState extends State<Home> {
               ),
             ),
           ),
-          if (_shouldShowSuggestionsOverlay())
-            _buildSuggestionsOverlay(theme),
+          if (_shouldShowSuggestionsOverlay()) _buildSuggestionsOverlay(theme),
         ],
       ),
     );
@@ -558,7 +552,8 @@ class _HomeState extends State<Home> {
                                 ),
                                 const SizedBox(width: 6),
                                 Flexible(
-                                  child: Text(S.of(context).sendMoney,
+                                  child: Text(
+                                    S.of(context).sendMoney,
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
                                       fontWeight: FontWeight.w600,
@@ -607,7 +602,8 @@ class _HomeState extends State<Home> {
                                 ),
                                 const SizedBox(width: 6),
                                 Flexible(
-                                  child: Text(S.of(context).getPaid,
+                                  child: Text(
+                                    S.of(context).getPaid,
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
                                       fontWeight: FontWeight.w600,
@@ -634,59 +630,39 @@ class _HomeState extends State<Home> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(S.of(context).sendMoney,
+                    Text(
+                      S.of(context).sendMoney,
                       style: theme.textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: theme.colorScheme.primary,
                       ),
                     ),
+                    // Record Only label + switch
                     Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Tooltip(
-                          message: recipientFirst
-                              ? 'Number first — tap to switch'
-                              : 'Amount first — tap to switch',
-                          child: InkWell(
-                            onTap: () {
-                              setState(() {
-                                recipientFirst = !recipientFirst;
-                              });
-                            },
-                            borderRadius: BorderRadius.circular(20),
-                            child: Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.secondary
-                                    .withValues(alpha: 0.1),
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: theme.colorScheme.secondary
-                                      .withValues(alpha: 0.3),
-                                ),
-                              ),
-                              child: Icon(
-                                Icons.swap_vert_rounded,
-                                size: 18,
-                                color: theme.colorScheme.secondary,
-                              ),
-                            ),
+                        Text(
+                          S.of(context).recordOnly,
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: isRecordOnlyMode
+                                ? theme.colorScheme.secondary
+                                : theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.5),
+                            fontWeight: isRecordOnlyMode
+                                ? FontWeight.w700
+                                : FontWeight.w500,
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.primary
-                                .withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            S.of(context).stepOf(currentStep + 1),
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.primary,
-                              fontWeight: FontWeight.w600,
-                            ),
+                        const SizedBox(width: 4),
+                        Tooltip(
+                          message: S.of(context).recordOnlyExplain,
+                          child: Switch(
+                            value: isRecordOnlyMode,
+                            onChanged: (v) =>
+                                setState(() => isRecordOnlyMode = v),
+                            activeThumbColor: theme.colorScheme.secondary,
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
                           ),
                         ),
                       ],
@@ -751,12 +727,8 @@ class _HomeState extends State<Home> {
                 AnimatedSwitcher(
                   duration: const Duration(milliseconds: 300),
                   child: currentStep == 0
-                      ? (recipientFirst
-                          ? _buildPhoneStep(theme)
-                          : _buildAmountStep(theme))
-                      : (recipientFirst
-                          ? _buildAmountStep(theme)
-                          : _buildPhoneStep(theme)),
+                      ? _buildAmountStep(theme)
+                      : _buildPhoneStep(theme),
                 ),
 
                 const SizedBox(height: 30),
@@ -790,7 +762,9 @@ class _HomeState extends State<Home> {
                         label: Text(
                           currentStep == 0
                               ? S.of(context).next
-                              : (isRecordOnlyMode ? S.of(context).saveRecord : S.of(context).payNow),
+                              : (isRecordOnlyMode
+                                  ? S.of(context).saveRecord
+                                  : S.of(context).payNow),
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -835,7 +809,15 @@ class _HomeState extends State<Home> {
           decoration: InputDecoration(
             labelText: S.of(context).amountRwf,
             hintText: S.of(context).enterAmount,
-            prefixIcon: Icon(Icons.attach_money_rounded),
+            prefixIcon: const Icon(Icons.attach_money_rounded),
+            suffixIcon: amountController.text.isNotEmpty
+                ? IconButton(
+                    icon: Icon(Icons.clear_rounded,
+                        color: theme.colorScheme.onSurface
+                            .withValues(alpha: 0.5)),
+                    onPressed: () => setState(() => amountController.clear()),
+                  )
+                : null,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(15),
             ),
@@ -846,7 +828,7 @@ class _HomeState extends State<Home> {
                 width: 2,
               ),
             ),
-            contentPadding: EdgeInsets.symmetric(
+            contentPadding: const EdgeInsets.symmetric(
               horizontal: 20,
               vertical: 20,
             ),
@@ -923,6 +905,7 @@ class _HomeState extends State<Home> {
 
   Widget _buildAmountStep(ThemeData theme) {
     return Column(
+      key: const ValueKey('amount'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
@@ -939,25 +922,72 @@ class _HomeState extends State<Home> {
             color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
           ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 20),
 
-        // NEW: Card-based payment mode selector
-        _buildPaymentModeSelector(theme),
+        // Quick amount presets
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children:
+              [500, 1000, 2000, 5000, 10000, 20000, 50000, 100000].map((amt) {
+            final label = amt >= 1000 ? '${amt ~/ 1000}K' : '$amt';
+            final isSelected = _getRawAmount() == amt.toString();
+            return GestureDetector(
+              onTap: () {
+                setState(() {
+                  amountController.text = _formatAmountDisplay(amt.toString());
+                });
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? theme.colorScheme.primary
+                      : theme.colorScheme.primary.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: isSelected
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.primary.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Text(
+                  label,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color:
+                        isSelected ? Colors.white : theme.colorScheme.primary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
 
-        const SizedBox(height: 24),
+        const SizedBox(height: 20),
         TextField(
           controller: amountController,
           focusNode: amountFocusNode,
           keyboardType: TextInputType.number,
           autofocus: true,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.w600,
           ),
           decoration: InputDecoration(
             labelText: S.of(context).amountRwf,
             hintText: S.of(context).enterAmount,
-            prefixIcon: Icon(Icons.attach_money_rounded),
+            prefixIcon: const Icon(Icons.attach_money_rounded),
+            suffixIcon: amountController.text.isNotEmpty
+                ? IconButton(
+                    icon: Icon(Icons.clear_rounded,
+                        color: theme.colorScheme.onSurface
+                            .withValues(alpha: 0.5)),
+                    onPressed: () => setState(() => amountController.clear()),
+                  )
+                : null,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(15),
             ),
@@ -968,22 +998,27 @@ class _HomeState extends State<Home> {
                 width: 2,
               ),
             ),
-            contentPadding: EdgeInsets.symmetric(
+            contentPadding: const EdgeInsets.symmetric(
               horizontal: 20,
               vertical: 20,
             ),
           ),
-          onChanged: (value) => setState(() {}),
-          onSubmitted: (value) {
-            if (_isValidAmount()) {
-              if (recipientFirst && currentStep == 1) {
-                if (_canProceedWithPayment()) {
-                  _processPayment(context);
-                }
-              } else {
-                _nextStep();
+          onChanged: (value) {
+            final raw = value.replaceAll(',', '');
+            final n = int.tryParse(raw);
+            if (n != null) {
+              final formatted = _formatAmountDisplay(raw);
+              if (formatted != value) {
+                amountController.value = TextEditingValue(
+                  text: formatted,
+                  selection: TextSelection.collapsed(offset: formatted.length),
+                );
               }
             }
+            setState(() {});
+          },
+          onSubmitted: (_) {
+            if (_isValidAmount()) _nextStep();
           },
         ),
         const SizedBox(height: 16),
@@ -1000,10 +1035,30 @@ class _HomeState extends State<Home> {
   }
 
   Widget _buildPhoneStep(ThemeData theme) {
+    final rawPhone = mobileController.text.trim();
+    final bool isValidPhone = _isValidPhoneNumber(rawPhone);
+    final bool isValidMomo = _isValidMomoCode(rawPhone);
+    final bool hasValidContact = isValidPhone || isValidMomo;
+
+    // Inline fee preview when amount + valid contact are both present
+    Map<String, dynamic>? feeData;
+    if (_isValidAmount() && hasValidContact) {
+      final recipientType = isValidPhone ? 'phone' : 'momo';
+      final serviceType =
+          isValidPhone ? _getServiceType(_formatPhoneNumber(rawPhone)) : null;
+      feeData = TariffService.getFeeBreakdown(
+        amount: double.tryParse(_getRawAmount()) ?? 0,
+        recipientType: recipientType,
+        serviceType: serviceType,
+      );
+    }
+
     return Column(
+      key: const ValueKey('contact'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(S.of(context).recipientInfo,
+        Text(
+          S.of(context).recipientInfo,
           style: theme.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.bold,
             color: theme.colorScheme.onSurface,
@@ -1019,180 +1074,203 @@ class _HomeState extends State<Home> {
           ),
         ),
         const SizedBox(height: 24),
-        Column(
-          children: [
-            // Name field (optional)
-            TextField(
-              controller: recipientNameController,
-              keyboardType: TextInputType.text,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w500,
-              ),
-              decoration: InputDecoration(
-                labelText: S.of(context).recipientName,
-                hintText: S.of(context).recipientNameHint,
-                prefixIcon: Icon(Icons.person_rounded),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(15),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(15),
-                  borderSide: BorderSide(
-                    color: theme.colorScheme.primary,
-                    width: 2,
-                  ),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 20,
-                ),
-              ),
-              onChanged: (value) {
-                // Update selectedName when user types in the name field
-                setState(() {
-                  selectedName = value.trim().isEmpty ? null : value.trim();
-                });
-                // Also filter contacts based on name
-                _filterContacts(value);
-              },
-            ),
-            const SizedBox(height: 16),
-            // Phone number or momo code field
-            TextField(
-              controller: mobileController,
-              focusNode: phoneFocusNode,
-              keyboardType: TextInputType.text,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w500,
-              ),
-              decoration: InputDecoration(
-                labelText: isRecordOnlyMode
-                    ? S.of(context).phoneOrMomoOptional
-                    : S.of(context).phoneOrMomo,
-                hintText: isRecordOnlyMode
-                    ? S.of(context).optionalSidePaymentsHint
-                    : S.of(context).typeNamePhoneOrMomoHint,
-                prefixIcon: Icon(Icons.phone_rounded),
-                suffixIcon: isLoadingContacts
-                    ? Padding(
-                        padding: const EdgeInsets.all(12.0),
-                        child: SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      )
-                    : mobileController.text.isNotEmpty
-                        ? IconButton(
-                            icon: Icon(
-                              Icons.clear_rounded,
-                              color: theme.colorScheme.onSurface
-                                  .withValues(alpha: 0.5),
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                mobileController.clear();
-                                filteredContacts = [];
-                                selectedName = null;
-                                recipientNameController
-                                    .clear(); // Also clear name field
-                              });
-                            },
-                            tooltip: S.of(context).clearAction,
-                          )
-                        : null,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(15),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(15),
-                  borderSide: BorderSide(
-                    color: theme.colorScheme.primary,
-                    width: 2,
-                  ),
-                ),
-                contentPadding: EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 20,
-                ),
-                helperText: _getInputHelperText(),
-              ),
-              onChanged: (value) {
-                setState(() {
-                  isPhoneNumberMomo =
-                      _isValidMomoCode(value) && !_isValidPhoneNumber(value);
-                  _suggestionDismissed = false;
-                });
 
-                // Filter contacts for autocomplete
-                _filterContacts(value);
-              },
-              onSubmitted: (value) {
-                // If suggestions are visible, select the top one
-                if (filteredContacts.isNotEmpty && !_suggestionDismissed) {
-                  _selectContactSuggestion(filteredContacts[0]);
-                  return;
-                }
-                if (recipientFirst && currentStep == 0) {
-                  final hasValidRecipient = isRecordOnlyMode ||
-                      (_isValidPhoneNumber(value) || _isValidMomoCode(value));
-                  if (hasValidRecipient) {
-                    _nextStep();
-                  }
-                } else if (_canProceedWithPayment()) {
-                  _processPayment(context);
-                }
-              },
+        // Contact chip (when a contact is selected) OR unified input field
+        if (_selectedContact != null)
+          _buildSelectedContactChip(theme)
+        else
+          TextField(
+            controller: mobileController,
+            focusNode: phoneFocusNode,
+            keyboardType: TextInputType.text,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w500,
             ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        if (mobileController.text.isNotEmpty &&
-            !_isValidPhoneNumber(mobileController.text) &&
-            !_isValidMomoCode(mobileController.text))
-          Text(
-            'Please enter a valid phone number (078xxxxxxx) or momo code',
-            style: TextStyle(
-              color: theme.colorScheme.error,
-              fontSize: 14,
+            decoration: InputDecoration(
+              labelText: isRecordOnlyMode
+                  ? S.of(context).phoneOrMomoOptional
+                  : S.of(context).phoneOrMomo,
+              hintText: S.of(context).typeNamePhoneOrMomoHint,
+              prefixIcon: const Icon(Icons.person_search_rounded),
+              suffixIcon: isLoadingContacts
+                  ? const Padding(
+                      padding: EdgeInsets.all(12.0),
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    )
+                  : mobileController.text.isNotEmpty
+                      ? IconButton(
+                          icon: Icon(
+                            Icons.clear_rounded,
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.5),
+                          ),
+                          onPressed: () => setState(() {
+                            mobileController.clear();
+                            filteredContacts = [];
+                            selectedName = null;
+                            _suggestionDismissed = false;
+                          }),
+                          tooltip: S.of(context).clearAction,
+                        )
+                      : null,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(15),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(15),
+                borderSide: BorderSide(
+                  color: theme.colorScheme.primary,
+                  width: 2,
+                ),
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 20,
+              ),
+              helperText: _getInputHelperText(),
+            ),
+            onChanged: (value) {
+              setState(() {
+                isPhoneNumberMomo =
+                    _isValidMomoCode(value) && !_isValidPhoneNumber(value);
+                _suggestionDismissed = false;
+              });
+              _filterContacts(value);
+            },
+            onSubmitted: (value) {
+              if (filteredContacts.isNotEmpty && !_suggestionDismissed) {
+                _selectContactSuggestion(filteredContacts[0]);
+                return;
+              }
+              if (_canProceedWithPayment()) _processPayment(context);
+            },
+          ),
+
+        const SizedBox(height: 12),
+
+        // Validation error (only for unresolved free-text that isn't valid)
+        if (_selectedContact == null &&
+            rawPhone.isNotEmpty &&
+            !hasValidContact &&
+            !isRecordOnlyMode)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Text(
+              'Please enter a valid phone number (078xxxxxxx) or momo code',
+              style: TextStyle(color: theme.colorScheme.error, fontSize: 13),
             ),
           ),
-        if (mobileController.text.isNotEmpty &&
-            (_isValidPhoneNumber(mobileController.text) ||
-                _isValidMomoCode(mobileController.text)))
+
+        // Type badge for raw valid input (no chip selected)
+        if (_selectedContact == null && hasValidContact)
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: theme.colorScheme.primary.withValues(alpha: 0.1),
+              color: theme.colorScheme.primary.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
               children: [
                 Icon(
-                  _isValidPhoneNumber(mobileController.text)
-                      ? Icons.phone_rounded
-                      : Icons.qr_code_rounded,
+                  isValidPhone ? Icons.phone_rounded : Icons.qr_code_rounded,
                   color: theme.colorScheme.primary,
-                  size: 20,
+                  size: 18,
                 ),
                 const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    _isValidPhoneNumber(mobileController.text)
-                        ? S.of(context).validPhoneDetected
-                        : S.of(context).validMomoDetected,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.primary,
-                      fontWeight: FontWeight.w500,
-                    ),
+                Text(
+                  isValidPhone
+                      ? S.of(context).validPhoneDetected
+                      : S.of(context).validMomoDetected,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
             ),
           ),
+
+        // Inline fee preview
+        if (feeData != null) ...[
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.secondary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline_rounded,
+                    size: 16, color: theme.colorScheme.secondary),
+                const SizedBox(width: 8),
+                Text(
+                  'Fee: ${feeData['formattedFee']}  ·  Total: ${feeData['formattedTotal']}',
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: theme.colorScheme.secondary),
+                ),
+              ],
+            ),
+          ),
+        ],
       ],
+    );
+  }
+
+  Widget _buildSelectedContactChip(ThemeData theme) {
+    final contact = _selectedContact!;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(
+          color: theme.colorScheme.primary.withValues(alpha: 0.4),
+          width: 1.5,
+        ),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.15),
+            radius: 22,
+            child: Icon(Icons.person_rounded,
+                color: theme.colorScheme.primary, size: 22),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  contact.name,
+                  style: theme.textTheme.bodyLarge
+                      ?.copyWith(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _maskPhoneNumber(contact.phoneNumber),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: Icon(Icons.close_rounded,
+                size: 20,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+            onPressed: _clearSelectedContact,
+            tooltip: S.of(context).clearAction,
+          ),
+        ],
+      ),
     );
   }
 
@@ -1210,16 +1288,7 @@ class _HomeState extends State<Home> {
 
   VoidCallback? _getNextButtonAction() {
     if (currentStep == 0) {
-      if (recipientFirst) {
-        // Step 0 is recipient - need valid phone/momo (or optional in record-only)
-        final hasValidRecipient = isRecordOnlyMode ||
-            (mobileController.text.isNotEmpty &&
-                (_isValidPhoneNumber(mobileController.text) ||
-                    _isValidMomoCode(mobileController.text)));
-        return hasValidRecipient ? _nextStep : null;
-      } else {
-        return _isValidAmount() ? _nextStep : null;
-      }
+      return _isValidAmount() ? _nextStep : null;
     } else {
       return _canProceedWithPayment() ? () => _processPayment(context) : null;
     }
@@ -1239,9 +1308,8 @@ class _HomeState extends State<Home> {
   }
 
   void _processPayment(BuildContext context) {
-    // Update selectedName with the value from the name field if provided
-    if (recipientNameController.text.trim().isNotEmpty) {
-      selectedName = recipientNameController.text.trim();
+    if (_selectedContact != null) {
+      selectedName = _selectedContact!.name;
     }
 
     // Handle Record Only mode
@@ -1260,11 +1328,10 @@ class _HomeState extends State<Home> {
       // Process as phone number
       String formattedPhone = _formatPhoneNumber(input);
       serviceType = _getServiceType(formattedPhone);
-      ussdCode =
-          '*182*1*$serviceType*$formattedPhone*${amountController.text}#';
+      ussdCode = '*182*1*$serviceType*$formattedPhone*${_getRawAmount()}#';
     } else if (_isValidMomoCode(input)) {
       // Process as momo code
-      ussdCode = '*182*8*1*$input*${amountController.text}#';
+      ussdCode = '*182*8*1*$input*${_getRawAmount()}#';
       serviceType = null; // MoMo codes don't have service type
     } else {
       // Should not reach here due to validation, but handle gracefully
@@ -1284,7 +1351,7 @@ class _HomeState extends State<Home> {
     bool isPhoneNumber = _isValidPhoneNumber(paymentInfo);
 
     // Calculate fee
-    double amount = double.tryParse(amountController.text) ?? 0.0;
+    double amount = double.tryParse(_getRawAmount()) ?? 0.0;
     String recipientType = isPhoneNumber ? 'phone' : 'momo';
     final feeBreakdown = TariffService.getFeeBreakdown(
       amount: amount,
@@ -1310,7 +1377,8 @@ class _HomeState extends State<Home> {
                     color: theme.colorScheme.primary,
                   ),
                   SizedBox(width: 12),
-                  Text(S.of(context).ussdCode,
+                  Text(
+                    S.of(context).ussdCode,
                     style: theme.textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -1351,7 +1419,8 @@ class _HomeState extends State<Home> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(S.of(context).applyTransactionFee,
+                                Text(
+                                  S.of(context).applyTransactionFee,
                                   style: theme.textTheme.bodyMedium?.copyWith(
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -1389,12 +1458,18 @@ class _HomeState extends State<Home> {
                             fontSize: 14,
                           )),
                       Divider(height: 12, thickness: 1),
-                      Text(S.of(context).totalLabel(feeBreakdown['formattedTotal']),
+                      Text(
+                          S
+                              .of(context)
+                              .totalLabel(feeBreakdown['formattedTotal']),
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                             color: theme.colorScheme.primary,
                           )),
-                      Text(S.of(context).tariffTypeLabel(feeBreakdown['tariffType']),
+                      Text(
+                          S
+                              .of(context)
+                              .tariffTypeLabel(feeBreakdown['tariffType']),
                           style: TextStyle(
                             fontSize: 12,
                             color: theme.colorScheme.onSurface
@@ -1405,8 +1480,12 @@ class _HomeState extends State<Home> {
                     if (selectedName != null && selectedName!.isNotEmpty)
                       Text(S.of(context).toRecipient(selectedName!)),
                     Text(isPhoneNumber
-                        ? S.of(context).phoneLabel(_maskPhoneNumber(paymentInfo))
-                        : S.of(context).momoCodeLabel(paymentInfo.length > 3 ? paymentInfo.substring(0, 3) + "***" : paymentInfo)),
+                        ? S
+                            .of(context)
+                            .phoneLabel(_maskPhoneNumber(paymentInfo))
+                        : S.of(context).momoCodeLabel(paymentInfo.length > 3
+                            ? paymentInfo.substring(0, 3) + "***"
+                            : paymentInfo)),
                     SizedBox(height: 20),
                     Text(
                       S.of(context).dialUssdCode,
@@ -1442,7 +1521,9 @@ class _HomeState extends State<Home> {
                             onPressed: () {
                               // Copy to clipboard functionality can be added here
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text(S.of(context).ussdCodeCopied)),
+                                SnackBar(
+                                    content:
+                                        Text(S.of(context).ussdCodeCopied)),
                               );
                             },
                             icon: Icon(Icons.copy_rounded),
@@ -1510,8 +1591,7 @@ class _HomeState extends State<Home> {
                     // Save the USSD record before dialing
                     String recipientType =
                         _isValidPhoneNumber(paymentInfo) ? 'phone' : 'momo';
-                    double amount =
-                        double.tryParse(amountController.text) ?? 0.0;
+                    double amount = double.tryParse(_getRawAmount()) ?? 0.0;
                     final reason = reasonController.text.trim().isEmpty
                         ? null
                         : reasonController.text.trim();
@@ -1549,7 +1629,7 @@ class _HomeState extends State<Home> {
     String paymentInfo = mobileController.text.trim();
 
     // Calculate fee
-    double amount = double.tryParse(amountController.text) ?? 0.0;
+    double amount = double.tryParse(_getRawAmount()) ?? 0.0;
     String recipientType;
     String? serviceType;
 
@@ -1635,7 +1715,8 @@ class _HomeState extends State<Home> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(S.of(context).applyTransactionFee,
+                                Text(
+                                  S.of(context).applyTransactionFee,
                                   style: theme.textTheme.bodyMedium?.copyWith(
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -1709,9 +1790,14 @@ class _HomeState extends State<Home> {
                         padding: const EdgeInsets.only(top: 4),
                         child: Text(
                           _isValidPhoneNumber(paymentInfo)
-                              ? S.of(context).phoneLabel(_maskPhoneNumber(paymentInfo))
+                              ? S
+                                  .of(context)
+                                  .phoneLabel(_maskPhoneNumber(paymentInfo))
                               : _isValidMomoCode(paymentInfo)
-                                  ? S.of(context).momoCodeLabel(paymentInfo.length > 3 ? paymentInfo.substring(0, 3) + "***" : paymentInfo)
+                                  ? S.of(context).momoCodeLabel(
+                                      paymentInfo.length > 3
+                                          ? paymentInfo.substring(0, 3) + "***"
+                                          : paymentInfo)
                                   : S.of(context).recipientLabel(paymentInfo),
                           style: theme.textTheme.bodyMedium,
                         ),
@@ -1805,8 +1891,7 @@ class _HomeState extends State<Home> {
                       recipientType = 'misc';
                     }
 
-                    double amount =
-                        double.tryParse(amountController.text) ?? 0.0;
+                    double amount = double.tryParse(_getRawAmount()) ?? 0.0;
                     final reason = reasonController.text.trim().isEmpty
                         ? null
                         : reasonController.text.trim();
@@ -1893,10 +1978,23 @@ class _HomeState extends State<Home> {
     }
   }
 
+  String _getRawAmount() => amountController.text.replaceAll(',', '');
+
+  String _formatAmountDisplay(String raw) {
+    final digits = raw.replaceAll(RegExp(r'[^0-9]'), '');
+    final n = int.tryParse(digits);
+    if (n == null) return digits;
+    return n.toString().replaceAllMapped(
+          RegExp(r'\B(?=(\d{3})+(?!\d))'),
+          (m) => ',',
+        );
+  }
+
   bool _isValidAmount() {
-    if (amountController.text.isEmpty) return false;
-    final amount = int.tryParse(amountController.text);
-    return amount != null && amount >= 1; // Minimum 1 RWF for testing
+    final raw = _getRawAmount();
+    if (raw.isEmpty) return false;
+    final amount = int.tryParse(raw);
+    return amount != null && amount >= 1;
   }
 
   Widget _buildQuickActions(BuildContext context, ThemeData theme) {
@@ -1987,17 +2085,21 @@ class _HomeState extends State<Home> {
           if (_isValidPhoneNumber(selectedNumber!) ||
               _isValidMomoCode(selectedNumber!)) {
             String formattedNumber = _formatPhoneNumber(selectedNumber!);
+            final contactName = contact.fullName;
             setState(() {
-              // Set the phone number in the multistep form
               mobileController.text = formattedNumber;
-              // If we're on step 1, advance to step 2
-              if (currentStep == 0) {
-                currentStep = 1;
+              if (contactName != null && contactName.isNotEmpty) {
+                _selectedContact = ContactSuggestion(
+                  name: contactName,
+                  phoneNumber: formattedNumber,
+                  originalPhone: formattedNumber,
+                );
+                selectedName = contactName;
+              } else {
+                _selectedContact = null;
               }
-            });
-            // Focus on the phone field in step 2
-            Future.delayed(const Duration(milliseconds: 100), () {
-              phoneFocusNode.requestFocus();
+              if (currentStep == 0) currentStep = 1;
+              _suggestionDismissed = true;
             });
 
             ScaffoldMessenger.of(context).showSnackBar(
@@ -2128,7 +2230,8 @@ class _HomeState extends State<Home> {
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: Text(S.of(context).paymentRequestQR,
+                        child: Text(
+                          S.of(context).paymentRequestQR,
                           style: theme.textTheme.headlineSmall?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
@@ -2395,21 +2498,32 @@ class _HomeState extends State<Home> {
   // Select a contact from suggestions
   void _selectContactSuggestion(ContactSuggestion suggestion) {
     setState(() {
+      _selectedContact = suggestion;
       mobileController.text = suggestion.phoneNumber;
-      recipientNameController.text = suggestion.name;
-      filteredContacts = [];
       selectedName = suggestion.name;
+      filteredContacts = [];
       _suggestionDismissed = true;
     });
-    // Go directly to dial popup if amount is already filled, otherwise advance step
     if (_canProceedWithPayment()) {
       _processPayment(context);
-    } else if (recipientFirst && currentStep == 0) {
-      _nextStep();
     }
   }
 
+  void _clearSelectedContact() {
+    setState(() {
+      _selectedContact = null;
+      selectedName = null;
+      mobileController.clear();
+      filteredContacts = [];
+      _suggestionDismissed = false;
+    });
+    Future.delayed(const Duration(milliseconds: 100), () {
+      phoneFocusNode.requestFocus();
+    });
+  }
+
   bool _shouldShowSuggestionsOverlay() {
+    if (_selectedContact != null) return false;
     if (_suggestionDismissed) return false;
     final phoneQuery = mobileController.text;
     if (filteredContacts.isNotEmpty) return true;
@@ -2435,24 +2549,49 @@ class _HomeState extends State<Home> {
         child: SafeArea(
           child: Column(
             children: [
-              // Header
+              // Header — live editable field so cursor/selection work
               Row(
                 children: [
                   IconButton(
                     icon: const Icon(Icons.arrow_back_rounded),
                     onPressed: () => setState(() {
-                          filteredContacts = [];
-                          _suggestionDismissed = true;
-                        }),
+                      filteredContacts = [];
+                      _suggestionDismissed = true;
+                    }),
                   ),
                   Expanded(
-                    child: Text(
-                      phoneQuery.isNotEmpty ? phoneQuery : S.of(context).suggestions,
+                    child: TextField(
+                      controller: mobileController,
+                      focusNode: phoneFocusNode,
+                      autofocus: true,
+                      keyboardType: TextInputType.text,
                       style: theme.textTheme.titleMedium
                           ?.copyWith(fontWeight: FontWeight.w600),
-                      overflow: TextOverflow.ellipsis,
+                      decoration: InputDecoration(
+                        border: InputBorder.none,
+                        hintText: S.of(context).suggestions,
+                        contentPadding:
+                            const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      onChanged: (value) {
+                        setState(() {
+                          isPhoneNumberMomo = _isValidMomoCode(value) &&
+                              !_isValidPhoneNumber(value);
+                        });
+                        _filterContacts(value);
+                      },
                     ),
                   ),
+                  if (mobileController.text.isNotEmpty)
+                    IconButton(
+                      icon: Icon(Icons.clear_rounded,
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.5)),
+                      onPressed: () => setState(() {
+                        mobileController.clear();
+                        filteredContacts = [];
+                      }),
+                    ),
                 ],
               ),
               Divider(
@@ -2463,33 +2602,32 @@ class _HomeState extends State<Home> {
                 child: ListView(
                   children: [
                     ...List.generate(filteredContacts.length, (index) {
-                          final contact = filteredContacts[index];
-                          return ListTile(
-                            tileColor: index == 0
-                                ? theme.colorScheme.primary
-                                    .withValues(alpha: 0.1)
-                                : null,
-                            leading: CircleAvatar(
-                              backgroundColor: theme.colorScheme.primary
-                                  .withValues(alpha: 0.1),
-                              child: Icon(Icons.person,
-                                  color: theme.colorScheme.primary, size: 20),
-                            ),
-                            title: Text(contact.name,
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                    fontWeight: index == 0
-                                        ? FontWeight.w700
-                                        : FontWeight.w600)),
-                            subtitle: Text(contact.phoneNumber,
-                                style: theme.textTheme.bodySmall),
-                            onTap: () => _selectContactSuggestion(contact),
-                          );
-                        }),
+                      final contact = filteredContacts[index];
+                      return ListTile(
+                        tileColor: index == 0
+                            ? theme.colorScheme.primary.withValues(alpha: 0.1)
+                            : null,
+                        leading: CircleAvatar(
+                          backgroundColor:
+                              theme.colorScheme.primary.withValues(alpha: 0.1),
+                          child: Icon(Icons.person,
+                              color: theme.colorScheme.primary, size: 20),
+                        ),
+                        title: Text(contact.name,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                                fontWeight: index == 0
+                                    ? FontWeight.w700
+                                    : FontWeight.w600)),
+                        subtitle: Text(contact.phoneNumber,
+                            style: theme.textTheme.bodySmall),
+                        onTap: () => _selectContactSuggestion(contact),
+                      );
+                    }),
                     if (showUnknown)
                       ListTile(
                         leading: CircleAvatar(
-                          backgroundColor:
-                              theme.colorScheme.secondary.withValues(alpha: 0.1),
+                          backgroundColor: theme.colorScheme.secondary
+                              .withValues(alpha: 0.1),
                           child: Icon(Icons.phone_rounded,
                               color: theme.colorScheme.secondary, size: 20),
                         ),
@@ -2546,7 +2684,8 @@ class _HomeState extends State<Home> {
                 color: theme.colorScheme.primary,
               ),
               const SizedBox(width: 12),
-              Text(S.of(context).selectPaymentMethod,
+              Text(
+                S.of(context).selectPaymentMethod,
                 style: theme.textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
@@ -2616,7 +2755,8 @@ class _HomeState extends State<Home> {
                         color: theme.colorScheme.primary,
                       ),
                     ),
-                    title: Text(S.of(context).enterManually,
+                    title: Text(
+                      S.of(context).enterManually,
                       style: TextStyle(
                         fontWeight: FontWeight.w600,
                         color: theme.colorScheme.primary,
@@ -2805,65 +2945,6 @@ class _HomeState extends State<Home> {
           },
         );
       },
-    );
-  }
-
-  // Enhanced payment mode toggle with subtle improvements
-  Widget _buildPaymentModeSelector(ThemeData theme) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Row(
-              children: [
-                Text(
-                  S.of(context).recordOnly,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 15,
-                    color: theme.colorScheme.onSurface,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: () {
-                    showDialog(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: Text(S.of(context).recordOnlyMode),
-                        content: Text(S.of(context).recordOnlyExplain),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.of(context).pop(),
-                            child: Text(S.of(context).gotIt),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                  child: Icon(
-                    Icons.info_outline_rounded,
-                    size: 20,
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Switch(
-            value: isRecordOnlyMode,
-            onChanged: (value) {
-              setState(() => isRecordOnlyMode = value);
-            },
-          ),
-        ],
-      ),
     );
   }
 }

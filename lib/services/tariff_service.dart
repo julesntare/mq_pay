@@ -66,6 +66,11 @@ class TariffService {
     return MomoTariff.getTotalAmount(amount, tariffType);
   }
 
+  static String _fmt(double amount) {
+    final s = amount.toStringAsFixed(0);
+    return '${s.replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (m) => ',')} RWF';
+  }
+
   /// Get formatted fee breakdown for display
   static Map<String, dynamic> getFeeBreakdown({
     required double amount,
@@ -81,9 +86,9 @@ class TariffService {
         'tariffType': 'MoMo Code (No Fee)',
         'bracketMin': null,
         'bracketMax': null,
-        'formattedAmount': 'RWF ${amount.toStringAsFixed(0)}',
-        'formattedFee': 'RWF 0',
-        'formattedTotal': 'RWF ${amount.toStringAsFixed(0)}',
+        'formattedAmount': _fmt(amount),
+        'formattedFee': '0 RWF',
+        'formattedTotal': _fmt(amount),
       };
     }
 
@@ -100,12 +105,13 @@ class TariffService {
       'amount': amount,
       'fee': fee,
       'total': total,
-      'tariffType': tariffType == TariffType.momoPhone ? 'MoMo Phone' : 'MoMo eKash',
+      'tariffType':
+          tariffType == TariffType.momoPhone ? 'MoMo Phone' : 'MoMo eKash',
       'bracketMin': bracket?.min,
       'bracketMax': bracket?.max,
-      'formattedAmount': 'RWF ${amount.toStringAsFixed(0)}',
-      'formattedFee': 'RWF ${fee.toStringAsFixed(0)}',
-      'formattedTotal': 'RWF ${total.toStringAsFixed(0)}',
+      'formattedAmount': _fmt(amount),
+      'formattedFee': _fmt(fee),
+      'formattedTotal': _fmt(total),
     };
   }
 
