@@ -433,6 +433,13 @@ class _SettingsPageState extends State<SettingsPage> {
 
     return Scaffold(
       backgroundColor: theme.colorScheme.background,
+      appBar: AppBar(
+        title: Text(S.of(context).settings),
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        foregroundColor: theme.colorScheme.onSurface,
+        centerTitle: false,
+      ),
       body: SafeArea(
         child: ScrollIndicatorWrapper(
           controller: _scrollController,
@@ -445,10 +452,6 @@ class _SettingsPageState extends State<SettingsPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Header Section
-                  _buildHeaderSection(context, theme),
-                  const SizedBox(height: 30),
-
                   // USSD Auto-Detection
                   const AccessibilityPermissionCard(),
                   const SizedBox(height: 20),
@@ -457,29 +460,17 @@ class _SettingsPageState extends State<SettingsPage> {
                   _buildPaymentConfigSection(context, theme),
                   const SizedBox(height: 20),
 
-                  // Language Settings
-                  _buildLanguageSection(context, theme),
-                  const SizedBox(height: 20),
+                  // Appearance
+                  _buildAppearanceSection(context, theme),
+                  const SizedBox(height: 12),
 
-                  // Theme Settings
-                  _buildThemeSection(context, theme),
-                  const SizedBox(height: 20),
+                  // Data & Backup
+                  _buildDataSection(context, theme),
+                  const SizedBox(height: 12),
 
-                  // Backup & Restore
-                  _buildBackupSection(context, theme),
+                  // About
+                  _buildAboutSection(context, theme),
                   const SizedBox(height: 20),
-
-                  // Auto-Backup Settings
-                  _buildAutoBackupSection(context, theme),
-                  const SizedBox(height: 20),
-
-                  // Supabase Cloud Backup
-                  _buildSupabaseBackupSection(context, theme),
-                  const SizedBox(height: 20),
-
-                  // App Information
-                  _buildAppInfoSection(context, theme),
-                  const SizedBox(height: 30),
                 ],
               ),
             ),
@@ -489,59 +480,13 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Widget _buildHeaderSection(BuildContext context, ThemeData theme) {
-    return GradientCard(
-      gradient: AppTheme.primaryGradient,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.settings_rounded,
-                  color: Colors.white,
-                  size: 28,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(S.of(context).settings,
-                      style: theme.textTheme.headlineMedium?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(S.of(context).settingsSubtitle,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: Colors.white70,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildPaymentConfigSection(BuildContext context, ThemeData theme) {
     return Card(
       elevation: 4,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -560,13 +505,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            Text(S.of(context).paymentMethodsDesc,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
-              ),
-            ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
 
             // List of existing payment methods
             if (paymentMethods.isNotEmpty) ...[
@@ -578,7 +517,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color:
-                      theme.colorScheme.surfaceVariant.withValues(alpha: 0.3),
+                      theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
@@ -648,7 +587,7 @@ class _SettingsPageState extends State<SettingsPage> {
       decoration: BoxDecoration(
         color: method.isDefault
             ? theme.colorScheme.primaryContainer.withValues(alpha: 0.1)
-            : theme.colorScheme.surfaceVariant.withValues(alpha: 0.3),
+            : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(12),
         border: method.isDefault
             ? Border.all(
@@ -671,7 +610,7 @@ class _SettingsPageState extends State<SettingsPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${method.provider} - ${method.value}',
+                  method.value,
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
@@ -679,7 +618,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '${method.provider} • ${_maskValue(method.value)}',
+                  '${method.provider} · ${method.type == 'mobile' ? 'Mobile' : 'MoMo Code'}${method.isDefault ? ' · Default' : ''}',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                   ),
@@ -744,12 +683,6 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  String _maskValue(String value) {
-    if (value.length > 6) {
-      return '${value.substring(0, 3)}***${value.substring(value.length - 2)}';
-    }
-    return value;
-  }
 
   void _setAsDefault(PaymentMethod method) {
     setState(() {
@@ -838,7 +771,7 @@ class _SettingsPageState extends State<SettingsPage> {
               children: [
                 // Type Selection
                 DropdownButtonFormField<String>(
-                  value: _selectedType,
+                  initialValue: _selectedType,
                   decoration: const InputDecoration(
                     labelText: 'Type',
                     prefixIcon: Icon(Icons.category_rounded),
@@ -858,7 +791,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
                 // Provider Selection
                 DropdownButtonFormField<String>(
-                  value: _selectedProvider,
+                  initialValue: _selectedProvider,
                   decoration: InputDecoration(
                     labelText: S.of(context).providerLabel,
                     prefixIcon: Icon(Icons.business_rounded),
@@ -958,796 +891,354 @@ class _SettingsPageState extends State<SettingsPage> {
     _savePaymentMethods();
   }
 
-  Widget _buildLanguageSection(BuildContext context, ThemeData theme) {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.language_rounded,
-                  color: theme.colorScheme.primary,
-                  size: 24,
-                ),
-                const SizedBox(width: 12),
-                Text(S.of(context).languagePreferences,
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              decoration: BoxDecoration(
-                border: Border.all(color: theme.colorScheme.outline),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  isExpanded: true,
-                  value:
-                      Provider.of<LocaleProvider>(context).locale!.languageCode,
-                  icon: Icon(
-                    Icons.expand_more_rounded,
-                    color: theme.colorScheme.primary,
-                  ),
-                  items: ['en', 'fr', 'sw', 'rw'].map((String locale) {
-                    final flag = _getFlag(locale);
-                    final name = _getLanguageName(locale);
-                    return DropdownMenuItem<String>(
-                      value: locale,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.primary
-                                    .withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                flag,
-                                style: const TextStyle(fontSize: 18),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Text(
-                              name,
-                              style: theme.textTheme.bodyLarge?.copyWith(
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                  onChanged: (String? newValue) {
-                    setState(() {
-                      selectedLanguage = newValue!;
-                    });
-                    final locale = Locale(newValue!);
-                    Provider.of<LocaleProvider>(context, listen: false)
-                        .setLocale(locale);
-                  },
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildThemeSection(BuildContext context, ThemeData theme) {
+  Widget _buildAppearanceSection(BuildContext context, ThemeData theme) {
+    final currentLang =
+        Provider.of<LocaleProvider>(context).locale!.languageCode;
     return Consumer<ThemeProvider>(
-      builder: (context, themeProvider, child) {
+      builder: (context, themeProvider, _) {
         return Card(
-          elevation: 4,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.palette_rounded,
+          elevation: 2,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Column(
+            children: [
+              ListTile(
+                leading: _iconBox(theme,
+                    child: Text(_getFlag(currentLang),
+                        style: const TextStyle(fontSize: 18))),
+                title: Text(_getLanguageName(currentLang)),
+                trailing: Icon(Icons.chevron_right_rounded,
+                    size: 20,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.4)),
+                onTap: () => _showLanguageBottomSheet(context, theme),
+              ),
+              const Divider(height: 1, indent: 16, endIndent: 16),
+              ListTile(
+                leading: _iconBox(theme,
+                    child: Icon(
+                      themeProvider.isDarkMode
+                          ? Icons.dark_mode_rounded
+                          : Icons.light_mode_rounded,
                       color: theme.colorScheme.primary,
-                      size: 24,
-                    ),
-                    const SizedBox(width: 12),
-                    Text(S.of(context).themePreferences,
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-
-                // Theme Toggle Cards
-                Column(
+                      size: 20,
+                    )),
+                title: Text(themeProvider.isDarkMode ? 'Dark' : 'Light'),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    _buildThemeModeCard(
-                      context: context,
-                      theme: theme,
-                      themeProvider: themeProvider,
-                      isDark: false,
-                      title: 'Light Theme',
-                      subtitle: 'Bright and clean interface',
-                      icon: Icons.light_mode_rounded,
+                    Icon(Icons.light_mode_rounded,
+                        size: 16,
+                        color: themeProvider.isDarkMode
+                            ? theme.colorScheme.onSurface.withValues(alpha: 0.25)
+                            : theme.colorScheme.primary),
+                    Switch(
+                      value: themeProvider.isDarkMode,
+                      onChanged: themeProvider.setDarkMode,
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
-                    const SizedBox(height: 12),
-                    _buildThemeModeCard(
-                      context: context,
-                      theme: theme,
-                      themeProvider: themeProvider,
-                      isDark: true,
-                      title: 'Dark Theme',
-                      subtitle: 'Easy on the eyes',
-                      icon: Icons.dark_mode_rounded,
-                    ),
+                    Icon(Icons.dark_mode_rounded,
+                        size: 16,
+                        color: themeProvider.isDarkMode
+                            ? theme.colorScheme.primary
+                            : theme.colorScheme.onSurface
+                                .withValues(alpha: 0.25)),
                   ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         );
       },
     );
   }
 
-  Widget _buildThemeModeCard({
-    required BuildContext context,
-    required ThemeData theme,
-    required ThemeProvider themeProvider,
-    required bool isDark,
-    required String title,
-    required String subtitle,
-    required IconData icon,
-  }) {
-    final isSelected = themeProvider.isDarkMode == isDark;
-
-    return Container(
-      decoration: BoxDecoration(
-        gradient: isSelected ? AppTheme.primaryGradient : null,
-        color: isSelected ? null : theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: isSelected
-            ? null
-            : Border.all(
-                color: theme.colorScheme.outline.withValues(alpha: 0.2),
-              ),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: () => themeProvider.setDarkMode(isDark),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
+  void _showLanguageBottomSheet(BuildContext context, ThemeData theme) {
+    final localeProvider =
+        Provider.of<LocaleProvider>(context, listen: false);
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, _) {
+          final currentLang = localeProvider.locale!.languageCode;
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  padding: const EdgeInsets.all(10),
+                  width: 40,
+                  height: 4,
                   decoration: BoxDecoration(
-                    color: isSelected
-                        ? Colors.white.withValues(alpha: 0.2)
-                        : theme.colorScheme.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    icon,
-                    color:
-                        isSelected ? Colors.white : theme.colorScheme.primary,
-                    size: 20,
+                      color: Colors.grey.shade400,
+                      borderRadius: BorderRadius.circular(2)),
+                ),
+                const SizedBox(height: 16),
+                Text(S.of(context).languagePreferences,
+                    style: theme.textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                ...['en', 'fr', 'sw', 'rw'].map((code) => ListTile(
+                      leading: Text(_getFlag(code),
+                          style: const TextStyle(fontSize: 22)),
+                      title: Text(_getLanguageName(code)),
+                      trailing: currentLang == code
+                          ? Icon(Icons.check_rounded,
+                              color: theme.colorScheme.primary)
+                          : null,
+                      selected: currentLang == code,
+                      onTap: () {
+                        setState(() => selectedLanguage = code);
+                        localeProvider.setLocale(Locale(code));
+                        Navigator.pop(ctx);
+                      },
+                    )),
+                const SizedBox(height: 8),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildDataSection(BuildContext context, ThemeData theme) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // --- Local backup actions ---
+        Card(
+          elevation: 2,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Column(
+            children: [
+              _buildActionTile(context, theme,
+                  icon: Icons.download_rounded,
+                  label: S.of(context).exportBackup,
+                  onTap: _exportBackup),
+              const Divider(height: 1, indent: 56),
+              _buildActionTile(context, theme,
+                  icon: Icons.table_chart_rounded,
+                  label: S.of(context).exportToExcel,
+                  iconColor: Colors.green.shade600,
+                  onTap: _exportToExcel),
+              const Divider(height: 1, indent: 56),
+              _buildActionTile(context, theme,
+                  icon: Icons.upload_rounded,
+                  label: S.of(context).importBackup,
+                  onTap: _importBackup),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 12),
+
+        // --- Auto-backup settings ---
+        Card(
+          elevation: 2,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Column(
+            children: [
+              SwitchListTile(
+                secondary: _iconBox(theme,
+                    child: Icon(Icons.autorenew_rounded,
+                        color: theme.colorScheme.primary, size: 20)),
+                title: Text(S.of(context).enableAutoBackup),
+                value: _autoBackupEnabled,
+                onChanged: (v) {
+                  setState(() => _autoBackupEnabled = v);
+                  _saveAutoBackupSettings();
+                },
+                activeThumbColor: theme.colorScheme.primary,
+              ),
+              if (_autoBackupEnabled) ...[
+                const Divider(height: 1, indent: 56),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(72, 4, 16, 8),
+                  child: Row(
+                    children: ['daily', 'weekly', 'monthly'].map((freq) {
+                      final isSelected = _autoBackupFrequency == freq;
+                      final label =
+                          freq[0].toUpperCase() + freq.substring(1);
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: FilterChip(
+                          label: Text(label,
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: isSelected
+                                      ? FontWeight.w600
+                                      : FontWeight.normal)),
+                          selected: isSelected,
+                          onSelected: (_) {
+                            setState(() => _autoBackupFrequency = freq);
+                            _saveAutoBackupSettings();
+                          },
+                          selectedColor: theme.colorScheme.primary
+                              .withValues(alpha: 0.15),
+                          checkmarkColor: theme.colorScheme.primary,
+                        ),
+                      );
+                    }).toList(),
                   ),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          color: isSelected ? Colors.white : null,
+                const Divider(height: 1, indent: 56),
+                ListTile(
+                  leading: _iconBox(theme,
+                      child: Icon(Icons.folder_outlined,
+                          color: theme.colorScheme.primary, size: 20)),
+                  title: Text(
+                      _autoBackupLocation ?? S.of(context).backupLocation),
+                  subtitle: Text(
+                    _autoBackupLocation == null
+                        ? 'Default'
+                        : _autoBackupLocation!,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurface
+                            .withValues(alpha: 0.5)),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  trailing: Icon(Icons.chevron_right_rounded,
+                      size: 20,
+                      color:
+                          theme.colorScheme.onSurface.withValues(alpha: 0.4)),
+                  onTap: _selectBackupLocation,
+                ),
+                const Divider(height: 1, indent: 56),
+                _buildActionTile(context, theme,
+                    icon: Icons.restore_rounded,
+                    label: S.of(context).viewRestoreBackups,
+                    onTap: _showBackupsDialog),
+              ],
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 12),
+
+        // --- Supabase cloud backup ---
+        Card(
+          elevation: 2,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Column(
+            children: [
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                child: Row(
+                  children: [
+                    _iconBox(theme,
+                        child: Icon(Icons.cloud_rounded,
+                            color: theme.colorScheme.primary, size: 20)),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Supabase Cloud',
+                              style: theme.textTheme.titleSmall
+                                  ?.copyWith(fontWeight: FontWeight.w600)),
+                          Text('Sync backups to the cloud',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurface
+                                      .withValues(alpha: 0.5))),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: _supabaseConfigured
+                            ? Colors.green.withValues(alpha: 0.12)
+                            : theme.colorScheme.onSurface
+                                .withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        _supabaseConfigured ? 'Active' : 'Not set up',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: _supabaseConfigured
+                              ? Colors.green.shade700
+                              : theme.colorScheme.onSurface
+                                  .withValues(alpha: 0.4),
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      Text(
-                        subtitle,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: isSelected
-                              ? Colors.white70
-                              : theme.colorScheme.onSurface
-                                  .withValues(alpha: 0.7),
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                if (isSelected)
-                  Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Icon(
-                      Icons.check_rounded,
-                      color: Colors.white,
-                      size: 16,
-                    ),
-                  ),
+              ),
+              if (_supabaseConfigured) ...[
+                const Divider(height: 1, indent: 16),
+                _buildActionTile(context, theme,
+                    icon: Icons.cloud_upload_rounded,
+                    label: S.of(context).uploadBackup,
+                    onTap: _uploadToSupabase),
+                const Divider(height: 1, indent: 56),
+                _buildActionTile(context, theme,
+                    icon: Icons.cloud_download_rounded,
+                    label: S.of(context).viewBackups,
+                    onTap: _viewSupabaseBackups),
               ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBackupSection(BuildContext context, ThemeData theme) {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.backup_rounded,
-                  color: theme.colorScheme.primary,
-                  size: 24,
-                ),
-                const SizedBox(width: 12),
-                Text(S.of(context).backupRestore,
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(S.of(context).backupRestoreDesc,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // Export Backup Button
-            Container(
-              width: double.infinity,
-              height: 56,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    theme.colorScheme.primary,
-                    theme.colorScheme.primary.withValues(alpha: 0.8),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: theme.colorScheme.primary.withValues(alpha: 0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: ElevatedButton(
-                onPressed: _exportBackup,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  shadowColor: Colors.transparent,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.download_rounded,
-                      color: Colors.white,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(S.of(context).exportBackup,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // Export to Excel Button
-            Container(
-              width: double.infinity,
-              height: 56,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Colors.green.shade600,
-                    Colors.green.shade700,
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.green.withValues(alpha: 0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: ElevatedButton(
-                onPressed: _exportToExcel,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  shadowColor: Colors.transparent,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.table_chart_rounded,
-                      color: Colors.white,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(S.of(context).exportToExcel,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // Import Backup Button
-            Container(
-              width: double.infinity,
-              height: 56,
-              decoration: BoxDecoration(
-                border: Border.all(
-                  color: theme.colorScheme.primary,
-                  width: 2,
-                ),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: ElevatedButton(
-                onPressed: _importBackup,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  shadowColor: Colors.transparent,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.upload_rounded,
-                      color: theme.colorScheme.primary,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(S.of(context).importBackup,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        color: theme.colorScheme.primary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAutoBackupSection(BuildContext context, ThemeData theme) {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.autorenew_rounded,
-                  color: theme.colorScheme.primary,
-                  size: 24,
-                ),
-                const SizedBox(width: 12),
-                Text(S.of(context).autoBackup,
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(S.of(context).autoBackupDesc,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // Enable/Disable Auto-Backup
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primary.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(S.of(context).enableAutoBackup,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(S.of(context).autoBackupDesc,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface
-                                .withValues(alpha: 0.6),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Switch(
-                    value: _autoBackupEnabled,
-                    onChanged: (value) {
-                      setState(() {
-                        _autoBackupEnabled = value;
-                      });
-                      _saveAutoBackupSettings();
-                    },
-                    activeColor: theme.colorScheme.primary,
-                  ),
-                ],
-              ),
-            ),
-
-            // Frequency Selection (only show when enabled)
-            if (_autoBackupEnabled) ...[
-              const SizedBox(height: 16),
-              Text(S.of(context).backupFrequency,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildFrequencyOption(
-                      'Daily',
-                      'daily',
-                      Icons.today_rounded,
-                      theme,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildFrequencyOption(
-                      'Weekly',
-                      'weekly',
-                      Icons.calendar_view_week_rounded,
-                      theme,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildFrequencyOption(
-                      'Monthly',
-                      'monthly',
-                      Icons.calendar_month_rounded,
-                      theme,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              // Backup Location Selection
-              Text(S.of(context).backupLocation,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 12),
-              InkWell(
-                onTap: _selectBackupLocation,
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surface,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: theme.colorScheme.outline.withValues(alpha: 0.3),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.folder_outlined,
-                        color: theme.colorScheme.primary,
-                        size: 24,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _autoBackupLocation ?? 'Default Location',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                fontWeight: FontWeight.w500,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              _autoBackupLocation == null
-                                  ? 'Tap to select custom backup location'
-                                  : 'Tap to change backup location',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurface
-                                    .withValues(alpha: 0.6),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Icon(
-                        Icons.chevron_right,
-                        color:
-                            theme.colorScheme.onSurface.withValues(alpha: 0.4),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              // View & Restore Backups Button
-              ElevatedButton.icon(
-                onPressed: _showBackupsDialog,
-                icon: const Icon(Icons.restore_rounded),
-                label: Text(S.of(context).viewRestoreBackups),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: theme.colorScheme.primaryContainer,
-                  foregroundColor: theme.colorScheme.onPrimaryContainer,
-                  padding:
-                      const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: Colors.blue.shade200,
-                    width: 1,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.info_outline,
-                      color: Colors.blue.shade700,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        _autoBackupLocation == null
-                            ? 'Auto-backups are stored in the app\'s default directory. Select a custom location to save backups elsewhere.'
-                            : 'Auto-backups will be saved to your selected location.',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: Colors.blue.shade700,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFrequencyOption(
-      String label, String value, IconData icon, ThemeData theme) {
-    final isSelected = _autoBackupFrequency == value;
-    return InkWell(
-      onTap: () {
-        setState(() {
-          _autoBackupFrequency = value;
-        });
-        _saveAutoBackupSettings();
-      },
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? theme.colorScheme.primary
-              : theme.colorScheme.surfaceContainerHighest
-                  .withValues(alpha: 0.3),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected
-                ? theme.colorScheme.primary
-                : theme.colorScheme.outline.withValues(alpha: 0.2),
-            width: isSelected ? 2 : 1,
-          ),
-        ),
-        child: Column(
-          children: [
-            Icon(
-              icon,
-              color: isSelected ? Colors.white : theme.colorScheme.onSurface,
-              size: 24,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: isSelected ? Colors.white : theme.colorScheme.onSurface,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAppInfoSection(BuildContext context, ThemeData theme) {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.info_rounded,
-                  color: theme.colorScheme.primary,
-                  size: 24,
-                ),
-                const SizedBox(width: 12),
-                Text(S.of(context).appInformation,
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            _buildInfoRow(
-              context: context,
-              theme: theme,
-              icon: Icons.apps_rounded,
-              title: 'App Version',
-              value: '1.0.0',
-            ),
-            const SizedBox(height: 12),
-            _buildInfoRow(
-              context: context,
-              theme: theme,
-              icon: Icons.support_rounded,
-              title: 'Support',
-              value: 'Contact us for help',
-            ),
-            const SizedBox(height: 12),
-            _buildInfoRow(
-              context: context,
-              theme: theme,
-              icon: Icons.privacy_tip_rounded,
-              title: 'Privacy',
-              value: 'Your data is secure',
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInfoRow({
-    required BuildContext context,
-    required ThemeData theme,
-    required IconData icon,
-    required String title,
-    required String value,
-  }) {
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.primary.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(
-            icon,
-            color: theme.colorScheme.primary,
-            size: 18,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              Text(
-                value,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
-                ),
-              ),
             ],
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildAboutSection(BuildContext context, ThemeData theme) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: ListTile(
+        leading: _iconBox(theme,
+            child: Icon(Icons.apps_rounded,
+                color: theme.colorScheme.primary, size: 20)),
+        title: const Text('MQ Pay'),
+        trailing: const Text('v1.0.0'),
+      ),
+    );
+  }
+
+  Widget _buildActionTile(BuildContext context, ThemeData theme,
+      {required IconData icon,
+      required String label,
+      Color? iconColor,
+      VoidCallback? onTap}) {
+    final color = iconColor ?? theme.colorScheme.primary;
+    return ListTile(
+      leading: Container(
+        width: 36,
+        height: 36,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8)),
+        child: Icon(icon, color: color, size: 20),
+      ),
+      title: Text(label),
+      trailing: Icon(Icons.chevron_right_rounded,
+          size: 18,
+          color: theme.colorScheme.onSurface.withValues(alpha: 0.3)),
+      onTap: onTap,
+    );
+  }
+
+  Widget _iconBox(ThemeData theme, {required Widget child}) {
+    return Container(
+      width: 36,
+      height: 36,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+          color: theme.colorScheme.primary.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(8)),
+      child: child,
     );
   }
 
@@ -2070,7 +1561,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceVariant
+                      color: theme.colorScheme.surfaceContainerHighest
                           .withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -2180,181 +1671,6 @@ class _SettingsPageState extends State<SettingsPage> {
         // Already initialized or error - ignore
       }
     }
-  }
-
-  Widget _buildSupabaseBackupSection(BuildContext context, ThemeData theme) {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    Icons.cloud_done_rounded,
-                    color: theme.colorScheme.primary,
-                    size: 24,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(S.of(context).supabaseCloudBackup,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        'Backup your data to the cloud',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface
-                              .withValues(alpha: 0.6),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            if (!_supabaseConfigured) ...[
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.orange.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: Colors.orange.withValues(alpha: 0.3),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.warning_amber_rounded,
-                      color: Colors.orange,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Supabase credentials not configured. Update the hardcoded values in supabase_backup_service.dart',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: Colors.orange.shade900,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ] else ...[
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: theme.colorScheme.primary.withValues(alpha: 0.3),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.check_circle_rounded,
-                      color: theme.colorScheme.primary,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Supabase is configured and ready (Max 3 backups)',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.primary,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: _uploadToSupabase,
-                      icon: const Icon(Icons.cloud_upload_rounded),
-                      label: Text(S.of(context).uploadBackup),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: theme.colorScheme.primary,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _viewSupabaseBackups,
-                      icon: const Icon(Icons.cloud_download_rounded),
-                      label: Text(S.of(context).viewBackups),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: theme.colorScheme.primary,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        side: BorderSide(color: theme.colorScheme.primary, width: 2),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              FutureBuilder<DateTime?>(
-                future: SupabaseBackupService.getLastBackupTime(),
-                builder: (context, snapshot) {
-                  final lastBackup = snapshot.data;
-                  return Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.access_time_rounded,
-                          size: 16,
-                          color: theme.colorScheme.onSurface
-                              .withValues(alpha: 0.6),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          lastBackup != null
-                              ? 'Last backup: ${safeDateFormat('MMM d, y h:mm a').format(lastBackup)}'
-                              : 'No backups yet',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface
-                                .withValues(alpha: 0.6),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
   }
 
   Future<void> _uploadToSupabase() async {
