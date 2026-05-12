@@ -70,10 +70,15 @@ class _ScrollIndicatorWrapperState extends State<ScrollIndicatorWrapper> {
     final theme = Theme.of(context);
     final indicatorColor = widget.indicatorColor ?? theme.colorScheme.primary;
 
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        widget.child,
+    return NotificationListener<ScrollMetricsNotification>(
+      onNotification: (notification) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _updateIndicators());
+        return false;
+      },
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          widget.child,
 
         // Top scroll indicator - positioned above content with higher elevation
         if (_showTopIndicator)
@@ -197,6 +202,7 @@ class _ScrollIndicatorWrapperState extends State<ScrollIndicatorWrapper> {
             ),
           ),
       ],
+      ),
     );
   }
 }

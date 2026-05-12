@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../generated/l10n.dart';
-import 'package:flutter_native_contact_picker/flutter_native_contact_picker.dart';
-import 'package:flutter_native_contact_picker/model/contact.dart' as picker;
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../helpers/launcher.dart';
-import '../helpers/app_theme.dart';
 import 'settings.dart';
 import 'qr_scanner_screen.dart';
 import 'ussd_records_screen.dart';
@@ -17,7 +14,6 @@ import '../services/tariff_service.dart';
 import '../services/ussd_transaction_manager.dart';
 import 'dart:convert';
 import 'package:qr_flutter/qr_flutter.dart';
-import '../widgets/scroll_indicator.dart';
 
 class Home extends StatefulWidget {
   const Home({super.key});
@@ -32,8 +28,6 @@ class _HomeState extends State<Home> {
   final TextEditingController mobileController = TextEditingController();
   final TextEditingController manualMobileController = TextEditingController();
   final TextEditingController momoCodeController = TextEditingController();
-  final FlutterNativeContactPicker _contactPicker =
-      FlutterNativeContactPicker();
   final FocusNode amountFocusNode = FocusNode();
   final FocusNode phoneFocusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
@@ -44,6 +38,7 @@ class _HomeState extends State<Home> {
 
   // Multistep form variables
   int currentStep = 0;
+  bool recipientFirst = false;
   bool isPhoneNumberMomo = false;
   bool isRecordOnlyMode = false; // true = Record Only, false = Dial Now
   bool isReceiveMode =
@@ -171,11 +166,13 @@ class _HomeState extends State<Home> {
 
       if (currentStep == 1) {
         Future.delayed(const Duration(milliseconds: 350), () {
-          phoneFocusNode.requestFocus();
+          final focusNode =
+              recipientFirst ? amountFocusNode : phoneFocusNode;
+          focusNode.requestFocus();
           Future.delayed(const Duration(milliseconds: 300), () {
-            if (context.mounted && phoneFocusNode.context != null) {
+            if (context.mounted && focusNode.context != null) {
               Scrollable.ensureVisible(
-                phoneFocusNode.context!,
+                focusNode.context!,
                 duration: const Duration(milliseconds: 300),
                 curve: Curves.easeInOut,
               );
@@ -194,7 +191,9 @@ class _HomeState extends State<Home> {
 
       if (currentStep == 0) {
         Future.delayed(const Duration(milliseconds: 350), () {
-          amountFocusNode.requestFocus();
+          final focusNode =
+              recipientFirst ? phoneFocusNode : amountFocusNode;
+          focusNode.requestFocus();
         });
       }
     }
@@ -382,7 +381,6 @@ class _HomeState extends State<Home> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
@@ -390,36 +388,16 @@ class _HomeState extends State<Home> {
       body: Stack(
         children: [
           SafeArea(
-            child: ScrollIndicatorWrapper(
+            child: SingleChildScrollView(
               controller: _scrollController,
-              child: SingleChildScrollView(
-                controller: _scrollController,
-                padding: EdgeInsets.only(
-                  left: 20,
-                  right: 20,
-                  top: 20,
-                  bottom: 20 +
-                      keyboardHeight *
-                          0.1, // Add small padding when keyboard is open
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // App Title
-                    _buildAppHeader(context, theme),
-                    const SizedBox(height: 30),
-
-                    // Quick Actions (Scan QR & Load Contact)
-                    _buildQuickActions(context, theme),
-                    const SizedBox(height: 30),
-
-                    // Streamlined Payment Form
-                    _buildStreamlinedPaymentForm(context, theme),
-
-                    // Add extra space when keyboard is visible
-                    if (keyboardHeight > 0) SizedBox(height: 100),
-                  ],
-                ),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildAppHeader(context, theme),
+                  const SizedBox(height: 20),
+                  _buildStreamlinedPaymentForm(context, theme),
+                ],
               ),
             ),
           ),
@@ -431,28 +409,19 @@ class _HomeState extends State<Home> {
 
   Widget _buildAppHeader(BuildContext context, ThemeData theme) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'MQ Pay',
-              style: theme.textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: theme.colorScheme.primary,
-              ),
-            ),
-            Text(
-              S.of(context).quickPayment,
-              style: theme.textTheme.bodyLarge?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-              ),
-            ),
-          ],
-        ),
         Row(
           children: [
+            IconButton(
+              onPressed: _scanQrCode,
+              icon: Icon(
+                Icons.qr_code_scanner_rounded,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                size: 28,
+              ),
+              tooltip: S.of(context).scanNow,
+            ),
             IconButton(
               onPressed: () => Navigator.push(
                 context,
@@ -477,7 +446,6 @@ class _HomeState extends State<Home> {
                             selectedLanguage: selectedLanguage ?? 'en',
                           )),
                 );
-                // Reload payment methods after returning from settings
                 _loadSavedPreferences();
               },
               icon: Icon(
@@ -493,9 +461,6 @@ class _HomeState extends State<Home> {
   }
 
   Widget _buildStreamlinedPaymentForm(BuildContext context, ThemeData theme) {
-    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
-    final isKeyboardOpen = keyboardHeight > 0;
-
     return Container(
       constraints: BoxConstraints(maxWidth: 400),
       width: double.infinity,
@@ -505,7 +470,7 @@ class _HomeState extends State<Home> {
           borderRadius: BorderRadius.circular(20),
         ),
         child: Padding(
-          padding: EdgeInsets.all(isKeyboardOpen ? 20 : 30),
+          padding: const EdgeInsets.all(20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -630,13 +595,6 @@ class _HomeState extends State<Home> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      S.of(context).sendMoney,
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: theme.colorScheme.primary,
-                      ),
-                    ),
                     // Record Only label + switch
                     Row(
                       mainAxisSize: MainAxisSize.min,
@@ -693,45 +651,23 @@ class _HomeState extends State<Home> {
                 // Receive Mode - Just amount input and generate button
                 _buildReceiveMode(theme),
               ] else ...[
-                // Send Mode - Full 2-step flow
-                // Step Progress Indicator
-                Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.primary,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Container(
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: currentStep >= 1
-                              ? theme.colorScheme.primary
-                              : theme.colorScheme.outline
-                                  .withValues(alpha: 0.3),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 40),
+                // Send Mode — step order indicator with swap
+                _buildStepOrderIndicator(theme),
+                const SizedBox(height: 32),
 
                 // Step Content
                 AnimatedSwitcher(
                   duration: const Duration(milliseconds: 300),
                   child: currentStep == 0
-                      ? _buildAmountStep(theme)
-                      : _buildPhoneStep(theme),
+                      ? (recipientFirst
+                          ? _buildPhoneStep(theme)
+                          : _buildAmountStep(theme))
+                      : (recipientFirst
+                          ? _buildAmountStep(theme)
+                          : _buildPhoneStep(theme)),
                 ),
 
-                const SizedBox(height: 30),
+                const SizedBox(height: 24),
 
                 // Navigation Buttons
                 Row(
@@ -915,13 +851,6 @@ class _HomeState extends State<Home> {
             color: theme.colorScheme.onSurface,
           ),
         ),
-        const SizedBox(height: 8),
-        Text(
-          S.of(context).howMuchSend,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
-          ),
-        ),
         const SizedBox(height: 20),
 
         // Quick amount presets
@@ -941,7 +870,7 @@ class _HomeState extends State<Home> {
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 150),
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
                   color: isSelected
                       ? theme.colorScheme.primary
@@ -955,10 +884,10 @@ class _HomeState extends State<Home> {
                 ),
                 child: Text(
                   label,
-                  style: theme.textTheme.bodyMedium?.copyWith(
+                  style: theme.textTheme.labelMedium?.copyWith(
                     color:
                         isSelected ? Colors.white : theme.colorScheme.primary,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
@@ -1018,7 +947,13 @@ class _HomeState extends State<Home> {
             setState(() {});
           },
           onSubmitted: (_) {
-            if (_isValidAmount()) _nextStep();
+            if (_isValidAmount()) {
+              if (recipientFirst && currentStep == 1) {
+                if (_canProceedWithPayment()) _processPayment(context);
+              } else {
+                _nextStep();
+              }
+            }
           },
         ),
         const SizedBox(height: 16),
@@ -1062,15 +997,6 @@ class _HomeState extends State<Home> {
           style: theme.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.bold,
             color: theme.colorScheme.onSurface,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          isRecordOnlyMode
-              ? S.of(context).optionalSidePaymentsHint
-              : S.of(context).enterPhoneOrMomoHint,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
           ),
         ),
         const SizedBox(height: 24),
@@ -1147,7 +1073,14 @@ class _HomeState extends State<Home> {
                 _selectContactSuggestion(filteredContacts[0]);
                 return;
               }
-              if (_canProceedWithPayment()) _processPayment(context);
+              if (recipientFirst && currentStep == 0) {
+                final hasValid = isRecordOnlyMode ||
+                    _isValidPhoneNumber(value) ||
+                    _isValidMomoCode(value);
+                if (hasValid) _nextStep();
+              } else if (_canProceedWithPayment()) {
+                _processPayment(context);
+              }
             },
           ),
 
@@ -1222,6 +1155,93 @@ class _HomeState extends State<Home> {
     );
   }
 
+  Widget _buildStepOrderIndicator(ThemeData theme) {
+    final bool step1IsAmount = !recipientFirst;
+    final bool canSwap = currentStep == 0;
+
+    Widget pill({
+      required IconData icon,
+      required String label,
+      required bool active,
+    }) {
+      return Expanded(
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: active
+                ? theme.colorScheme.primary
+                : theme.colorScheme.primary.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon,
+                  size: 16,
+                  color: active
+                      ? Colors.white
+                      : theme.colorScheme.primary.withValues(alpha: 0.5)),
+              const SizedBox(width: 5),
+              Text(
+                label,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: active
+                      ? Colors.white
+                      : theme.colorScheme.primary.withValues(alpha: 0.5),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Row(
+      children: [
+        pill(
+          icon: step1IsAmount
+              ? Icons.attach_money_rounded
+              : Icons.person_search_rounded,
+          label: step1IsAmount ? 'Amount' : 'Contact',
+          active: true,
+        ),
+        const SizedBox(width: 6),
+        GestureDetector(
+          onTap: canSwap
+              ? () => setState(() => recipientFirst = !recipientFirst)
+              : null,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: canSwap
+                  ? theme.colorScheme.primary.withValues(alpha: 0.12)
+                  : Colors.transparent,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.swap_horiz_rounded,
+              size: 18,
+              color: canSwap
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.onSurface.withValues(alpha: 0.2),
+            ),
+          ),
+        ),
+        const SizedBox(width: 6),
+        pill(
+          icon: step1IsAmount
+              ? Icons.person_search_rounded
+              : Icons.attach_money_rounded,
+          label: step1IsAmount ? 'Contact' : 'Amount',
+          active: currentStep >= 1,
+        ),
+      ],
+    );
+  }
+
   Widget _buildSelectedContactChip(ThemeData theme) {
     final contact = _selectedContact!;
     return Container(
@@ -1288,6 +1308,13 @@ class _HomeState extends State<Home> {
 
   VoidCallback? _getNextButtonAction() {
     if (currentStep == 0) {
+      if (recipientFirst) {
+        final hasValidRecipient = isRecordOnlyMode ||
+            (mobileController.text.isNotEmpty &&
+                (_isValidPhoneNumber(mobileController.text) ||
+                    _isValidMomoCode(mobileController.text)));
+        return hasValidRecipient ? _nextStep : null;
+      }
       return _isValidAmount() ? _nextStep : null;
     } else {
       return _canProceedWithPayment() ? () => _processPayment(context) : null;
@@ -1997,154 +2024,8 @@ class _HomeState extends State<Home> {
     return amount != null && amount >= 1;
   }
 
-  Widget _buildQuickActions(BuildContext context, ThemeData theme) {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildActionCard(
-            context: context,
-            theme: theme,
-            icon: Icons.qr_code_scanner_rounded,
-            title: S.of(context).scanNow,
-            onTap: _scanQrCode,
-            gradient: AppTheme.secondaryGradient,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildActionCard(
-            context: context,
-            theme: theme,
-            icon: Icons.contacts_rounded,
-            title: S.of(context).contact,
-            onTap: _loadContact,
-            gradient: LinearGradient(
-              colors: [
-                AppTheme.warningColor,
-                AppTheme.warningColor.withValues(alpha: 0.8),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
 
-  Widget _buildActionCard({
-    required BuildContext context,
-    required ThemeData theme,
-    required IconData icon,
-    required String title,
-    required VoidCallback onTap,
-    required Gradient gradient,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          gradient: gradient,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: gradient.colors.first.withValues(alpha: 0.25),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              color: Colors.white,
-              size: 24,
-            ),
-            const SizedBox(width: 10),
-            Text(
-              title,
-              style: theme.textTheme.titleSmall?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
-  Future<void> _loadContact() async {
-    try {
-      picker.Contact? contact = await _contactPicker.selectContact();
-      if (contact != null) {
-        List<String>? phoneNumbers = contact.phoneNumbers;
-        selectedNumber = phoneNumbers?.first;
-        if (selectedNumber != null) {
-          if (_isValidPhoneNumber(selectedNumber!) ||
-              _isValidMomoCode(selectedNumber!)) {
-            String formattedNumber = _formatPhoneNumber(selectedNumber!);
-            final contactName = contact.fullName;
-            setState(() {
-              mobileController.text = formattedNumber;
-              if (contactName != null && contactName.isNotEmpty) {
-                _selectedContact = ContactSuggestion(
-                  name: contactName,
-                  phoneNumber: formattedNumber,
-                  originalPhone: formattedNumber,
-                );
-                selectedName = contactName;
-              } else {
-                _selectedContact = null;
-              }
-              if (currentStep == 0) currentStep = 1;
-              _suggestionDismissed = true;
-            });
-
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(S.of(context).contactLoaded(formattedNumber)),
-                duration: const Duration(seconds: 2),
-              ),
-            );
-          } else {
-            _showErrorDialog(
-              context: context,
-              title: S.of(context).invalidPhoneNumber,
-              message: S.of(context).invalidContactPhone,
-            );
-          }
-        }
-      }
-    } catch (e) {
-      _showErrorDialog(
-        context: context,
-        title: S.of(context).error,
-        message: 'Failed to load contact: $e',
-      );
-    }
-  }
-
-  void _showErrorDialog({
-    required BuildContext context,
-    required String title,
-    required String message,
-  }) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(S.of(context).ok),
-          ),
-        ],
-      ),
-    );
-  }
 
   // Helper to get provider from phone number
   String _getProviderFromPhone(String phone) {
