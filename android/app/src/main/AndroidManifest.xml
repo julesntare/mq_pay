@@ -30,6 +30,8 @@
     <uses-permission-sdk-23 android:name="android.permission.CALL_PHONE" />
     <!-- SMS reading for automatic transaction detection - runtime permission required on API 23+ -->
     <uses-permission-sdk-23 android:name="android.permission.READ_SMS" />
+    <!-- Call log reading to suggest recent callers in send money flow - runtime permission required on API 23+ -->
+    <uses-permission-sdk-23 android:name="android.permission.READ_CALL_LOG" />
     <!-- Real-time SMS listening for transaction detection - runtime permission required on API 23+ -->
     <uses-permission-sdk-23 android:name="android.permission.RECEIVE_SMS" />
     <!-- Transaction status and background task notifications - runtime permission required on API 33+ -->

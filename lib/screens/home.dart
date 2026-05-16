@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../generated/l10n.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:call_log/call_log.dart';
 import '../helpers/launcher.dart';
 import 'settings.dart';
 import 'qr_scanner_screen.dart';
@@ -59,11 +60,15 @@ class _HomeState extends State<Home> {
   List<ContactSuggestion> filteredContacts = [];
   bool isLoadingContacts = false;
   bool _suggestionDismissed = false;
+  List<CallLogEntry> _recentCallLog = [];
+  bool _isLoadingRecentCalls = false;
+  bool _recentCallPermissionDenied = false;
 
   @override
   void initState() {
     super.initState();
     _loadSavedPreferences();
+    phoneFocusNode.addListener(_onPhoneFocusChanged);
     // Request focus on amount field after build is complete
     WidgetsBinding.instance.addPostFrameCallback((_) {
       amountFocusNode.requestFocus();
@@ -254,6 +259,7 @@ class _HomeState extends State<Home> {
     manualMobileController.dispose();
     momoCodeController.dispose();
     amountFocusNode.dispose();
+    phoneFocusNode.removeListener(_onPhoneFocusChanged);
     phoneFocusNode.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -2274,6 +2280,40 @@ class _HomeState extends State<Home> {
     }
   }
 
+  void _onPhoneFocusChanged() {
+    if (phoneFocusNode.hasFocus) _loadRecentCalls();
+  }
+
+  Future<void> _loadRecentCalls() async {
+    if (_isLoadingRecentCalls || _recentCallLog.isNotEmpty || _recentCallPermissionDenied) return;
+    setState(() => _isLoadingRecentCalls = true);
+    try {
+      final Iterable<CallLogEntry> entries = await CallLog.query();
+      final Set<String> seen = {};
+      final List<CallLogEntry> fresh = [];
+      for (final e in entries) {
+        final num = e.number ?? '';
+        if (num.isEmpty) continue;
+        if (e.callType != CallType.incoming && e.callType != CallType.missed) continue;
+        final formatted = _formatPhoneNumber(num);
+        if (formatted.isEmpty) continue;
+        if (seen.contains(formatted)) continue;
+        seen.add(formatted);
+        fresh.add(e);
+        if (fresh.length >= 10) break;
+      }
+      setState(() {
+        _recentCallLog = fresh;
+        _isLoadingRecentCalls = false;
+      });
+    } catch (_) {
+      setState(() {
+        _isLoadingRecentCalls = false;
+        _recentCallPermissionDenied = true;
+      });
+    }
+  }
+
   // Filter contacts and recent USSD records based on search query
   Future<void> _filterContacts(String query) async {
     if (query.isEmpty) {
@@ -2371,6 +2411,28 @@ class _HomeState extends State<Home> {
       // ignore errors reading records
     }
 
+    // Third: include matching recent call log entries (incoming/missed callers)
+    for (final e in _recentCallLog) {
+      if (suggestions.length >= 5) break;
+      final num = e.number ?? '';
+      final formatted = _formatPhoneNumber(num);
+      if (formatted.isEmpty) continue;
+      final callerName = (e.name != null && e.name!.isNotEmpty) ? e.name! : formatted;
+      final matchesQuery =
+          (queryDigits.isNotEmpty && (num.contains(queryDigits) || formatted.contains(queryDigits))) ||
+          callerName.toLowerCase().contains(queryLower);
+      final key = 'call-$formatted';
+      if (matchesQuery && !addedKeys.contains(key)) {
+        suggestions.add(ContactSuggestion(
+          name: callerName,
+          phoneNumber: formatted,
+          originalPhone: num,
+          isRecentCall: true,
+        ));
+        addedKeys.add(key);
+      }
+    }
+
     setState(() {
       filteredContacts = suggestions.take(5).toList();
     });
@@ -2408,6 +2470,7 @@ class _HomeState extends State<Home> {
     if (_suggestionDismissed) return false;
     final phoneQuery = mobileController.text;
     if (filteredContacts.isNotEmpty) return true;
+    if (phoneQuery.isEmpty && _recentCallLog.isNotEmpty) return true;
     if (phoneQuery.isNotEmpty &&
         (_isValidPhoneNumber(phoneQuery) || _isValidMomoCode(phoneQuery))) {
       return true;
@@ -2482,6 +2545,41 @@ class _HomeState extends State<Home> {
               Expanded(
                 child: ListView(
                   children: [
+                    // When no query typed, show recent incoming/missed callers
+                    if (mobileController.text.isEmpty && _recentCallLog.isNotEmpty) ...[
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                        child: Text(
+                          'Recent incoming calls',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                              letterSpacing: 0.5),
+                        ),
+                      ),
+                      ...List.generate(_recentCallLog.take(5).length, (i) {
+                        final e = _recentCallLog.toList()[i];
+                        final num = e.number ?? '';
+                        final formatted = _formatPhoneNumber(num);
+                        final callerName = (e.name != null && e.name!.isNotEmpty) ? e.name! : formatted;
+                        final suggestion = ContactSuggestion(
+                          name: callerName,
+                          phoneNumber: formatted,
+                          originalPhone: num,
+                          isRecentCall: true,
+                        );
+                        return ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: theme.colorScheme.tertiary.withValues(alpha: 0.1),
+                            child: Icon(Icons.call_received_rounded,
+                                color: theme.colorScheme.tertiary, size: 20),
+                          ),
+                          title: Text(callerName,
+                              style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+                          subtitle: Text(formatted, style: theme.textTheme.bodySmall),
+                          onTap: () => _selectContactSuggestion(suggestion),
+                        );
+                      }),
+                    ],
                     ...List.generate(filteredContacts.length, (index) {
                       final contact = filteredContacts[index];
                       return ListTile(
@@ -2489,10 +2587,16 @@ class _HomeState extends State<Home> {
                             ? theme.colorScheme.primary.withValues(alpha: 0.1)
                             : null,
                         leading: CircleAvatar(
-                          backgroundColor:
-                              theme.colorScheme.primary.withValues(alpha: 0.1),
-                          child: Icon(Icons.person,
-                              color: theme.colorScheme.primary, size: 20),
+                          backgroundColor: contact.isRecentCall
+                              ? theme.colorScheme.tertiary.withValues(alpha: 0.1)
+                              : theme.colorScheme.primary.withValues(alpha: 0.1),
+                          child: Icon(
+                            contact.isRecentCall ? Icons.call_received_rounded : Icons.person,
+                            color: contact.isRecentCall
+                                ? theme.colorScheme.tertiary
+                                : theme.colorScheme.primary,
+                            size: 20,
+                          ),
                         ),
                         title: Text(contact.name,
                             style: theme.textTheme.bodyMedium?.copyWith(
@@ -2835,10 +2939,12 @@ class ContactSuggestion {
   final String name;
   final String phoneNumber;
   final String originalPhone;
+  final bool isRecentCall;
 
   ContactSuggestion({
     required this.name,
     required this.phoneNumber,
     required this.originalPhone,
+    this.isRecentCall = false,
   });
 }
