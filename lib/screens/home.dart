@@ -216,7 +216,7 @@ class _HomeState extends State<Home> {
       selectedName = null;
       _selectedContact = null;
       filteredContacts = [];
-      _suggestionDismissed = false;
+      _suggestionDismissed = true;
     });
     Future.delayed(const Duration(milliseconds: 350), () {
       amountFocusNode.requestFocus();
