@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../generated/l10n.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
@@ -1552,7 +1553,7 @@ class _HomeState extends State<Home> {
                           ),
                           IconButton(
                             onPressed: () {
-                              // Copy to clipboard functionality can be added here
+                              Clipboard.setData(ClipboardData(text: ussdCode));
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                     content:

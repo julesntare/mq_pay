@@ -178,6 +178,8 @@ class SmsListenerService {
     final normalizedSender = sender.toLowerCase().trim();
     return normalizedSender.contains('m-money') ||
         normalizedSender.contains('mmoney') ||
-        normalizedSender.contains('mtn');
+        normalizedSender.contains('mtn') ||
+        normalizedSender.contains('airtel') ||
+        normalizedSender.contains('ekash');
   }
 }
