@@ -743,8 +743,11 @@ class _HomeState extends State<Home> {
         TextField(
           controller: amountController,
           focusNode: amountFocusNode,
-          keyboardType: TextInputType.number,
+          keyboardType: TextInputType.text,
           autofocus: true,
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'[0-9kKmM.,]')),
+          ],
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.w600,
@@ -752,6 +755,7 @@ class _HomeState extends State<Home> {
           decoration: InputDecoration(
             labelText: S.of(context).amountRwf,
             hintText: S.of(context).enterAmount,
+            helperText: 'e.g. 5000, 5k, 2.5m',
             prefixIcon: const Icon(Icons.attach_money_rounded),
             suffixIcon: amountController.text.isNotEmpty
                 ? IconButton(
@@ -776,7 +780,24 @@ class _HomeState extends State<Home> {
               vertical: 20,
             ),
           ),
-          onChanged: (value) => setState(() {}),
+          onChanged: (value) {
+            final trimmed = value.replaceAll(',', '').trim();
+            final lower = trimmed.toLowerCase();
+            if (lower.endsWith('k') || lower.endsWith('m')) {
+              final expanded = _expandShorthand(trimmed);
+              final n = int.tryParse(expanded);
+              if (n != null) {
+                final formatted = _formatAmountDisplay(n.toString());
+                amountController.value = TextEditingValue(
+                  text: formatted,
+                  selection: TextSelection.collapsed(offset: formatted.length),
+                );
+                setState(() {});
+                return;
+              }
+            }
+            setState(() {});
+          },
         ),
         const SizedBox(height: 16),
         if (amountController.text.isNotEmpty && !_isValidAmount())
@@ -906,8 +927,11 @@ class _HomeState extends State<Home> {
         TextField(
           controller: amountController,
           focusNode: amountFocusNode,
-          keyboardType: TextInputType.number,
+          keyboardType: TextInputType.text,
           autofocus: true,
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'[0-9kKmM.,]')),
+          ],
           style: const TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.w600,
@@ -915,6 +939,7 @@ class _HomeState extends State<Home> {
           decoration: InputDecoration(
             labelText: S.of(context).amountRwf,
             hintText: S.of(context).enterAmount,
+            helperText: 'e.g. 5000, 5k, 2.5m',
             prefixIcon: const Icon(Icons.attach_money_rounded),
             suffixIcon: amountController.text.isNotEmpty
                 ? IconButton(
@@ -940,10 +965,28 @@ class _HomeState extends State<Home> {
             ),
           ),
           onChanged: (value) {
-            final raw = value.replaceAll(',', '');
-            final n = int.tryParse(raw);
+            final trimmed = value.replaceAll(',', '').trim();
+            final lower = trimmed.toLowerCase();
+
+            if (lower.endsWith('k') || lower.endsWith('m')) {
+              // Expand shorthand immediately when the suffix is typed.
+              final expanded = _expandShorthand(trimmed);
+              final n = int.tryParse(expanded);
+              if (n != null) {
+                final formatted = _formatAmountDisplay(n.toString());
+                amountController.value = TextEditingValue(
+                  text: formatted,
+                  selection: TextSelection.collapsed(offset: formatted.length),
+                );
+                setState(() {});
+                return;
+              }
+            }
+
+            // Plain integer: keep commas in sync.
+            final n = int.tryParse(trimmed);
             if (n != null) {
-              final formatted = _formatAmountDisplay(raw);
+              final formatted = _formatAmountDisplay(n.toString());
               if (formatted != value) {
                 amountController.value = TextEditingValue(
                   text: formatted,
@@ -951,6 +994,7 @@ class _HomeState extends State<Home> {
                 );
               }
             }
+            // Intermediate decimal like "1.5" (before k/m is typed): leave as-is.
             setState(() {});
           },
           onSubmitted: (_) {
@@ -2012,7 +2056,22 @@ class _HomeState extends State<Home> {
     }
   }
 
-  String _getRawAmount() => amountController.text.replaceAll(',', '');
+  /// Expands shorthand like "5k" → "5000", "2.5m" → "2500000".
+  /// Returns the input unchanged if no shorthand suffix is detected.
+  String _expandShorthand(String input) {
+    final lower = input.toLowerCase().trim();
+    if (lower.endsWith('k')) {
+      final num = double.tryParse(lower.substring(0, lower.length - 1));
+      if (num != null && num > 0) return (num * 1000).round().toString();
+    } else if (lower.endsWith('m')) {
+      final num = double.tryParse(lower.substring(0, lower.length - 1));
+      if (num != null && num > 0) return (num * 1000000).round().toString();
+    }
+    return input;
+  }
+
+  String _getRawAmount() =>
+      _expandShorthand(amountController.text.replaceAll(',', ''));
 
   String _formatAmountDisplay(String raw) {
     final digits = raw.replaceAll(RegExp(r'[^0-9]'), '');
