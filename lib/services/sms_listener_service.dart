@@ -11,23 +11,17 @@ class SmsListenerService {
   static final SmsQuery _query = SmsQuery();
   static Timer? _pollingTimer;
 
-  /// Initialize SMS listener
-  /// Uses polling approach to check for new SMS every 5 seconds
+  /// Timestamp of the last completed SMS poll cycle.
+  /// Used to avoid reprocessing the same messages on every tick.
+  static DateTime? _lastSmsCheckTime;
+
   static Future<bool> initialize() async {
-    // Request SMS permissions
     final status = await Permission.sms.request();
-
-    if (!status.isGranted) {
-      return false;
-    }
-
-    // Start polling for new SMS every 5 seconds
+    if (!status.isGranted) return false;
     _startPolling();
-
     return true;
   }
 
-  /// Start polling for new SMS
   static void _startPolling() {
     _pollingTimer?.cancel();
     _pollingTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
@@ -35,132 +29,111 @@ class SmsListenerService {
     });
   }
 
-  /// Check for new SMS since last check
   static Future<void> _checkForNewSms() async {
     try {
-      // Only check if we have pending transactions from today
       final records = await UssdRecordService.getUssdRecords();
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
 
-      final hasPendingToday = records.any((r) =>
-        r.status.name == 'pending' &&
-        r.timestamp.isAfter(today)
-      );
-
-      if (!hasPendingToday) {
-        return; // No pending transactions from today, skip SMS check
+      final hasPending = records.any((r) =>
+        r.status.name == 'pending' && r.timestamp.isAfter(today));
+      if (!hasPending) {
+        _lastSmsCheckTime = now;
+        return;
       }
 
-      // Get recent SMS (last 100 messages to check)
+      // Only examine SMS that arrived since the previous check.
+      // On the very first run, look back 5 minutes to catch any SMS that
+      // arrived while the app was starting up.
+      final checkFrom = _lastSmsCheckTime ??
+          now.subtract(const Duration(minutes: 5));
+
       final messages = await _query.querySms(
         kinds: [SmsQueryKind.inbox],
-        count: 20, // Check last 20 messages
+        count: 20,
       );
 
-      // Filter messages received in last 2 minutes
-      final recentMessages = messages.where((msg) {
-        if (msg.date == null) return false;
-        final msgDate = msg.date!; // Already a DateTime object
-        final diff = now.difference(msgDate);
-        return diff.inMinutes <= 2;
-      }).toList();
+      final newMessages = messages.where((msg) =>
+        msg.date != null && msg.date!.isAfter(checkFrom),
+      ).toList();
 
-      // Process each recent message
-      for (final message in recentMessages) {
+      for (final message in newMessages) {
         await _processSms(message);
       }
+
+      _lastSmsCheckTime = now;
     } catch (e) {
-      // Silently fail - SMS reading is optional feature
       if (kDebugMode) debugPrint('Error checking SMS: $e');
     }
   }
 
-  /// Process a single SMS message
   static Future<void> _processSms(SmsMessage message) async {
     final sender = message.sender ?? '';
     final body = message.body ?? '';
 
-    // Process the SMS and try to match it to a pending transaction
     final matched = await TransactionMatcherService.processSms(body, sender);
-
-    if (matched) {
-      // Show notification to user
-      await NotificationService.showTransactionStatusNotification();
+    if (matched != null) {
+      await NotificationService.showTransactionNotification(matched);
     }
   }
 
-  /// Check if SMS permissions are granted
   static Future<bool> hasPermissions() async {
-    final status = await Permission.sms.status;
-    return status.isGranted;
+    return (await Permission.sms.status).isGranted;
   }
 
-  /// Stop SMS polling
   static void dispose() {
     _pollingTimer?.cancel();
     _pollingTimer = null;
   }
 
-  /// Retry matching pending transactions from today with an extended time window.
-  /// This is called when the app resumes to catch delayed SMS responses.
-  /// Returns the number of transactions matched.
+  /// Scan stored SMS and resolve all pending transactions from the last 24 h.
+  ///
+  /// This is called on app start and every time the app returns to the
+  /// foreground, so it catches SMS that arrived while the app was backgrounded
+  /// or killed — regardless of how long that was.
   static Future<int> retryPendingTransactionMatching() async {
     try {
-      // Only check if we have pending transactions from today
       final records = await UssdRecordService.getUssdRecords();
       final now = DateTime.now();
-      final today = DateTime(now.year, now.month, now.day);
+      final cutoff = now.subtract(const Duration(hours: 24));
 
-      final pendingToday = records.where((r) =>
-        r.status.name == 'pending' &&
-        r.timestamp.isAfter(today)
+      final pendingRecent = records.where((r) =>
+        r.status.name == 'pending' && r.timestamp.isAfter(cutoff),
       ).toList();
 
-      if (pendingToday.isEmpty) {
-        return 0; // No pending transactions from today
-      }
+      if (pendingRecent.isEmpty) return 0;
 
-      // Get SMS from today (extended window - look at more messages)
       final messages = await _query.querySms(
         kinds: [SmsQueryKind.inbox],
-        count: 50, // Check more messages for retry
+        count: 100, // wider net for retry
       );
 
-      // Filter messages from today only
-      final todayMessages = messages.where((msg) {
-        if (msg.date == null) return false;
-        return msg.date!.isAfter(today);
-      }).toList();
+      // Only consider SMS from the same 24-hour window.
+      final recentMessages = messages.where((msg) =>
+        msg.date != null && msg.date!.isAfter(cutoff),
+      ).toList();
 
       int matchedCount = 0;
 
-      // Process each message with extended matching window (5 minutes)
-      for (final message in todayMessages) {
+      for (final message in recentMessages) {
         final sender = message.sender ?? '';
         final body = message.body ?? '';
         final smsTime = message.date;
 
-        // Only process SMS from Mobile Money
-        if (!_isFromMobileMoney(sender)) {
-          continue;
-        }
+        if (!_isFromMobileMoney(sender)) continue;
 
-        // Parse the SMS
         final parsedSms = SmsParserService.parseSms(body);
-        if (parsedSms == null) {
-          continue;
-        }
+        if (parsedSms == null) continue;
 
-        // Try to match with extended 5-minute window, using SMS timestamp
+        // requireSmsAfterTransaction removes the strict upper time cap so
+        // transactions that took >5 min to confirm still get matched.
         final matchedRecord = await TransactionMatcherService.matchSmsToTransaction(
           parsedSms,
-          timeWindowSeconds: 300, // 5 minutes for retry matching
           smsTimestamp: smsTime,
+          requireSmsAfterTransaction: true,
         );
 
         if (matchedRecord != null) {
-          // Update the transaction in storage
           await UssdRecordService.updateUssdRecord(matchedRecord);
           matchedCount++;
         }
@@ -173,13 +146,12 @@ class SmsListenerService {
     }
   }
 
-  /// Check if sender is Mobile Money
   static bool _isFromMobileMoney(String sender) {
-    final normalizedSender = sender.toLowerCase().trim();
-    return normalizedSender.contains('m-money') ||
-        normalizedSender.contains('mmoney') ||
-        normalizedSender.contains('mtn') ||
-        normalizedSender.contains('airtel') ||
-        normalizedSender.contains('ekash');
+    final s = sender.toLowerCase().trim();
+    return s.contains('m-money') ||
+        s.contains('mmoney') ||
+        s.contains('mtn') ||
+        s.contains('airtel') ||
+        s.contains('ekash');
   }
 }

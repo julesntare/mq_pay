@@ -1,10 +1,12 @@
 import 'package:flutter/foundation.dart';
 
-/// Service to detect keywords in USSD responses and determine transaction validity
 class UssdKeywordDetector {
-  // Success keywords - transaction should be saved
   static const List<String> _successKeywords = [
+    // English
     'you have sent',
+    'you have transferred',
+    'has been sent',
+    'has been transferred',
     'thank you for using mtn mobile money',
     'ekash',
     'successful',
@@ -13,13 +15,22 @@ class UssdKeywordDetector {
     'confirmed',
     'payment of',
     'transaction completed',
+    'transaction id',  // confirmation reference shown on success
+    'please keep',    // "Please keep this as proof of payment"
+    'your payment',
+    // French (MTN Rwanda bilingual SMS)
+    'avez transféré',
+    'effectué',
+    'confirmé',
+    'réussi',
   ];
 
-  // Failure keywords - transaction should NOT be saved
   static const List<String> _failureKeywords = [
+    // English
     'not enough funds to perform transaction',
     'insufficient funds',
     'insufficient balance',
+    'insufficient',
     'failed',
     'cancelled',
     'rejected',
@@ -27,63 +38,65 @@ class UssdKeywordDetector {
     'error',
     'unable to',
     'transaction failed',
+    'account not found',
+    'not registered',
+    'does not exist',
+    'session expired',
+    'service unavailable',
+    'try again later',
+    'wrong pin',
+    'incorrect pin',
+    // French
+    'fonds insuffisants',
+    'refusé',
+    'échec',
   ];
 
-  /// Validates if a USSD response text should trigger saving a transaction
-  ///
-  /// Returns:
-  /// - true: Response contains success keywords, save transaction
-  /// - false: Response contains failure keywords or no success keywords, DO NOT save
+  /// Returns true if the USSD response indicates a successful transaction.
   static bool shouldSaveTransaction(String ussdResponse) {
     if (ussdResponse.isEmpty) {
       debugPrint('[UssdKeywordDetector] Empty USSD response - NOT saving');
       return false;
     }
 
-    final lowerResponse = ussdResponse.toLowerCase();
+    final lower = ussdResponse.toLowerCase();
 
-    // First check for failure keywords - these take priority
     for (final keyword in _failureKeywords) {
-      if (lowerResponse.contains(keyword)) {
+      if (lower.contains(keyword)) {
         debugPrint('[UssdKeywordDetector] Failure keyword detected: "$keyword" - NOT saving');
         return false;
       }
     }
 
-    // Then check for success keywords
     for (final keyword in _successKeywords) {
-      if (lowerResponse.contains(keyword)) {
+      if (lower.contains(keyword)) {
         debugPrint('[UssdKeywordDetector] Success keyword detected: "$keyword" - SAVING transaction');
         return true;
       }
     }
 
-    // No success keywords found - treat as failed transaction
     debugPrint('[UssdKeywordDetector] No success keywords found - NOT saving');
     return false;
   }
 
-  /// Returns the transaction detection result as a tri-state:
-  /// - 'success': explicit success keywords found
-  /// - 'failure': explicit failure keywords found
-  /// - 'unknown': no success or failure keywords detected
+  /// Tri-state detection: 'success', 'failure', or 'unknown'.
   static String detectTransactionResult(String ussdResponse) {
     if (ussdResponse.isEmpty) {
       debugPrint('[UssdKeywordDetector] Empty USSD response - unknown');
       return 'unknown';
     }
 
-    final lowerResponse = ussdResponse.toLowerCase();
+    final lower = ussdResponse.toLowerCase();
 
     for (final keyword in _failureKeywords) {
-      if (lowerResponse.contains(keyword)) {
+      if (lower.contains(keyword)) {
         debugPrint('[UssdKeywordDetector] Failure keyword detected: "$keyword"');
         return 'failure';
       }
     }
 
     for (final keyword in _successKeywords) {
-      if (lowerResponse.contains(keyword)) {
+      if (lower.contains(keyword)) {
         debugPrint('[UssdKeywordDetector] Success keyword detected: "$keyword"');
         return 'success';
       }
@@ -93,35 +106,25 @@ class UssdKeywordDetector {
     return 'unknown';
   }
 
-  /// Checks if the response indicates a successful transaction
   static bool isSuccessResponse(String ussdResponse) {
-    final lowerResponse = ussdResponse.toLowerCase();
-
-    return _successKeywords.any((keyword) => lowerResponse.contains(keyword)) &&
-           !_failureKeywords.any((keyword) => lowerResponse.contains(keyword));
+    final lower = ussdResponse.toLowerCase();
+    return _successKeywords.any((k) => lower.contains(k)) &&
+        !_failureKeywords.any((k) => lower.contains(k));
   }
 
-  /// Checks if the response indicates a failed transaction
   static bool isFailureResponse(String ussdResponse) {
-    final lowerResponse = ussdResponse.toLowerCase();
-
-    return _failureKeywords.any((keyword) => lowerResponse.contains(keyword));
+    final lower = ussdResponse.toLowerCase();
+    return _failureKeywords.any((k) => lower.contains(k));
   }
 
-  /// Extracts the failure reason from a USSD response (if any)
   static String? extractFailureReason(String ussdResponse) {
-    final lowerResponse = ussdResponse.toLowerCase();
-
+    final lower = ussdResponse.toLowerCase();
     for (final keyword in _failureKeywords) {
-      if (lowerResponse.contains(keyword)) {
-        return keyword;
-      }
+      if (lower.contains(keyword)) return keyword;
     }
-
     return null;
   }
 
-  /// Logs the validation result for debugging
   static void logValidation(String ussdResponse, bool shouldSave) {
     debugPrint('=== USSD Keyword Validation ===');
     debugPrint('Response: $ussdResponse');

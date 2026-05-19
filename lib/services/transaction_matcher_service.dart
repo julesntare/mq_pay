@@ -4,125 +4,117 @@ import 'sms_parser_service.dart';
 import 'ussd_record_service.dart';
 
 class TransactionMatcherService {
-  /// Match SMS to pending transactions within a time window
-  /// Returns the updated transaction if matched, null otherwise
+  /// Match a parsed SMS to a pending transaction.
   ///
-  /// [timeWindowSeconds] - Maximum age of transaction to match (default: 60 seconds for real-time matching)
-  /// [smsTimestamp] - The timestamp of the SMS message (used for retry matching)
+  /// [timeWindowSeconds] — ignored when [requireSmsAfterTransaction] is true.
+  /// [smsTimestamp]      — timestamp of the SMS; falls back to now.
+  /// [requireSmsAfterTransaction] — when true, the SMS only needs to have
+  ///   arrived *after* the transaction (±30 s tolerance), with no upper limit.
+  ///   Use this for retry scans so backgrounded delays never block a match.
   static Future<UssdRecord?> matchSmsToTransaction(
     Map<String, dynamic> parsedSms, {
-    int timeWindowSeconds = 60,
+    int timeWindowSeconds = 300, // 5 minutes (was 60 s)
     DateTime? smsTimestamp,
+    bool requireSmsAfterTransaction = false,
   }) async {
     final amount = parsedSms['amount'] as double?;
     final recipient = parsedSms['recipient'] as String?;
     final status = parsedSms['status'] as String;
+    final smsFee = parsedSms['fee'] as double?;
 
-    if (amount == null) {
-      return null;
-    }
+    if (amount == null) return null;
 
-    // Get all pending transactions from today only
     final allRecords = await UssdRecordService.getUssdRecords();
     final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
+    final cutoff = now.subtract(const Duration(hours: 24));
 
+    // Consider pending transactions from the last 24 hours (not just today).
     final pendingRecords = allRecords
-        .where((record) =>
-          record.status == TransactionStatus.pending &&
-          record.timestamp.isAfter(today)
-        )
-        .toList();
+        .where((r) =>
+          r.status == TransactionStatus.pending &&
+          r.timestamp.isAfter(cutoff))
+        .toList()
+      ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
-    // Sort by timestamp (most recent first)
-    pendingRecords.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-
-    // Use SMS timestamp for matching if provided, otherwise use current time
     final referenceTime = smsTimestamp ?? now;
 
-    // Find matching transaction within time window
+    // Two-pass: prefer a match that also confirms the recipient.
+    UssdRecord? bestMatch;
+    bool bestHasRecipient = false;
+
     for (final record in pendingRecords) {
-      // Calculate time difference between transaction and SMS/reference time
-      final timeDifference = referenceTime.difference(record.timestamp).inSeconds.abs();
+      final timeDiff = referenceTime.difference(record.timestamp).inSeconds;
 
-      // Skip if outside time window
-      if (timeDifference > timeWindowSeconds) {
-        continue;
+      if (requireSmsAfterTransaction) {
+        // SMS must arrive at or after the transaction (30 s tolerance for clock skew).
+        if (timeDiff < -30) continue;
+      } else {
+        if (timeDiff.abs() > timeWindowSeconds) continue;
       }
 
-      // Check if amount matches
-      final amountMatches = _amountMatches(record.amount, amount);
+      final amountMatches = _amountMatches(record.amount, amount) ||
+          _feeInclusiveMatch(record.amount, record.fee, amount, smsFee);
+      if (!amountMatches) continue;
 
-      // Check if recipient matches (partial match)
-      final recipientMatches = recipient == null ||
-          SmsParserService.recipientMatches(recipient, record.recipient) ||
-          (record.contactName != null &&
-              SmsParserService.recipientMatches(recipient, record.contactName!));
+      final hasRecipient = recipient != null &&
+          (SmsParserService.recipientMatches(recipient, record.recipient) ||
+           (record.contactName != null &&
+            SmsParserService.recipientMatches(recipient, record.contactName!)));
 
-      if (amountMatches && recipientMatches) {
-        // Match found! Update the transaction
-        final updatedRecord = record.copyWith(
-          status: status == 'success'
-              ? TransactionStatus.success
-              : TransactionStatus.failed,
-          confirmationCode: parsedSms['confirmationCode'] as String?,
-          smsRawText: parsedSms['rawText'] as String?,
-          statusUpdatedAt: DateTime.now(),
-          // Update fee if provided in SMS (for verification)
-          fee: parsedSms['fee'] as double? ?? record.fee,
-        );
-
-        return updatedRecord;
+      if (hasRecipient && !bestHasRecipient) {
+        bestMatch = record;
+        bestHasRecipient = true;
+      } else if (bestMatch == null) {
+        bestMatch = record;
       }
+
+      if (bestHasRecipient) break; // Can't improve further.
     }
 
-    return null;
+    if (bestMatch == null) return null;
+
+    return bestMatch.copyWith(
+      status: status == 'success' ? TransactionStatus.success : TransactionStatus.failed,
+      confirmationCode: parsedSms['confirmationCode'] as String?,
+      smsRawText: parsedSms['rawText'] as String?,
+      statusUpdatedAt: DateTime.now(),
+      fee: parsedSms['fee'] as double? ?? bestMatch.fee,
+    );
   }
 
-  /// Check if amounts match (allowing small rounding differences)
-  static bool _amountMatches(double transactionAmount, double smsAmount) {
-    // Exact match
-    if (transactionAmount == smsAmount) {
-      return true;
-    }
-
-    // Allow for small rounding errors (within 1 RWF)
-    final difference = (transactionAmount - smsAmount).abs();
-    return difference <= 1.0;
+  static bool _amountMatches(double txAmount, double smsAmount) {
+    return (txAmount - smsAmount).abs() <= 1.0;
   }
 
-  /// Process SMS and update matching transaction
-  static Future<bool> processSms(String smsBody, String sender) async {
-    // Only process SMS from Mobile Money
-    if (!_isFromMobileMoney(sender)) {
-      return false;
-    }
+  /// Some operators report the total (amount + fee) in the SMS.
+  /// Try that as a fallback before giving up on a match.
+  static bool _feeInclusiveMatch(
+      double txAmount, double? txFee, double smsAmount, double? smsFee) {
+    if (txFee == null) return false;
+    return ((txAmount + txFee) - smsAmount).abs() <= 1.0;
+  }
 
-    // Parse the SMS
+  /// Parse sender/body, find a pending transaction, persist the update,
+  /// and return the updated record (or null if nothing matched).
+  static Future<UssdRecord?> processSms(String smsBody, String sender) async {
+    if (!_isFromMobileMoney(sender)) return null;
+
     final parsedSms = SmsParserService.parseSms(smsBody);
-    if (parsedSms == null) {
-      return false;
-    }
+    if (parsedSms == null) return null;
 
-    // Match to a pending transaction
     final matchedRecord = await matchSmsToTransaction(parsedSms);
-    if (matchedRecord == null) {
-      return false;
-    }
+    if (matchedRecord == null) return null;
 
-    // Update the transaction in storage
     await UssdRecordService.updateUssdRecord(matchedRecord);
-
-    return true;
+    return matchedRecord;
   }
 
-  /// Check if sender is Mobile Money
   static bool _isFromMobileMoney(String sender) {
-    final normalizedSender = sender.toLowerCase().trim();
-    return normalizedSender.contains('m-money') ||
-        normalizedSender.contains('mmoney') ||
-        normalizedSender.contains('mtn') ||
-        normalizedSender.contains('airtel') ||
-        normalizedSender.contains('ekash');
+    final s = sender.toLowerCase().trim();
+    return s.contains('m-money') ||
+        s.contains('mmoney') ||
+        s.contains('mtn') ||
+        s.contains('airtel') ||
+        s.contains('ekash');
   }
 }
