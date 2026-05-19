@@ -2,289 +2,310 @@
 
 ![App Icon](assets/icon/icon.png)
 
-MQ Pay is a modern mobile payment application built with Flutter that simplifies mobile money transactions in Rwanda. The app enables users to generate and scan USSD codes for quick payments, manage payment history, and find nearby stores that accept mobile payments.
+MQ Pay is a Flutter mobile payment assistant for Rwanda that streamlines MTN Mobile Money and Airtel eKash transactions. It generates USSD codes, dials them directly, listens for the SMS confirmation, and automatically marks each payment as confirmed or failed — giving you near-API-level transaction tracking without needing API access.
+
+---
 
 ## Features
 
-- **QR Code Scanner**: Scan QR codes containing USSD payment codes
-- **Multi-step Payment Form**: Intuitive interface for entering payment details
-- **Contact Integration**: Select recipients from your phone's contact list
-- **Payment History**: Track and manage your payment records
-- **Store Locator**: Find nearby stores that accept MQ Pay
-- **Multi-language Support**: Available in English, French, Kinyarwanda, and Swahili
-- **Dark/Light Theme**: Toggle between light and dark modes
-- **Offline Storage**: Uses SharedPreferences for local data storage
-- **Firebase Integration**: Cloud storage and synchronization
+### Payments
+- **Multi-step payment form** — enter amount and recipient in a guided flow
+- **Shorthand amounts** — type `5k` for 5,000 or `2.5m` for 2,500,000 RWF
+- **Quick presets** — one-tap amount chips (500, 1K, 2K, 5K … 100K)
+- **MTN & Airtel auto-detection** — phone prefix determines the correct USSD format automatically
+- **MoMo code support** — send to merchant MoMo codes (`*182*8*1*…`) with zero fee
+- **Record-only mode** — log a payment you made outside the app (cash, manual dial, etc.)
+- **Receive mode** — generate a QR code so someone can pay you the exact amount
 
-## Screenshots
+### Transaction Tracking
+- **Automatic SMS confirmation** — reads incoming Mobile Money SMS and matches them to pending transactions, marking them success or failed without manual intervention
+- **USSD popup detection** — captures the USSD response dialog via Android Accessibility Service for instant status updates
+- **Pending → resolved pipeline** — on app resume, retries matching any SMS that arrived while the app was backgrounded
+- **Transaction history** — full log with status badges, fees, confirmation codes, date filtering, and reason tags
+- **Loan tracking** — flag transactions as loans and mark them recovered
+- **Edit / delete records** — correct any record after the fact
 
-The app features a modern, clean interface with:
-- Home screen with quick payment actions
-- Multi-step payment form
-- QR scanner interface
-- Payment history tracking
-- Store management system
-- Settings and preferences
+### Fee Calculation
+- Live fee preview before you dial, using official MTN and Airtel tariff brackets
+- Supports both MTN MoMo Phone and Airtel eKash tariff tables
+- Fee toggle — exclude fee from a record if you didn't pay it yourself
+
+### Contact & QR
+- **Contact autocomplete** — searches your contacts and recent call log as you type
+- **QR scanner** — scan a payment QR code to pre-fill recipient and amount
+- **QR generator** — share your receive QR via any channel
+
+### Backup & Cloud
+- **Supabase cloud backup** — encrypted remote backup, keeps last 3 snapshots
+- **Local file backup** — export / import as JSON or Excel (`.xlsx`)
+- **Auto-backup** — runs automatically on a configurable schedule
+
+### Reporting
+- **Daily totals** — background WorkManager task sends a daily summary
+- **Monthly breakdown** — history screen groups transactions by month with totals
+- **Reason analytics** — track spending by custom reason tags
+
+### UX
+- **Multi-language** — English, French, Kinyarwanda, Swahili
+- **Dark / Light theme**
+- **Push notifications** — notifies you when a transaction status changes, with amount and recipient in the message
+
+---
+
+## USSD Code Formats
+
+| Type | Format |
+|---|---|
+| MTN MoMo Phone | `*182*1*1*[phone]*[amount]#` |
+| Airtel eKash | `*182*1*2*[phone]*[amount]#` |
+| MoMo Code (merchant) | `*182*8*1*[code]*[amount]#` |
+
+Phone prefix determines the network automatically: `078/079` → MTN, `072/073` → Airtel.
+
+---
 
 ## Technology Stack
 
-- **Framework**: Flutter 3.6.1+
-- **Language**: Dart
-- **State Management**: Provider pattern
-- **Local Storage**: SharedPreferences
-- **Backend**: Firebase (Firestore, Core)
-- **Navigation**: MaterialPageRoute
-- **Internationalization**: flutter_localizations
-- **QR Functionality**: qr_flutter, mobile_scanner
-- **Location Services**: geolocator
-- **HTTP Requests**: http package
+| Layer | Technology |
+|---|---|
+| Framework | Flutter 3.6.1+ / Dart 3.6+ |
+| State management | Provider |
+| Local storage | SharedPreferences |
+| Cloud backup | Supabase Flutter |
+| Firebase | Firebase Core, Cloud Firestore (daily totals) |
+| Background tasks | WorkManager |
+| SMS reading | flutter_sms_inbox |
+| Notifications | flutter_local_notifications |
+| QR | qr_flutter, mobile_scanner |
+| Contacts | flutter_contacts |
+| Call log | call_log |
+| Dialer | flutter_phone_direct_caller |
+| Excel export | excel |
+| File picker | file_picker |
+| Permissions | permission_handler |
+| Env vars | flutter_dotenv |
+| i18n | flutter_localizations, intl |
+
+---
+
+## Project Structure
+
+```
+lib/
+├── helpers/
+│   ├── app_theme.dart
+│   ├── launcher.dart          # launchUSSD helper
+│   ├── localProvider.dart
+│   ├── safe_date_format.dart
+│   └── theme_provider.dart
+├── l10n/                      # ARB localization source files
+├── generated/                 # Auto-generated localization classes
+├── models/
+│   ├── daily_total.dart
+│   ├── tariff.dart            # Fee bracket definitions
+│   ├── transaction_status.dart
+│   └── ussd_record.dart       # Core transaction model
+├── screens/
+│   ├── edit_ussd_record_dialog.dart
+│   ├── home.dart              # Payment form + receive mode
+│   ├── qr_scanner_screen.dart
+│   ├── settings.dart          # Payment methods, backup, preferences
+│   └── ussd_records_screen.dart
+├── services/
+│   ├── backup_service.dart         # JSON / Excel local backup
+│   ├── daily_total_service.dart    # WorkManager reporting
+│   ├── notification_service.dart
+│   ├── sms_listener_service.dart   # Polls inbox, deduplicates
+│   ├── sms_parser_service.dart     # Parses MTN & Airtel SMS formats
+│   ├── supabase_backup_service.dart
+│   ├── tariff_service.dart
+│   ├── transaction_matcher_service.dart  # Matches SMS to pending records
+│   ├── ussd_detector_service.dart        # Accessibility Service bridge
+│   ├── ussd_keyword_detector.dart        # Success/failure keyword list
+│   ├── ussd_record_service.dart          # SharedPreferences persistence
+│   └── ussd_transaction_manager.dart     # In-flight transaction state
+├── widgets/
+│   ├── accessibility_permission_card.dart
+│   ├── scroll_indicator.dart
+│   └── transaction_status_badge.dart
+├── firebase_options.dart
+└── main.dart
+```
+
+---
 
 ## Prerequisites
 
-Before running this project, ensure you have:
+- Flutter SDK 3.6.1+
+- Android SDK (Android-only; the USSD dialer and SMS reader are Android features)
+- Firebase account
+- Supabase project (optional — only required for cloud backup)
 
-- Flutter SDK (3.6.1 or higher)
-- Dart SDK
-- Android Studio / VS Code
-- Android SDK / iOS development tools
-- Firebase account (for backend services)
+---
 
 ## Getting Started
 
-### 1. Clone the Repository
+### 1. Clone
 
 ```bash
 git clone https://github.com/julesntare/mq_pay.git
 cd mq_pay
 ```
 
-### 2. Install Dependencies
+### 2. Install dependencies
 
 ```bash
 flutter pub get
 ```
 
-### 3. Firebase Setup
+### 3. Environment variables
 
-1. Create a new Firebase project at [Firebase Console](https://console.firebase.google.com/)
+Create a `.env` file in the project root:
+
+```
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your-anon-key
+```
+
+Supabase is optional. If the keys are absent, cloud backup is simply disabled.
+
+### 4. Firebase setup
+
+1. Create a Firebase project at [console.firebase.google.com](https://console.firebase.google.com/)
 2. Enable Firestore Database
-3. Download `google-services.json` (Android) and place it in `android/app/`
-4. Download `GoogleService-Info.plist` (iOS) and place it in `ios/Runner/`
-5. Run the Firebase CLI configuration:
+3. Place `google-services.json` in `android/app/`
+4. Run:
 
 ```bash
-firebase login
 dart pub global activate flutterfire_cli
 flutterfire configure
 ```
 
-### 4. Generate Localization Files
+### 5. Generate localization files
 
 ```bash
 flutter gen-l10n
 ```
 
-### 5. Run the Application
+### 6. Run
 
-For development:
 ```bash
 flutter run
 ```
 
-For release build:
+Release build:
 ```bash
 flutter build apk --release
-flutter build ios --release
 ```
 
-## Project Structure
+---
 
-```
-lib/
-├── generated/          # Generated localization files
-├── helpers/           # Utility classes and providers
-│   ├── app_theme.dart
-│   ├── launcher.dart
-│   ├── localProvider.dart
-│   └── theme_provider.dart
-├── l10n/              # Localization files
-├── models/            # Data models
-│   ├── store.dart
-│   └── ussd_record.dart
-├── screens/           # UI screens
-│   ├── home.dart
-│   ├── qr_scanner_screen.dart
-│   ├── settings.dart
-│   ├── store_*.dart
-│   └── ussd_records_screen.dart
-├── services/          # Business logic and API calls
-│   ├── store_service.dart
-│   └── ussd_record_service.dart
-└── main.dart          # Application entry point
-```
+## Android Permissions
 
-## Configuration
+The app requests the following permissions at runtime:
 
-### Environment Variables
+| Permission | Purpose |
+|---|---|
+| `READ_SMS` | Read Mobile Money confirmation SMS |
+| `RECEIVE_SMS` | Detect incoming SMS in real time |
+| `READ_CONTACTS` | Contact autocomplete |
+| `READ_CALL_LOG` | Recent-call suggestions in recipient field |
+| `BIND_ACCESSIBILITY_SERVICE` | Capture USSD popup text for instant status updates |
 
-Create a `.env` file in the root directory:
+The accessibility service is optional — SMS-based confirmation works without it.
 
-```
-FIREBASE_PROJECT_ID=your_project_id
-FIREBASE_API_KEY=your_api_key
-```
-
-### App Configuration
-
-The app uses several configuration files:
-- `pubspec.yaml`: Dependencies and app metadata
-- `analysis_options.yaml`: Dart linting rules
-- `firebase.json`: Firebase configuration
-
-## Contributing
-
-We welcome contributions! Please follow these steps:
-
-1. **Fork the repository**
-2. **Create a feature branch**
-   ```bash
-   git checkout -b feature/amazing-feature
-   ```
-3. **Make your changes**
-4. **Follow the coding standards**:
-   - Use proper Dart formatting: `dart format .`
-   - Run static analysis: `flutter analyze`
-   - Ensure tests pass: `flutter test`
-5. **Commit your changes**
-   ```bash
-   git commit -m 'Add some amazing feature'
-   ```
-6. **Push to the branch**
-   ```bash
-   git push origin feature/amazing-feature
-   ```
-7. **Open a Pull Request**
-
-### Code Style Guidelines
-
-- Follow Dart style guide
-- Use meaningful variable and function names
-- Add comments for complex logic
-- Keep functions small and focused
-- Use proper error handling
-
-### Testing
-
-Run tests before submitting:
-```bash
-flutter test
-flutter test --coverage
-```
+---
 
 ## Usage
 
-### Making a Payment
+### Sending money
 
-1. **Enter Amount**: Input the payment amount in RWF
-2. **Add Recipient**: Enter phone number or momo code, or select from contacts
-3. **Generate USSD**: App creates the appropriate USSD code
-4. **Dial and Confirm**: Use the generated code to complete payment
+1. Enter the amount (plain number or shorthand: `5k`, `2.5m`)
+2. Enter the recipient phone number or MoMo code, or pick from contact suggestions
+3. Tap **Next** — the app generates the correct USSD code and shows a fee breakdown
+4. Tap **Dial** — the USSD is dialed automatically
+5. Complete the transaction on your phone (enter PIN when prompted)
+6. MQ Pay reads the confirmation SMS and marks the transaction ✓ or ✗
 
-### Scanning QR Codes
+### Record-only mode
 
-1. Tap "Scan Now" on the home screen
-2. Point camera at QR code
-3. App automatically processes the payment information
-4. Follow prompts to complete transaction
+Switch to **Record Only** to log a payment you're about to make manually (or already made). The record is saved immediately as confirmed, with no USSD dialing.
 
-### Managing Stores
+### Receiving money
 
-1. Navigate to "Nearby Stores"
-2. View stores on map or list view
-3. Add/edit store information
-4. Get directions to stores
+Switch to **Receive** mode, enter the amount, and share the generated QR. The payer scans it to pre-fill recipient and amount on their end.
+
+### Transaction history
+
+Tap the history icon to see all transactions grouped by month. Filter by date, recipient type, or reason tag. Tap any record to edit it.
+
+### Backup
+
+Go to **Settings → Backup**:
+- **Local**: export to JSON or Excel, import from file
+- **Supabase**: push / pull cloud backup (requires `.env` keys)
+- Auto-backup runs on a configurable schedule
+
+---
 
 ## Localization
 
-The app supports multiple languages:
-- English (en)
-- French (fr)
-- Kinyarwanda (rw)
-- Swahili (sw)
+Supported: English (`en`), French (`fr`), Kinyarwanda (`rw`), Swahili (`sw`).
 
-To add a new language:
-1. Create `intl_[language_code].arb` in `lib/l10n/`
+To add a language:
+1. Create `lib/l10n/intl_[code].arb`
 2. Add translations
 3. Run `flutter gen-l10n`
-4. Update supported locales in `main.dart`
+4. Add the locale to `supportedLocales` in `main.dart`
 
-## API Documentation
-
-### USSD Code Generation
-
-The app generates USSD codes for different mobile money services:
-
-- **MTN Mobile Money**: `*182*1*1*[phone]*[amount]#`
-- **Irembo**: `*909#`
-- **Momo Code**: `*182*8*1*[code]*[amount]#`
-
-### Firebase Collections
-
-- `stores`: Store location and details
-- `ussd_records`: Payment history and records
-
-## Security
-
-- Phone numbers are masked in UI and storage
-- Sensitive data is encrypted
-- Firebase security rules restrict data access
-- Input validation prevents code injection
+---
 
 ## Troubleshooting
 
-### Common Issues
-
-**Build Failures**:
+**Build fails after `flutter pub get`**
 ```bash
-flutter clean
-flutter pub get
-flutter run
+flutter clean && flutter pub get && flutter run
 ```
 
-**Firebase Issues**:
-- Verify `google-services.json` placement
-- Check Firebase project configuration
-- Ensure proper dependencies in `pubspec.yaml`
+**Transactions stay pending**
+- Grant SMS permission in device settings
+- Enable the MQ Pay Accessibility Service in *Settings → Accessibility*
+- Open the app after completing the USSD — the retry scan runs on resume
 
-**Location Permissions**:
-- Add location permissions in platform-specific files
-- Handle permission requests in code
+**SMS not matched**
+- Make sure the incoming SMS sender contains `mtn`, `m-money`, `airtel`, or `ekash`
+- Check that the amount in the SMS matches the amount you entered (within 1 RWF)
 
-## License
+**Supabase backup fails**
+- Verify `SUPABASE_URL` and `SUPABASE_ANON_KEY` in `.env`
+- Check Supabase project RLS policies
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Acknowledgments
-
-- Flutter team for the amazing framework
-- Firebase for backend services
-- Rwanda mobile money providers for USSD standards
-- Open source community for various packages
-
-## Support
-
-For support and questions:
-- Create an [Issue](https://github.com/julesntare/mq_pay/issues)
-- Check existing documentation
-- Review Flutter documentation
+---
 
 ## Changelog
 
+### Version 1.0.1
+- Automatic SMS transaction confirmation (MTN + Airtel)
+- USSD popup detection via Accessibility Service
+- Shorthand amount input (5k, 2.5m)
+- Supabase cloud backup
+- Excel export
+- Daily totals reporting
+- Airtel eKash support
+- Contact suggestions from recent call log
+- Record-only and Receive modes
+- Push notifications with transaction details
+
 ### Version 1.0.0
 - Initial release
-- Basic payment functionality
-- QR code scanning
-- Store locator
+- USSD code generation and dialing
+- QR code scanning and generation
+- Transaction history
 - Multi-language support
+- Dark/Light theme
 
 ---
+
+## License
+
+MIT License — see [LICENSE](LICENSE) for details.
