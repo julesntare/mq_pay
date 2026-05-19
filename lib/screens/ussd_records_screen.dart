@@ -75,6 +75,9 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
   double totalFees = 0.0;
   double currentMonthTotalFees = 0.0;
 
+  // Analytics panel toggle
+  bool showAnalytics = false;
+
   @override
   void initState() {
     super.initState();
@@ -417,6 +420,15 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
         actions: [
           if (records.isNotEmpty)
             IconButton(
+              onPressed: () => setState(() => showAnalytics = !showAnalytics),
+              icon: Icon(
+                Icons.bar_chart_rounded,
+                color: showAnalytics ? theme.colorScheme.primary : null,
+              ),
+              tooltip: 'Analytics',
+            ),
+          if (records.isNotEmpty)
+            IconButton(
               onPressed: _clearAllRecords,
               icon: const Icon(Icons.clear_all_rounded),
               tooltip: S.of(context).clearAllRecords,
@@ -443,6 +455,11 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                       SliverToBoxAdapter(
                         child: _buildSummaryCards(theme),
                       ),
+                      // Analytics panel
+                      if (showAnalytics)
+                        SliverToBoxAdapter(
+                          child: _buildAnalyticsCard(theme),
+                        ),
                       // Search bar
                       SliverToBoxAdapter(
                         child: _buildSearchBar(theme),
@@ -500,6 +517,182 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                   ),
                 ),
     );
+  }
+
+  Widget _buildAnalyticsCard(ThemeData theme) {
+    // Build last-6-months data
+    final now = DateTime.now();
+    final months = List.generate(6, (i) {
+      final m = DateTime(now.year, now.month - (5 - i));
+      return m;
+    });
+
+    final confirmedRecords = records.where((r) =>
+        r.status != TransactionStatus.pending &&
+        !(r.isLoan && r.loanRecovered)).toList();
+
+    final monthlyTotals = {
+      for (final m in months)
+        m: confirmedRecords
+            .where((r) =>
+                r.timestamp.year == m.year && r.timestamp.month == m.month)
+            .fold<double>(0.0, (s, r) => s + r.amount),
+    };
+
+    final maxMonthly =
+        monthlyTotals.values.fold<double>(0, (a, b) => b > a ? b : a);
+
+    // Build reason totals (top 5)
+    final reasonTotals = <String, double>{};
+    for (final r in confirmedRecords) {
+      if (r.reason != null && r.reason!.isNotEmpty) {
+        reasonTotals[r.reason!] = (reasonTotals[r.reason!] ?? 0) + r.amount;
+      }
+    }
+    final topReasons = (reasonTotals.entries.toList()
+          ..sort((a, b) => b.value.compareTo(a.value)))
+        .take(5)
+        .toList();
+    final maxReason = topReasons.isEmpty
+        ? 1.0
+        : topReasons.first.value;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: Card(
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(
+                color: theme.colorScheme.outline.withValues(alpha: 0.15))),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // — Monthly spend bar chart —
+              Text('Monthly spend (last 6 months)',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.7))),
+              const SizedBox(height: 16),
+              SizedBox(
+                height: 90,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: months.map((m) {
+                    final total = monthlyTotals[m] ?? 0;
+                    final fraction =
+                        maxMonthly > 0 ? total / maxMonthly : 0.0;
+                    final label = DateFormat('MMM').format(m);
+                    return Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 3),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            if (total > 0)
+                              Text(
+                                _formatCompact(total),
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                    fontSize: 9,
+                                    color: theme.colorScheme.primary),
+                                textAlign: TextAlign.center,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            const SizedBox(height: 2),
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 400),
+                              height: 60 * fraction,
+                              decoration: BoxDecoration(
+                                color: m.year == now.year &&
+                                        m.month == now.month
+                                    ? theme.colorScheme.primary
+                                    : theme.colorScheme.primary
+                                        .withValues(alpha: 0.35),
+                                borderRadius: const BorderRadius.vertical(
+                                    top: Radius.circular(4)),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(label,
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                    fontSize: 10,
+                                    color: theme.colorScheme.onSurface
+                                        .withValues(alpha: 0.5))),
+                          ],
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+
+              if (topReasons.isNotEmpty) ...[
+                const SizedBox(height: 20),
+                Text('Top reasons',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.7))),
+                const SizedBox(height: 10),
+                ...topReasons.map((entry) {
+                  final fraction =
+                      maxReason > 0 ? entry.value / maxReason : 0.0;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 90,
+                          child: Text(
+                            entry.key,
+                            style: theme.textTheme.bodySmall,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                              value: fraction,
+                              minHeight: 10,
+                              backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                  theme.colorScheme.secondary),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        SizedBox(
+                          width: 70,
+                          child: Text(
+                            _formatCompact(entry.value),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                                fontWeight: FontWeight.w600),
+                            textAlign: TextAlign.end,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatCompact(double amount) {
+    if (amount >= 1000000) {
+      return '${(amount / 1000000).toStringAsFixed(1)}M';
+    } else if (amount >= 1000) {
+      return '${(amount / 1000).toStringAsFixed(amount >= 10000 ? 0 : 1)}K';
+    }
+    return amount.toStringAsFixed(0);
   }
 
   Widget _buildSearchBar(ThemeData theme) {

@@ -118,6 +118,14 @@ class SupabaseBackupService {
       final selectedLanguage = prefs.getString('selectedLanguage') ?? 'en';
       final isDarkMode = prefs.getBool('isDarkMode') ?? false;
 
+      // Get favorite contacts
+      final favoriteContactsJson = prefs.getString('favorite_contacts') ?? '[]';
+      final List<dynamic> favoriteContactsList = jsonDecode(favoriteContactsJson);
+
+      // Get bill shortcuts
+      final billShortcutsJson = prefs.getString('bill_shortcuts') ?? '[]';
+      final List<dynamic> billShortcutsList = jsonDecode(billShortcutsJson);
+
       // Create backup object
       final backupData = {
         'version': _backupVersion,
@@ -126,6 +134,8 @@ class SupabaseBackupService {
         'data': {
           'ussdRecords': ussdRecords.map((r) => r.toJson()).toList(),
           'paymentMethods': paymentMethodsList,
+          'favoriteContacts': favoriteContactsList,
+          'billShortcuts': billShortcutsList,
           'settings': {
             'mobileNumber': mobileNumber,
             'momoCode': momoCode,
@@ -327,6 +337,34 @@ class SupabaseBackupService {
         // Save merged payment methods
         final paymentMethodsJson = jsonEncode(allPaymentMethods);
         await prefs.setString('paymentMethods', paymentMethodsJson);
+      }
+
+      // Merge favorite contacts
+      if (data.containsKey('favoriteContacts')) {
+        final List<dynamic> backupFavorites = data['favoriteContacts'] as List;
+        final existingFavJson = prefs.getString('favorite_contacts') ?? '[]';
+        final List<dynamic> existingFavorites = jsonDecode(existingFavJson);
+        final existingPhones =
+            existingFavorites.map((f) => f['phoneNumber'] as String).toSet();
+        final newFavorites = backupFavorites
+            .where((f) => !existingPhones.contains(f['phoneNumber']))
+            .toList();
+        final allFavorites = [...existingFavorites, ...newFavorites];
+        await prefs.setString('favorite_contacts', jsonEncode(allFavorites));
+      }
+
+      // Merge bill shortcuts
+      if (data.containsKey('billShortcuts')) {
+        final List<dynamic> backupShortcuts = data['billShortcuts'] as List;
+        final existingShortcutsJson = prefs.getString('bill_shortcuts') ?? '[]';
+        final List<dynamic> existingShortcuts = jsonDecode(existingShortcutsJson);
+        final existingIds =
+            existingShortcuts.map((s) => s['id'] as String).toSet();
+        final newShortcuts = backupShortcuts
+            .where((s) => !existingIds.contains(s['id']))
+            .toList();
+        final allShortcuts = [...existingShortcuts, ...newShortcuts];
+        await prefs.setString('bill_shortcuts', jsonEncode(allShortcuts));
       }
 
       // Restore settings (optional - don't overwrite if user doesn't want to)

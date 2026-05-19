@@ -16,6 +16,10 @@ import '../services/tariff_service.dart';
 import '../services/ussd_transaction_manager.dart';
 import 'dart:convert';
 import 'package:qr_flutter/qr_flutter.dart';
+import '../models/favorite_contact.dart';
+import '../services/favorites_service.dart';
+import '../models/bill_shortcut.dart';
+import '../services/bill_shortcuts_service.dart';
 
 class Home extends StatefulWidget {
   const Home({super.key});
@@ -65,10 +69,77 @@ class _HomeState extends State<Home> {
   bool _isLoadingRecentCalls = false;
   bool _recentCallPermissionDenied = false;
 
+  // Favorites
+  List<FavoriteContact> _favorites = [];
+  List<FavoriteContact> _frequentContacts = [];
+
+  // Bill shortcuts
+  List<BillShortcut> _billShortcuts = [];
+
+  Future<void> _loadFavorites() async {
+    final favs = await FavoritesService.getFavorites();
+    if (mounted) setState(() => _favorites = favs);
+  }
+
+  Future<void> _loadFrequentContacts() async {
+    final records = await UssdRecordService.getUssdRecords();
+    final counts = <String, int>{};
+    final displayNames = <String, String>{};
+
+    for (final r in records) {
+      if (r.status == TransactionStatus.success &&
+          r.recipient.isNotEmpty &&
+          (_isValidPhoneNumber(r.recipient) || _isValidMomoCode(r.recipient))) {
+        counts[r.recipient] = (counts[r.recipient] ?? 0) + 1;
+        if (r.contactName != null && r.contactName!.isNotEmpty) {
+          displayNames[r.recipient] = r.contactName!;
+        } else if (!displayNames.containsKey(r.recipient)) {
+          displayNames[r.recipient] = r.maskedRecipient ?? r.recipient;
+        }
+      }
+    }
+
+    final sorted = counts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    final frequent = sorted
+        .take(5)
+        .map((e) => FavoriteContact(
+              name: displayNames[e.key] ?? e.key,
+              phoneNumber: e.key,
+            ))
+        .toList();
+
+    if (mounted) setState(() => _frequentContacts = frequent);
+  }
+
+  Future<void> _loadBillShortcuts() async {
+    final shortcuts = await BillShortcutsService.getShortcuts();
+    if (mounted) setState(() => _billShortcuts = shortcuts);
+  }
+
+  Future<void> _toggleFavorite(ContactSuggestion contact) async {
+    final fav = FavoriteContact(
+      name: contact.name,
+      phoneNumber: contact.phoneNumber,
+      originalPhone: contact.originalPhone,
+    );
+    final alreadyFav = _favorites.any((f) => f.phoneNumber == fav.phoneNumber);
+    if (alreadyFav) {
+      await FavoritesService.removeFavorite(fav.phoneNumber);
+    } else {
+      await FavoritesService.addFavorite(fav);
+    }
+    await _loadFavorites();
+  }
+
   @override
   void initState() {
     super.initState();
     _loadSavedPreferences();
+    _loadFavorites();
+    _loadFrequentContacts();
+    _loadBillShortcuts();
     phoneFocusNode.addListener(_onPhoneFocusChanged);
     // Request focus on amount field after build is complete
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -172,8 +243,7 @@ class _HomeState extends State<Home> {
 
       if (currentStep == 1) {
         Future.delayed(const Duration(milliseconds: 350), () {
-          final focusNode =
-              recipientFirst ? amountFocusNode : phoneFocusNode;
+          final focusNode = recipientFirst ? amountFocusNode : phoneFocusNode;
           focusNode.requestFocus();
           Future.delayed(const Duration(milliseconds: 300), () {
             if (context.mounted && focusNode.context != null) {
@@ -197,8 +267,7 @@ class _HomeState extends State<Home> {
 
       if (currentStep == 0) {
         Future.delayed(const Duration(milliseconds: 350), () {
-          final focusNode =
-              recipientFirst ? phoneFocusNode : amountFocusNode;
+          final focusNode = recipientFirst ? phoneFocusNode : amountFocusNode;
           focusNode.requestFocus();
         });
       }
@@ -402,7 +471,9 @@ class _HomeState extends State<Home> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildAppHeader(context, theme),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
+                  _buildFavoritesRow(theme),
+                  _buildBillShortcutsRow(context, theme),
                   _buildStreamlinedPaymentForm(context, theme),
                 ],
               ),
@@ -414,12 +485,66 @@ class _HomeState extends State<Home> {
     );
   }
 
+  void _checkBalance() {
+    final prefix = mobileNumber.replaceAll(RegExp(r'\D'), '');
+    String? ussd;
+    if (prefix.startsWith('078') ||
+        prefix.startsWith('079') ||
+        prefix.startsWith('25078') ||
+        prefix.startsWith('25079')) {
+      ussd = '*182*6*1#';
+    } else if (prefix.startsWith('072') ||
+        prefix.startsWith('073') ||
+        prefix.startsWith('25072') ||
+        prefix.startsWith('25073')) {
+      ussd = '*182*3*2#';
+    }
+
+    if (ussd != null) {
+      launchUSSD(ussd, context);
+      return;
+    }
+
+    // Network unknown — let user pick
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('Check balance'),
+        children: [
+          SimpleDialogOption(
+            onPressed: () {
+              Navigator.pop(ctx);
+              launchUSSD('*182*6*1#', context);
+            },
+            child: const Text('MTN MoMo'),
+          ),
+          SimpleDialogOption(
+            onPressed: () {
+              Navigator.pop(ctx);
+              launchUSSD('*182*3*2#', context);
+            },
+            child: const Text('Airtel eKash'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildAppHeader(BuildContext context, ThemeData theme) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
         Row(
           children: [
+            IconButton(
+              onPressed: _checkBalance,
+              icon: Icon(
+                Icons.account_balance_wallet_outlined,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                size: 26,
+              ),
+              tooltip: 'Check balance',
+            ),
             IconButton(
               onPressed: _scanQrCode,
               icon: Icon(
@@ -463,6 +588,372 @@ class _HomeState extends State<Home> {
             ),
           ],
         ),
+      ],
+    );
+  }
+
+  Widget _buildFavoritesRow(ThemeData theme) {
+    final favPhones = _favorites.map((f) => f.phoneNumber).toSet();
+    final filteredFrequent =
+        _frequentContacts.where((f) => !favPhones.contains(f.phoneNumber)).toList();
+
+    // (contact, isPinned) — skip any entry with no usable phone number
+    final items = [
+      ..._favorites.where((f) => f.phoneNumber.isNotEmpty).map((f) => (f, true)),
+      ...filteredFrequent.where((f) => f.phoneNumber.isNotEmpty).map((f) => (f, false)),
+    ];
+
+    if (items.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Text(
+            'Favorites',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+              letterSpacing: 0.5,
+            ),
+          ),
+        ),
+        SizedBox(
+          height: 78,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: items.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (context, i) {
+              final (fav, isPinned) = items[i];
+              final initials = fav.name.isNotEmpty
+                  ? fav.name
+                      .trim()
+                      .split(' ')
+                      .map((w) => w[0])
+                      .take(2)
+                      .join()
+                      .toUpperCase()
+                  : '?';
+
+              return GestureDetector(
+                onTap: () {
+                  setState(() {
+                    mobileController.text = fav.phoneNumber;
+                    _selectedContact = ContactSuggestion(
+                      name: fav.name,
+                      phoneNumber: fav.phoneNumber,
+                      originalPhone: fav.originalPhone ?? fav.phoneNumber,
+                    );
+                    isPhoneNumberMomo = _isValidMomoCode(fav.phoneNumber) &&
+                        !_isValidPhoneNumber(fav.phoneNumber);
+                    _suggestionDismissed = true;
+                    currentStep = 0;
+                  });
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    amountFocusNode.requestFocus();
+                  });
+                },
+                onLongPress: () async {
+                  if (isPinned) {
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: Text('Remove ${fav.name}?'),
+                        content: const Text('Remove from favorites?'),
+                        actions: [
+                          TextButton(
+                              onPressed: () => Navigator.pop(ctx, false),
+                              child: const Text('Cancel')),
+                          TextButton(
+                              onPressed: () => Navigator.pop(ctx, true),
+                              child: const Text('Remove')),
+                        ],
+                      ),
+                    );
+                    if (confirmed == true) {
+                      await FavoritesService.removeFavorite(fav.phoneNumber);
+                      await _loadFavorites();
+                    }
+                  } else {
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: Text('Pin ${fav.name}?'),
+                        content: const Text('Add to favorites so they always appear here?'),
+                        actions: [
+                          TextButton(
+                              onPressed: () => Navigator.pop(ctx, false),
+                              child: const Text('Cancel')),
+                          TextButton(
+                              onPressed: () => Navigator.pop(ctx, true),
+                              child: const Text('Pin')),
+                        ],
+                      ),
+                    );
+                    if (confirmed == true) {
+                      await FavoritesService.addFavorite(fav);
+                      await _loadFavorites();
+                    }
+                  }
+                },
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        CircleAvatar(
+                          radius: 26,
+                          backgroundColor: isPinned
+                              ? theme.colorScheme.primaryContainer
+                              : theme.colorScheme.surfaceContainerHighest,
+                          child: Text(
+                            initials,
+                            style: TextStyle(
+                              color: isPinned
+                                  ? theme.colorScheme.onPrimaryContainer
+                                  : theme.colorScheme.onSurface
+                                      .withValues(alpha: 0.75),
+                              fontWeight: FontWeight.w700,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          right: -2,
+                          top: -2,
+                          child: Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.surface,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              isPinned
+                                  ? Icons.star_rounded
+                                  : Icons.history_rounded,
+                              size: 12,
+                              color: isPinned
+                                  ? Colors.amber
+                                  : theme.colorScheme.onSurface
+                                      .withValues(alpha: 0.4),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    SizedBox(
+                      width: 60,
+                      child: Text(
+                        fav.name.split(' ').first,
+                        style: theme.textTheme.labelSmall,
+                        textAlign: TextAlign.center,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 12),
+      ],
+    );
+  }
+
+  Future<void> _showAddShortcutDialog(BuildContext context) async {
+    final labelCtrl = TextEditingController();
+    final recipientCtrl = TextEditingController();
+    final amountCtrl = TextEditingController();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Add bill shortcut'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: labelCtrl,
+              decoration: const InputDecoration(
+                  labelText: 'Label', hintText: 'e.g. Electricity'),
+              textCapitalization: TextCapitalization.words,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: recipientCtrl,
+              decoration: const InputDecoration(
+                  labelText: 'Phone / MoMo code',
+                  hintText: 'e.g. 0788123456 or 182800'),
+              keyboardType: TextInputType.phone,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: amountCtrl,
+              decoration: const InputDecoration(
+                  labelText: 'Default amount (optional)',
+                  hintText: 'e.g. 5000 or 5k'),
+              keyboardType: TextInputType.text,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Save')),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    final label = labelCtrl.text.trim();
+    final recipient = recipientCtrl.text.trim();
+    if (label.isEmpty || recipient.isEmpty) return;
+
+    double? amount;
+    final rawAmount = amountCtrl.text.trim();
+    if (rawAmount.isNotEmpty) {
+      amount = double.tryParse(_expandShorthand(rawAmount.replaceAll(',', '')));
+    }
+
+    await BillShortcutsService.addShortcut(BillShortcut(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      label: label,
+      recipient: recipient,
+      defaultAmount: amount,
+    ));
+    await _loadBillShortcuts();
+  }
+
+  Widget _buildBillShortcutsRow(BuildContext context, ThemeData theme) {
+    final hasShortcuts = _billShortcuts.isNotEmpty;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              'Quick pay',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                letterSpacing: 0.5,
+              ),
+            ),
+            const Spacer(),
+            GestureDetector(
+              onTap: () => _showAddShortcutDialog(context),
+              child: Icon(Icons.add_circle_outline_rounded,
+                  size: 18,
+                  color: theme.colorScheme.primary.withValues(alpha: 0.7)),
+            ),
+          ],
+        ),
+        if (hasShortcuts) ...[
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 72,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: _billShortcuts.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (context, i) {
+                final s = _billShortcuts[i];
+                return GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      mobileController.text = s.recipient;
+                      _selectedContact = null;
+                      isPhoneNumberMomo = _isValidMomoCode(s.recipient) &&
+                          !_isValidPhoneNumber(s.recipient);
+                      _suggestionDismissed = true;
+                      if (s.defaultAmount != null) {
+                        amountController.text =
+                            s.defaultAmount!.toStringAsFixed(0);
+                        currentStep = 1;
+                      } else {
+                        currentStep = 0;
+                      }
+                    });
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (s.defaultAmount != null) {
+                        phoneFocusNode.requestFocus();
+                      } else {
+                        amountFocusNode.requestFocus();
+                      }
+                    });
+                  },
+                  onLongPress: () async {
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: Text('Remove "${s.label}"?'),
+                        actions: [
+                          TextButton(
+                              onPressed: () => Navigator.pop(ctx, false),
+                              child: const Text('Cancel')),
+                          TextButton(
+                              onPressed: () => Navigator.pop(ctx, true),
+                              child: const Text('Remove')),
+                        ],
+                      ),
+                    );
+                    if (confirmed == true) {
+                      await BillShortcutsService.removeShortcut(s.id);
+                      await _loadBillShortcuts();
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.secondaryContainer
+                          .withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(s.label,
+                            style: theme.textTheme.labelMedium
+                                ?.copyWith(fontWeight: FontWeight.w700)),
+                        if (s.defaultAmount != null)
+                          Text(
+                            '${s.defaultAmount!.toStringAsFixed(0)} RWF',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: theme.colorScheme.onSurface
+                                  .withValues(alpha: 0.55),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ] else ...[
+          const SizedBox(height: 6),
+          GestureDetector(
+            onTap: () => _showAddShortcutDialog(context),
+            child: Text(
+              'Tap + to add a quick-pay shortcut',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ),
+        ],
+        const SizedBox(height: 14),
       ],
     );
   }
@@ -760,8 +1251,8 @@ class _HomeState extends State<Home> {
             suffixIcon: amountController.text.isNotEmpty
                 ? IconButton(
                     icon: Icon(Icons.clear_rounded,
-                        color: theme.colorScheme.onSurface
-                            .withValues(alpha: 0.5)),
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.5)),
                     onPressed: () => setState(() => amountController.clear()),
                   )
                 : null,
@@ -868,6 +1359,11 @@ class _HomeState extends State<Home> {
   }
 
   Widget _buildAmountStep(ThemeData theme) {
+    final hasPreselected = mobileController.text.isNotEmpty;
+    final recipientLabel = _selectedContact?.name.isNotEmpty == true
+        ? _selectedContact!.name
+        : mobileController.text;
+
     return Column(
       key: const ValueKey('amount'),
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -879,6 +1375,52 @@ class _HomeState extends State<Home> {
             color: theme.colorScheme.onSurface,
           ),
         ),
+
+        if (hasPreselected) ...[
+          const SizedBox(height: 12),
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.person_rounded,
+                          size: 14,
+                          color: theme.colorScheme.onPrimaryContainer),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Paying $recipientLabel',
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: theme.colorScheme.onPrimaryContainer,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      GestureDetector(
+                        onTap: () => setState(() {
+                          mobileController.clear();
+                          _selectedContact = null;
+                        }),
+                        child: Icon(Icons.close_rounded,
+                            size: 14,
+                            color: theme.colorScheme.onPrimaryContainer
+                                .withValues(alpha: 0.7)),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+
         const SizedBox(height: 20),
 
         // Quick amount presets
@@ -944,8 +1486,8 @@ class _HomeState extends State<Home> {
             suffixIcon: amountController.text.isNotEmpty
                 ? IconButton(
                     icon: Icon(Icons.clear_rounded,
-                        color: theme.colorScheme.onSurface
-                            .withValues(alpha: 0.5)),
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.5)),
                     onPressed: () => setState(() => amountController.clear()),
                   )
                 : null,
@@ -2090,9 +2632,6 @@ class _HomeState extends State<Home> {
     return amount != null && amount >= 1;
   }
 
-
-
-
   // Helper to get provider from phone number
   String _getProviderFromPhone(String phone) {
     final serviceType = _getServiceType(phone);
@@ -2345,7 +2884,9 @@ class _HomeState extends State<Home> {
   }
 
   Future<void> _loadRecentCalls() async {
-    if (_isLoadingRecentCalls || _recentCallLog.isNotEmpty || _recentCallPermissionDenied) return;
+    if (_isLoadingRecentCalls ||
+        _recentCallLog.isNotEmpty ||
+        _recentCallPermissionDenied) return;
     setState(() => _isLoadingRecentCalls = true);
     try {
       final Iterable<CallLogEntry> entries = await CallLog.query();
@@ -2354,7 +2895,8 @@ class _HomeState extends State<Home> {
       for (final e in entries) {
         final num = e.number ?? '';
         if (num.isEmpty) continue;
-        if (e.callType != CallType.incoming && e.callType != CallType.missed) continue;
+        if (e.callType != CallType.incoming && e.callType != CallType.missed)
+          continue;
         final formatted = _formatPhoneNumber(num);
         if (formatted.isEmpty) continue;
         if (seen.contains(formatted)) continue;
@@ -2477,9 +3019,10 @@ class _HomeState extends State<Home> {
       final num = e.number ?? '';
       final formatted = _formatPhoneNumber(num);
       if (formatted.isEmpty) continue;
-      final callerName = (e.name != null && e.name!.isNotEmpty) ? e.name! : formatted;
-      final matchesQuery =
-          (queryDigits.isNotEmpty && (num.contains(queryDigits) || formatted.contains(queryDigits))) ||
+      final callerName =
+          (e.name != null && e.name!.isNotEmpty) ? e.name! : formatted;
+      final matchesQuery = (queryDigits.isNotEmpty &&
+              (num.contains(queryDigits) || formatted.contains(queryDigits))) ||
           callerName.toLowerCase().contains(queryLower);
       final key = 'call-$formatted';
       if (matchesQuery && !addedKeys.contains(key)) {
@@ -2606,52 +3149,83 @@ class _HomeState extends State<Home> {
                 child: ListView(
                   children: [
                     // When no query typed, show recent incoming/missed callers
-                    if (mobileController.text.isEmpty && _recentCallLog.isNotEmpty) ...[
+                    if (mobileController.text.isEmpty &&
+                        _recentCallLog.isNotEmpty) ...[
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
                         child: Text(
                           'Recent incoming calls',
                           style: theme.textTheme.labelSmall?.copyWith(
-                              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                              color: theme.colorScheme.onSurface
+                                  .withValues(alpha: 0.5),
                               letterSpacing: 0.5),
                         ),
                       ),
-                      ...List.generate(_recentCallLog.take(5).length, (i) {
-                        final e = _recentCallLog.toList()[i];
-                        final num = e.number ?? '';
+                      ...List.generate(
+                        _recentCallLog.where((e) => (e.number ?? '').isNotEmpty).take(5).length,
+                        (i) {
+                        final e = _recentCallLog.where((e) => (e.number ?? '').isNotEmpty).toList()[i];
+                        final num = e.number!;
                         final formatted = _formatPhoneNumber(num);
-                        final callerName = (e.name != null && e.name!.isNotEmpty) ? e.name! : formatted;
+                        final callerName =
+                            (e.name != null && e.name!.isNotEmpty)
+                                ? e.name!
+                                : formatted;
                         final suggestion = ContactSuggestion(
                           name: callerName,
                           phoneNumber: formatted,
                           originalPhone: num,
                           isRecentCall: true,
                         );
+                        final isFav = _favorites.any(
+                            (f) => f.phoneNumber == suggestion.phoneNumber);
                         return ListTile(
                           leading: CircleAvatar(
-                            backgroundColor: theme.colorScheme.tertiary.withValues(alpha: 0.1),
+                            backgroundColor: theme.colorScheme.tertiary
+                                .withValues(alpha: 0.1),
                             child: Icon(Icons.call_received_rounded,
                                 color: theme.colorScheme.tertiary, size: 20),
                           ),
                           title: Text(callerName,
-                              style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
-                          subtitle: Text(formatted, style: theme.textTheme.bodySmall),
+                              style: theme.textTheme.bodyMedium
+                                  ?.copyWith(fontWeight: FontWeight.w600)),
+                          subtitle:
+                              Text(formatted, style: theme.textTheme.bodySmall),
+                          trailing: IconButton(
+                            icon: Icon(
+                              isFav
+                                  ? Icons.star_rounded
+                                  : Icons.star_outline_rounded,
+                              color: isFav
+                                  ? Colors.amber
+                                  : theme.colorScheme.onSurface
+                                      .withValues(alpha: 0.4),
+                              size: 22,
+                            ),
+                            onPressed: () => _toggleFavorite(suggestion),
+                          ),
                           onTap: () => _selectContactSuggestion(suggestion),
                         );
                       }),
                     ],
                     ...List.generate(filteredContacts.length, (index) {
                       final contact = filteredContacts[index];
+                      final isFav = _favorites
+                          .any((f) => f.phoneNumber == contact.phoneNumber);
                       return ListTile(
                         tileColor: index == 0
                             ? theme.colorScheme.primary.withValues(alpha: 0.1)
                             : null,
                         leading: CircleAvatar(
                           backgroundColor: contact.isRecentCall
-                              ? theme.colorScheme.tertiary.withValues(alpha: 0.1)
-                              : theme.colorScheme.primary.withValues(alpha: 0.1),
+                              ? theme.colorScheme.tertiary
+                                  .withValues(alpha: 0.1)
+                              : theme.colorScheme.primary
+                                  .withValues(alpha: 0.1),
                           child: Icon(
-                            contact.isRecentCall ? Icons.call_received_rounded : Icons.person,
+                            contact.isRecentCall
+                                ? Icons.call_received_rounded
+                                : Icons.person,
                             color: contact.isRecentCall
                                 ? theme.colorScheme.tertiary
                                 : theme.colorScheme.primary,
@@ -2665,6 +3239,19 @@ class _HomeState extends State<Home> {
                                     : FontWeight.w600)),
                         subtitle: Text(contact.phoneNumber,
                             style: theme.textTheme.bodySmall),
+                        trailing: IconButton(
+                          icon: Icon(
+                            isFav
+                                ? Icons.star_rounded
+                                : Icons.star_outline_rounded,
+                            color: isFav
+                                ? Colors.amber
+                                : theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.4),
+                            size: 22,
+                          ),
+                          onPressed: () => _toggleFavorite(contact),
+                        ),
                         onTap: () => _selectContactSuggestion(contact),
                       );
                     }),
