@@ -57,6 +57,8 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
   // Reason filter state
   List<String> availableReasons = [];
   String? selectedReason;
+  // Chart interaction
+  DateTime? _selectedChartMonth;
   double selectedReasonTotalAllTime = 0.0;
   double selectedReasonTotalCurrentMonth = 0.0;
 
@@ -542,9 +544,14 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
     final maxMonthly =
         monthlyTotals.values.fold<double>(0, (a, b) => b > a ? b : a);
 
-    // Build reason totals (top 5)
+    // Build reason totals (top 5) — filtered by selected month if any
+    final reasonSource = _selectedChartMonth != null
+        ? confirmedRecords.where((r) =>
+            r.timestamp.year == _selectedChartMonth!.year &&
+            r.timestamp.month == _selectedChartMonth!.month)
+        : confirmedRecords;
     final reasonTotals = <String, double>{};
-    for (final r in confirmedRecords) {
+    for (final r in reasonSource) {
       if (r.reason != null && r.reason!.isNotEmpty) {
         reasonTotals[r.reason!] = (reasonTotals[r.reason!] ?? 0) + r.amount;
       }
@@ -577,7 +584,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                       color: theme.colorScheme.onSurface.withValues(alpha: 0.7))),
               const SizedBox(height: 16),
               SizedBox(
-                height: 90,
+                height: 100,
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: months.map((m) {
@@ -585,42 +592,63 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                     final fraction =
                         maxMonthly > 0 ? total / maxMonthly : 0.0;
                     final label = DateFormat('MMM').format(m);
+                    final isSelected = _selectedChartMonth != null &&
+                        _selectedChartMonth!.year == m.year &&
+                        _selectedChartMonth!.month == m.month;
+                    final isDimmed = _selectedChartMonth != null && !isSelected;
                     return Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 3),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            if (total > 0)
-                              Text(
-                                _formatCompact(total),
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                    fontSize: 9,
-                                    color: theme.colorScheme.primary),
-                                textAlign: TextAlign.center,
-                                overflow: TextOverflow.ellipsis,
+                      child: GestureDetector(
+                        onTap: () => setState(() {
+                          _selectedChartMonth = isSelected ? null : m;
+                        }),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 3),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              if (total > 0)
+                                Text(
+                                  _formatCompact(total),
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                      fontSize: 9,
+                                      color: isDimmed
+                                          ? theme.colorScheme.primary
+                                              .withValues(alpha: 0.3)
+                                          : theme.colorScheme.primary),
+                                  textAlign: TextAlign.center,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              const SizedBox(height: 2),
+                              AnimatedContainer(
+                                duration: const Duration(milliseconds: 250),
+                                height: 60 * fraction,
+                                decoration: BoxDecoration(
+                                  color: isDimmed
+                                      ? theme.colorScheme.primary
+                                          .withValues(alpha: 0.15)
+                                      : (isSelected ||
+                                              (m.year == now.year &&
+                                                  m.month == now.month))
+                                          ? theme.colorScheme.primary
+                                          : theme.colorScheme.primary
+                                              .withValues(alpha: 0.45),
+                                  borderRadius: const BorderRadius.vertical(
+                                      top: Radius.circular(4)),
+                                ),
                               ),
-                            const SizedBox(height: 2),
-                            AnimatedContainer(
-                              duration: const Duration(milliseconds: 400),
-                              height: 60 * fraction,
-                              decoration: BoxDecoration(
-                                color: m.year == now.year &&
-                                        m.month == now.month
-                                    ? theme.colorScheme.primary
-                                    : theme.colorScheme.primary
-                                        .withValues(alpha: 0.35),
-                                borderRadius: const BorderRadius.vertical(
-                                    top: Radius.circular(4)),
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(label,
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                    fontSize: 10,
-                                    color: theme.colorScheme.onSurface
-                                        .withValues(alpha: 0.5))),
-                          ],
+                              const SizedBox(height: 4),
+                              Text(label,
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                      fontSize: 10,
+                                      fontWeight: isSelected
+                                          ? FontWeight.w700
+                                          : FontWeight.normal,
+                                      color: isSelected
+                                          ? theme.colorScheme.primary
+                                          : theme.colorScheme.onSurface
+                                              .withValues(alpha: 0.5))),
+                            ],
+                          ),
                         ),
                       ),
                     );
@@ -628,14 +656,22 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                 ),
               ),
 
-              if (topReasons.isNotEmpty) ...[
+              if (topReasons.isNotEmpty || _selectedChartMonth != null) ...[
                 const SizedBox(height: 20),
-                Text('Top reasons',
+                Text(
+                    _selectedChartMonth != null
+                        ? 'Top reasons — ${DateFormat('MMMM').format(_selectedChartMonth!)}'
+                        : 'Top reasons',
                     style: theme.textTheme.labelMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                         color:
                             theme.colorScheme.onSurface.withValues(alpha: 0.7))),
                 const SizedBox(height: 10),
+                if (topReasons.isEmpty)
+                  Text('No labeled transactions for this month.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.45))),
                 ...topReasons.map((entry) {
                   final fraction =
                       maxReason > 0 ? entry.value / maxReason : 0.0;
