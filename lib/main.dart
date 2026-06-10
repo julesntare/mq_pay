@@ -41,60 +41,41 @@ void callbackDispatcher() {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize date formatting for all app locales so DateFormat works
-  // regardless of which language is active. 'rw' is not in intl's CLDR data
-  // so we catch and ignore failures for unsupported locales.
-  for (final locale in ['en', 'fr', 'sw', 'rw']) {
-    try {
-      await initializeDateFormatting(locale);
-    } catch (_) {
-      // locale not supported by intl — DateFormat will fall back to 'en'
-    }
-  }
-
-  // Load environment variables
+  // dotenv must load before Firebase (firebase_options.dart reads from it).
   await dotenv.load(fileName: ".env");
 
-  // Initialize Firebase
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-
-  // Initialize Supabase (if configured)
-  try {
-    await SupabaseBackupService.initialize();
-  } catch (e) {
-    // Supabase initialization is optional, so we don't crash the app
-    if (kDebugMode) debugPrint('Supabase initialization skipped: $e');
-  }
-
-  // Initialize Workmanager
-  await Workmanager().initialize(callbackDispatcher, isInDebugMode: false);
-
-  // Schedule daily task at 11:59 PM CAT
-  await DailyTotalService.scheduleDailyTask();
-
-  // Initialize notification service
-  await NotificationService.initialize();
-
-  // Initialize SMS listener
-  await SmsListenerService.initialize();
-
-  // Initialize USSD transaction manager
-  UssdTransactionManager.initialize();
-
-  // Initialize USSD detector service
-  await UssdDetectorService.initialize();
-
   final localeProvider = LocaleProvider();
+
+  // Everything else is independent — run in parallel.
+  final results = await Future.wait<dynamic>([
+    Future.wait([
+      for (final locale in ['en', 'fr', 'sw', 'rw'])
+        initializeDateFormatting(locale).catchError((_) => null),
+    ]),
+    Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform),
+    SharedPreferences.getInstance(),
+    localeProvider.loadLocale(),
+  ]);
+
+  final prefs = results[2] as SharedPreferences;
   final themeProvider = ThemeProvider();
-  final prefs = await SharedPreferences.getInstance();
 
-  await localeProvider.loadLocale();
-
-  // Check and perform auto-backup if needed (both local and Supabase)
-  BackupService.performAutoBackupIfNeeded();
-  SupabaseBackupService.performAutoBackupIfNeeded();
+  // Start background services after runApp so they don't delay the UI.
+  Future(() async {
+    try {
+      await SupabaseBackupService.initialize();
+    } catch (e) {
+      if (kDebugMode) debugPrint('Supabase initialization skipped: $e');
+    }
+    await Workmanager().initialize(callbackDispatcher, isInDebugMode: false);
+    await DailyTotalService.scheduleDailyTask();
+    await NotificationService.initialize();
+    await SmsListenerService.initialize();
+    UssdTransactionManager.initialize();
+    await UssdDetectorService.initialize();
+    BackupService.performAutoBackupIfNeeded();
+    SupabaseBackupService.performAutoBackupIfNeeded();
+  });
 
   runApp(
     MultiProvider(
