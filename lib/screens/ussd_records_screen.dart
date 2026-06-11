@@ -80,6 +80,9 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
   // Analytics panel toggle
   bool showAnalytics = false;
 
+  // Summary card collapse state — collapsed by default
+  bool _summaryExpanded = false;
+
   @override
   void initState() {
     super.initState();
@@ -1303,7 +1306,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
       {
         'title': S.of(context).sidePayments,
         'icon': Icons.code_rounded,
-        'color': const Color(0xFF06B6D4), // Cyan for better contrast
+        'color': const Color(0xFF06B6D4),
         'key': 'misc'
       },
     ];
@@ -1332,43 +1335,143 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
             ),
             child: Column(
               children: [
-                // Total Section (Compact)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-                  child: Column(
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
+                // Always-visible header — tap to expand/collapse
+                GestureDetector(
+                  onTap: () => setState(() => _summaryExpanded = !_summaryExpanded),
+                  behavior: HitTestBehavior.opaque,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              S.of(context).overallTotal,
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            Row(
+                              children: [
+                                Text(
+                                  _formatCurrency(includeFees
+                                      ? totalAmount + totalFees
+                                      : totalAmount),
+                                  style: theme.textTheme.titleLarge?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                AnimatedRotation(
+                                  turns: _summaryExpanded ? 0.5 : 0,
+                                  duration: const Duration(milliseconds: 300),
+                                  child: const Icon(
+                                    Icons.keyboard_arrow_down_rounded,
+                                    color: Colors.white70,
+                                    size: 20,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        if (monthsWithData.isNotEmpty) ...[
+                          const SizedBox(height: 10),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                S.of(context).overallTotal,
-                                style: theme.textTheme.titleSmall?.copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                              Row(
+                                children: [
+                                  IconButton(
+                                    onPressed: currentMonthIndex <
+                                            monthsWithData.length - 1
+                                        ? () => _navigateMonth(1)
+                                        : null,
+                                    icon: Icon(
+                                      Icons.arrow_back_ios_rounded,
+                                      color: currentMonthIndex <
+                                              monthsWithData.length - 1
+                                          ? Colors.white
+                                          : Colors.white38,
+                                      size: 14,
+                                    ),
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    safeDateFormat('MMM yyyy').format(
+                                        monthsWithData[currentMonthIndex]),
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: Colors.white70,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  IconButton(
+                                    onPressed: currentMonthIndex > 0
+                                        ? () => _navigateMonth(-1)
+                                        : null,
+                                    icon: Icon(
+                                      Icons.arrow_forward_ios_rounded,
+                                      color: currentMonthIndex > 0
+                                          ? Colors.white
+                                          : Colors.white38,
+                                      size: 14,
+                                    ),
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                  ),
+                                ],
                               ),
-                              Text(
-                                _formatCurrency(includeFees
-                                    ? totalAmount + totalFees
-                                    : totalAmount),
-                                style: theme.textTheme.titleLarge?.copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    _formatCurrency(includeFees
+                                        ? currentMonthTotal +
+                                            currentMonthTotalFees
+                                        : currentMonthTotal),
+                                    style: theme.textTheme.titleMedium?.copyWith(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  if (currentMonthTotalFees > 0)
+                                    Text(
+                                      '+ ${_formatCurrency(currentMonthTotalFees)} ${S.of(context).fees}',
+                                      style: theme.textTheme.bodySmall?.copyWith(
+                                        color: Colors.white60,
+                                        fontSize: 9,
+                                      ),
+                                    ),
+                                ],
                               ),
                             ],
                           ),
-                          const SizedBox(height: 8),
-                          // Fee Toggle Button
-                          GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                includeFees = !includeFees;
-                              });
-                            },
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Collapsible detail section
+                ClipRect(
+                  child: AnimatedAlign(
+                    alignment: Alignment.topCenter,
+                    heightFactor: _summaryExpanded ? 1.0 : 0.0,
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                    child: Column(
+                      children: [
+                        // Fee Toggle Button
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                          child: GestureDetector(
+                            onTap: () => setState(() => includeFees = !includeFees),
                             child: Container(
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 12, vertical: 8),
@@ -1402,7 +1505,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                                     ),
                                   ),
                                   const SizedBox(width: 6),
-                                  Icon(
+                                  const Icon(
                                     Icons.swap_horiz_rounded,
                                     color: Colors.white70,
                                     size: 16,
@@ -1411,323 +1514,249 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                               ),
                             ),
                           ),
-                        ],
-                      ),
-                      if (totalFees > 0) ...[
-                        const SizedBox(height: 10),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.08),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.1),
-                              width: 1,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Row(
+                        ),
+
+                        if (totalFees > 0)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.1),
+                                  width: 1,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Icon(
-                                    Icons.receipt_long_outlined,
-                                    size: 14,
-                                    color: Colors.white60,
+                                  Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.receipt_long_outlined,
+                                        size: 14,
+                                        color: Colors.white60,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        S.of(context).totalFeesPaid,
+                                        style: theme.textTheme.bodySmall?.copyWith(
+                                          color: Colors.white70,
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(width: 6),
                                   Text(
-                                    S.of(context).totalFeesPaid,
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: Colors.white70,
-                                      fontSize: 11,
+                                    _formatCurrency(totalFees),
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
                                     ),
                                   ),
                                 ],
                               ),
+                            ),
+                          ),
+
+                        const Divider(color: Colors.white24, height: 1),
+
+                        // Swipeable Tab Content with Navigation Arrows
+                        Container(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          child: Row(
+                            children: [
+                              // Left Arrow
+                              IconButton(
+                                icon: Icon(
+                                  Icons.chevron_left_rounded,
+                                  color: selectedTab > 0
+                                      ? Colors.white
+                                      : Colors.white.withValues(alpha: 0.3),
+                                  size: 32,
+                                ),
+                                onPressed: selectedTab > 0
+                                    ? () {
+                                        _pageController.previousPage(
+                                          duration: const Duration(milliseconds: 300),
+                                          curve: Curves.easeInOut,
+                                        );
+                                      }
+                                    : null,
+                              ),
+                              // PageView for swipeable tabs
+                              Expanded(
+                                child: SizedBox(
+                                  height: 80,
+                                  child: PageView.builder(
+                                    controller: _pageController,
+                                    onPageChanged: (index) {
+                                      setState(() {
+                                        selectedTab = index;
+                                      });
+                                    },
+                                    itemCount: tabData.length,
+                                    itemBuilder: (context, index) {
+                                      final tab = tabData[index];
+                                      final tabKey = tab['key'] as String;
+                                      final isFiltered = activeFilter == tabKey;
+                                      return GestureDetector(
+                                        onTap: () {
+                                          setState(() {
+                                            if (activeFilter == tabKey) {
+                                              activeFilter = null;
+                                            } else {
+                                              activeFilter = tabKey;
+                                            }
+                                          });
+                                          _computeFilteredTotal();
+                                        },
+                                        child: Container(
+                                          margin: const EdgeInsets.symmetric(
+                                              horizontal: 12),
+                                          padding: const EdgeInsets.symmetric(
+                                              vertical: 2, horizontal: 12),
+                                          decoration: BoxDecoration(
+                                            borderRadius: BorderRadius.circular(16),
+                                          ),
+                                          child: Column(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              Row(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
+                                                children: [
+                                                  Icon(
+                                                    tab['icon'] as IconData,
+                                                    color: tab['color'] as Color,
+                                                    size: 24,
+                                                  ),
+                                                  const SizedBox(width: 12),
+                                                  Flexible(
+                                                    child: Text(
+                                                      tab['title'] as String,
+                                                      style: theme.textTheme.titleMedium
+                                                          ?.copyWith(
+                                                        color: tab['color'] as Color,
+                                                        fontWeight: isFiltered
+                                                            ? FontWeight.bold
+                                                            : FontWeight.w600,
+                                                      ),
+                                                      textAlign: TextAlign.center,
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  if (isFiltered)
+                                                    Container(
+                                                      padding: const EdgeInsets.all(2),
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.white
+                                                            .withValues(alpha: 0.3),
+                                                        shape: BoxShape.circle,
+                                                      ),
+                                                      child: const Icon(
+                                                        Icons.close_rounded,
+                                                        color: Colors.white,
+                                                        size: 16,
+                                                      ),
+                                                    )
+                                                  else
+                                                    Icon(
+                                                      Icons.touch_app_rounded,
+                                                      color: Colors.white
+                                                          .withValues(alpha: 0.5),
+                                                      size: 18,
+                                                    ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ),
+                              // Right Arrow
+                              IconButton(
+                                icon: Icon(
+                                  Icons.chevron_right_rounded,
+                                  color: selectedTab < tabData.length - 1
+                                      ? Colors.white
+                                      : Colors.white.withValues(alpha: 0.3),
+                                  size: 32,
+                                ),
+                                onPressed: selectedTab < tabData.length - 1
+                                    ? () {
+                                        _pageController.nextPage(
+                                          duration: const Duration(milliseconds: 300),
+                                          curve: Curves.easeInOut,
+                                        );
+                                      }
+                                    : null,
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // Selected Tab Content
+                        Container(
+                          padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
                               Text(
-                                _formatCurrency(totalFees),
+                                '${currentTab['title']} ${S.of(context).total}',
                                 style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: Colors.white,
-                                  fontSize: 12,
+                                  color: Colors.white70,
+                                ),
+                              ),
+                              Text(
+                                _formatCurrency(totalTabAmount),
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  color: currentTab['color'] as Color,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                      ],
-                      if (monthsWithData.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Row(
+
+                        // Monthly amount for selected tab
+                        if (monthsWithData.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                IconButton(
-                                  onPressed: currentMonthIndex <
-                                          monthsWithData.length - 1
-                                      ? () => _navigateMonth(1)
-                                      : null,
-                                  icon: Icon(
-                                    Icons.arrow_back_ios_rounded,
-                                    color: currentMonthIndex <
-                                            monthsWithData.length - 1
-                                        ? Colors.white
-                                        : Colors.white38,
-                                    size: 14,
-                                  ),
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(),
-                                ),
-                                const SizedBox(width: 8),
                                 Text(
-                                  safeDateFormat('MMM yyyy').format(
-                                      monthsWithData[currentMonthIndex]),
+                                  safeDateFormat('MMM yyyy')
+                                      .format(monthsWithData[currentMonthIndex]),
                                   style: theme.textTheme.bodySmall?.copyWith(
-                                    color: Colors.white70,
+                                    color: Colors.white60,
                                     fontSize: 11,
                                   ),
                                 ),
-                                const SizedBox(width: 8),
-                                IconButton(
-                                  onPressed: currentMonthIndex > 0
-                                      ? () => _navigateMonth(-1)
-                                      : null,
-                                  icon: Icon(
-                                    Icons.arrow_forward_ios_rounded,
-                                    color: currentMonthIndex > 0
-                                        ? Colors.white
-                                        : Colors.white38,
-                                    size: 14,
-                                  ),
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(),
-                                ),
-                              ],
-                            ),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
                                 Text(
-                                  _formatCurrency(includeFees
-                                      ? currentMonthTotal +
-                                          currentMonthTotalFees
-                                      : currentMonthTotal),
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
+                                  _formatCurrency(monthlyTabAmount),
+                                  style: theme.textTheme.titleSmall?.copyWith(
+                                    color: (currentTab['color'] as Color)
+                                        .withValues(alpha: 0.85),
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
-                                if (currentMonthTotalFees > 0)
-                                  Text(
-                                    '+ ${_formatCurrency(currentMonthTotalFees)} ${S.of(context).fees}',
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: Colors.white60,
-                                      fontSize: 9,
-                                    ),
-                                  ),
                               ],
                             ),
-                          ],
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-
-                const Divider(color: Colors.white24, height: 1),
-
-                // Swipeable Tab Content with Navigation Arrows
-                Container(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Row(
-                    children: [
-                      // Left Arrow
-                      IconButton(
-                        icon: Icon(
-                          Icons.chevron_left_rounded,
-                          color: selectedTab > 0
-                              ? Colors.white
-                              : Colors.white.withValues(alpha: 0.3),
-                          size: 32,
-                        ),
-                        onPressed: selectedTab > 0
-                            ? () {
-                                _pageController.previousPage(
-                                  duration: const Duration(milliseconds: 300),
-                                  curve: Curves.easeInOut,
-                                );
-                              }
-                            : null,
-                      ),
-                      // PageView for swipeable tabs
-                      Expanded(
-                        child: SizedBox(
-                          height: 80,
-                          child: PageView.builder(
-                            controller: _pageController,
-                            onPageChanged: (index) {
-                              setState(() {
-                                selectedTab = index;
-                              });
-                            },
-                            itemCount: tabData.length,
-                            itemBuilder: (context, index) {
-                              final tab = tabData[index];
-                              final tabKey = tab['key'] as String;
-                              final isFiltered = activeFilter == tabKey;
-                              return GestureDetector(
-                                onTap: () {
-                                  setState(() {
-                                    // Toggle filter on/off
-                                    if (activeFilter == tabKey) {
-                                      activeFilter = null; // Turn off filter
-                                    } else {
-                                      activeFilter = tabKey; // Turn on filter
-                                    }
-                                  });
-                                  _computeFilteredTotal();
-                                },
-                                child: Container(
-                                  margin: const EdgeInsets.symmetric(
-                                      horizontal: 12),
-                                  padding: const EdgeInsets.symmetric(
-                                      vertical: 2, horizontal: 12),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Icon(
-                                            tab['icon'] as IconData,
-                                            color: tab['color'] as Color,
-                                            size: 24,
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Flexible(
-                                            child: Text(
-                                              tab['title'] as String,
-                                              style: theme.textTheme.titleMedium
-                                                  ?.copyWith(
-                                                color: tab['color'] as Color,
-                                                fontWeight: isFiltered
-                                                    ? FontWeight.bold
-                                                    : FontWeight.w600,
-                                              ),
-                                              textAlign: TextAlign.center,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          if (isFiltered)
-                                            Container(
-                                              padding: const EdgeInsets.all(2),
-                                              decoration: BoxDecoration(
-                                                color: Colors.white
-                                                    .withValues(alpha: 0.3),
-                                                shape: BoxShape.circle,
-                                              ),
-                                              child: Icon(
-                                                Icons.close_rounded,
-                                                color: Colors.white,
-                                                size: 16,
-                                              ),
-                                            )
-                                          else
-                                            Icon(
-                                              Icons.touch_app_rounded,
-                                              color: Colors.white
-                                                  .withValues(alpha: 0.5),
-                                              size: 18,
-                                            ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
                           ),
-                        ),
-                      ),
-                      // Right Arrow
-                      IconButton(
-                        icon: Icon(
-                          Icons.chevron_right_rounded,
-                          color: selectedTab < tabData.length - 1
-                              ? Colors.white
-                              : Colors.white.withValues(alpha: 0.3),
-                          size: 32,
-                        ),
-                        onPressed: selectedTab < tabData.length - 1
-                            ? () {
-                                _pageController.nextPage(
-                                  duration: const Duration(milliseconds: 300),
-                                  curve: Curves.easeInOut,
-                                );
-                              }
-                            : null,
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Selected Tab Content
-                Container(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        '${currentTab['title']} ${S.of(context).total}',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: Colors.white70,
-                        ),
-                      ),
-                      Text(
-                        _formatCurrency(totalTabAmount),
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          color: currentTab['color'] as Color,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Monthly amount for selected tab
-                if (monthsWithData.isNotEmpty)
-                  Container(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          safeDateFormat('MMM yyyy')
-                              .format(monthsWithData[currentMonthIndex]),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: Colors.white60,
-                            fontSize: 11,
-                          ),
-                        ),
-                        Text(
-                          _formatCurrency(monthlyTabAmount),
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            color: (currentTab['color'] as Color)
-                                .withValues(alpha: 0.85),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
                       ],
                     ),
                   ),
+                ),
               ],
             ),
           ),
