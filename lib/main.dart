@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'screens/home.dart';
 import 'screens/settings.dart';
@@ -46,27 +45,31 @@ void main() async {
 
   final localeProvider = LocaleProvider();
 
-  // Everything else is independent — run in parallel.
+  // Only block on SharedPreferences and locale — the bare minimum needed
+  // before the first frame. Everything else is deferred to the background.
   final results = await Future.wait<dynamic>([
-    Future.wait([
-      for (final locale in ['en', 'fr', 'sw', 'rw'])
-        initializeDateFormatting(locale).catchError((_) => null),
-    ]),
-    Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform),
     SharedPreferences.getInstance(),
     localeProvider.loadLocale(),
   ]);
 
-  final prefs = results[2] as SharedPreferences;
+  final prefs = results[0] as SharedPreferences;
   final themeProvider = ThemeProvider();
 
   // Start background services after runApp so they don't delay the UI.
   Future(() async {
+    // Date formatting first — needed before the history screen renders dates.
+    await Future.wait([
+      for (final locale in ['en', 'fr', 'sw', 'rw'])
+        initializeDateFormatting(locale).catchError((_) => null),
+    ]);
+
+    try {
+      await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.currentPlatform);
+    } catch (_) {}
     try {
       await SupabaseBackupService.initialize();
-    } catch (e) {
-      if (kDebugMode) debugPrint('Supabase initialization skipped: $e');
-    }
+    } catch (_) {}
     await Workmanager().initialize(callbackDispatcher, isInDebugMode: false);
     await DailyTotalService.scheduleDailyTask();
     await NotificationService.initialize();
@@ -99,9 +102,10 @@ class _MaterialLocalizationsFallbackDelegate
 
   @override
   Future<MaterialLocalizations> load(Locale locale) {
-    final effectiveLocale = GlobalMaterialLocalizations.delegate.isSupported(locale)
-        ? locale
-        : const Locale('en');
+    final effectiveLocale =
+        GlobalMaterialLocalizations.delegate.isSupported(locale)
+            ? locale
+            : const Locale('en');
     return GlobalMaterialLocalizations.delegate.load(effectiveLocale);
   }
 
@@ -177,8 +181,12 @@ class _MainWrapperState extends State<MainWrapper> with WidgetsBindingObserver {
           selectedLanguage: selectedLanguage!),
     ];
 
-    // Retry matching pending transactions on app start
-    _retryPendingTransactions();
+    // Defer retry to after first frame — retryPendingTransactionMatching() does
+    // up to 100× JSON-decode of all records (once per SMS via matchSmsToTransaction),
+    // which was blocking the UI thread during the first frame render (~1800ms jank).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _retryPendingTransactions();
+    });
   }
 
   @override
@@ -196,7 +204,8 @@ class _MainWrapperState extends State<MainWrapper> with WidgetsBindingObserver {
   }
 
   Future<void> _retryPendingTransactions() async {
-    final matchedCount = await SmsListenerService.retryPendingTransactionMatching();
+    final matchedCount =
+        await SmsListenerService.retryPendingTransactionMatching();
     if (matchedCount > 0) {
       // Show notification that transactions were matched
       await NotificationService.showTransactionStatusNotification();
@@ -208,7 +217,7 @@ class _MainWrapperState extends State<MainWrapper> with WidgetsBindingObserver {
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: theme.colorScheme.background,
+      backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
         title: Text(
           ['MQ Pay', 'Settings'][_selectedIndex],
@@ -226,7 +235,7 @@ class _MainWrapperState extends State<MainWrapper> with WidgetsBindingObserver {
             end: Alignment.bottomCenter,
             colors: [
               theme.colorScheme.primary.withValues(alpha: 0.02),
-              theme.colorScheme.background,
+              theme.colorScheme.surface,
             ],
           ),
         ),

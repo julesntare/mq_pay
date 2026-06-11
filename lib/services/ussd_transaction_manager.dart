@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import '../models/ussd_record.dart';
 import '../models/transaction_status.dart';
 import 'ussd_record_service.dart';
@@ -18,8 +17,6 @@ class UssdTransactionManager {
     _cleanupTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
       _cleanupExpiredPendingTransactions();
     });
-
-    debugPrint('[UssdTransactionManager] Initialized');
   }
 
   /// Save a transaction as pending (before USSD response)
@@ -29,20 +26,12 @@ class UssdTransactionManager {
     // Store in pending transactions map
     _pendingTransactions[transactionId] = record;
 
-    debugPrint(
-        '[UssdTransactionManager] Pending transaction saved: $transactionId');
-    debugPrint(
-        '[UssdTransactionManager] Amount: ${record.amount}, Recipient: ${record.recipient}');
-
     return transactionId;
   }
 
   /// Validate USSD response and confirm/reject transaction
   /// Returns true if success, false if failure, null if unknown (left pending)
   static Future<bool?> validateUssdResponse(String ussdResponse) async {
-    debugPrint(
-        '[UssdTransactionManager] Validating USSD response: $ussdResponse');
-
     final result = UssdKeywordDetector.detectTransactionResult(ussdResponse);
 
     if (result == 'success') {
@@ -54,9 +43,6 @@ class UssdTransactionManager {
       await _rejectMostRecentTransaction(ussdResponse);
       return false;
     } else {
-      // Unknown - leave the transaction as pending for manual resolution
-      debugPrint(
-          '[UssdTransactionManager] No success/failure keywords detected - leaving transaction as pending for manual resolution');
       return null;
     }
   }
@@ -64,7 +50,6 @@ class UssdTransactionManager {
   /// Confirm the most recent pending transaction
   static Future<void> _confirmMostRecentTransaction(String ussdResponse) async {
     if (_pendingTransactions.isEmpty) {
-      debugPrint('[UssdTransactionManager] No pending transactions to confirm');
       return;
     }
 
@@ -86,17 +71,11 @@ class UssdTransactionManager {
 
     // Remove from pending
     _pendingTransactions.remove(transactionId);
-
-    debugPrint(
-        '[UssdTransactionManager] ✅ Transaction CONFIRMED and updated to success: $transactionId');
-    debugPrint(
-        '[UssdTransactionManager] Amount: ${record.amount}, Recipient: ${record.recipient}');
   }
 
   /// Reject the most recent pending transaction
   static Future<void> _rejectMostRecentTransaction(String ussdResponse) async {
     if (_pendingTransactions.isEmpty) {
-      debugPrint('[UssdTransactionManager] No pending transactions to reject');
       return;
     }
 
@@ -108,9 +87,6 @@ class UssdTransactionManager {
     final transactionId = mostRecent.key;
     final record = mostRecent.value;
 
-    final failureReason =
-        UssdKeywordDetector.extractFailureReason(ussdResponse);
-
     // Update the transaction to failed status in permanent storage
     await UssdRecordService.updateUssdRecord(
       record.copyWith(
@@ -119,15 +95,7 @@ class UssdTransactionManager {
       ),
     );
 
-    // Remove from pending
     _pendingTransactions.remove(transactionId);
-
-    debugPrint(
-        '[UssdTransactionManager] ❌ Transaction REJECTED and marked as failed: $transactionId');
-    debugPrint(
-        '[UssdTransactionManager] Amount: ${record.amount}, Recipient: ${record.recipient}');
-    debugPrint(
-        '[UssdTransactionManager] Reason: ${failureReason ?? "No success keywords found"}');
   }
 
   /// Clean up pending transactions older than 2 minutes
@@ -143,10 +111,7 @@ class UssdTransactionManager {
     });
 
     for (final id in expiredIds) {
-      final record = _pendingTransactions[id];
       _pendingTransactions.remove(id);
-      debugPrint(
-          '[UssdTransactionManager] 🗑️ Expired pending transaction removed: $id (Age: ${now.difference(record!.timestamp).inMinutes} min)');
     }
   }
 
@@ -157,9 +122,7 @@ class UssdTransactionManager {
 
   /// Clear all pending transactions
   static void clearPending() {
-    final count = _pendingTransactions.length;
     _pendingTransactions.clear();
-    debugPrint('[UssdTransactionManager] Cleared $count pending transactions');
   }
 
   /// Dispose of the manager
@@ -167,6 +130,5 @@ class UssdTransactionManager {
     _cleanupTimer?.cancel();
     _cleanupTimer = null;
     _pendingTransactions.clear();
-    debugPrint('[UssdTransactionManager] Disposed');
   }
 }

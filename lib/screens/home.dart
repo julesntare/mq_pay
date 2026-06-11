@@ -81,11 +81,23 @@ class _HomeState extends State<Home> {
     if (mounted) setState(() => _favorites = favs);
   }
 
-  Future<void> _loadFrequentContacts() async {
-    final records = await UssdRecordService.getUssdRecords();
+  /// Loads all startup data concurrently and applies a single setState,
+  /// reducing first-frame rebuild churn from 4 separate setState calls to 1.
+  Future<void> _loadInitialData() async {
+    final results = await Future.wait([
+      SharedPreferences.getInstance(),
+      FavoritesService.getFavorites(),
+      UssdRecordService.getUssdRecords(),
+      BillShortcutsService.getShortcuts(),
+    ]);
+    final prefs = results[0] as SharedPreferences;
+    final favs = results[1] as List<FavoriteContact>;
+    final records = results[2] as List<UssdRecord>;
+    final shortcuts = results[3] as List<BillShortcut>;
+
+    // Compute frequent contacts from records
     final counts = <String, int>{};
     final displayNames = <String, String>{};
-
     for (final r in records) {
       if (r.status == TransactionStatus.success &&
           r.recipient.isNotEmpty &&
@@ -98,19 +110,31 @@ class _HomeState extends State<Home> {
         }
       }
     }
-
     final sorted = counts.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
-
     final frequent = sorted
         .take(5)
-        .map((e) => FavoriteContact(
-              name: displayNames[e.key] ?? e.key,
-              phoneNumber: e.key,
-            ))
+        .map((e) => FavoriteContact(name: displayNames[e.key] ?? e.key, phoneNumber: e.key))
         .toList();
 
-    if (mounted) setState(() => _frequentContacts = frequent);
+    // Decode payment methods from prefs
+    List<PaymentMethod> methods = [];
+    final paymentMethodsJson = prefs.getString('paymentMethods');
+    if (paymentMethodsJson != null) {
+      final List<dynamic> methodList = jsonDecode(paymentMethodsJson);
+      methods = methodList.map((json) => PaymentMethod.fromJson(json)).toList();
+    }
+
+    if (mounted) {
+      setState(() {
+        mobileNumber = prefs.getString('mobileNumber') ?? '';
+        momoCode = prefs.getString('momoCode') ?? '';
+        paymentMethods = methods;
+        _favorites = favs;
+        _frequentContacts = frequent;
+        _billShortcuts = shortcuts;
+      });
+    }
   }
 
   Future<void> _loadBillShortcuts() async {
@@ -136,10 +160,7 @@ class _HomeState extends State<Home> {
   @override
   void initState() {
     super.initState();
-    _loadSavedPreferences();
-    _loadFavorites();
-    _loadFrequentContacts();
-    _loadBillShortcuts();
+    _loadInitialData();
     phoneFocusNode.addListener(_onPhoneFocusChanged);
     // Request focus on amount field after build is complete
     WidgetsBinding.instance.addPostFrameCallback((_) {

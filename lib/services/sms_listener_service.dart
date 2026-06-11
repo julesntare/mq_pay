@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_sms_inbox/flutter_sms_inbox.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'transaction_matcher_service.dart';
@@ -62,9 +61,7 @@ class SmsListenerService {
       }
 
       _lastSmsCheckTime = now;
-    } catch (e) {
-      if (kDebugMode) debugPrint('Error checking SMS: $e');
-    }
+    } catch (_) {}
   }
 
   static Future<void> _processSms(SmsMessage message) async {
@@ -140,8 +137,7 @@ class SmsListenerService {
       }
 
       return matchedCount;
-    } catch (e) {
-      if (kDebugMode) debugPrint('Error in retry matching: $e');
+    } catch (_) {
       return 0;
     }
   }

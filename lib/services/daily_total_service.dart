@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../helpers/safe_date_format.dart';
 import 'package:workmanager/workmanager.dart';
@@ -64,10 +63,7 @@ class DailyTotalService {
       await _firestore.collection(_collectionName).doc(monthKey).set({
         today: dailyTotal.toJson(),
       }, SetOptions(merge: true));
-    } catch (e) {
-      // Log error but don't throw to prevent background task failure
-      if (kDebugMode) debugPrint('Error sending daily total: $e');
-    }
+    } catch (_) {}
   }
 
   /// Schedule daily task to run at 11:59 PM CAT (UTC+2)
@@ -102,9 +98,7 @@ class DailyTotalService {
           networkType: NetworkType.connected,
         ),
       );
-    } catch (e) {
-      if (kDebugMode) debugPrint('Error scheduling daily task: $e');
-    }
+    } catch (_) {}
   }
 
   /// Get daily total for a specific date from monthly document
@@ -121,8 +115,7 @@ class DailyTotalService {
         }
       }
       return null;
-    } catch (e) {
-      if (kDebugMode) debugPrint('Error getting daily total: $e');
+    } catch (_) {
       return null;
     }
   }
@@ -140,7 +133,6 @@ class DailyTotalService {
 
           // Each month document contains date keys (yyyy-MM-dd) with daily total data
           for (final entry in monthData.entries) {
-            final dateKey = entry.key;
             final dailyData = entry.value;
 
             // Ensure it's a map and looks like a daily total entry
@@ -148,9 +140,7 @@ class DailyTotalService {
                 dailyData.containsKey('date')) {
               try {
                 allTotals.add(DailyTotal.fromJson(dailyData));
-              } catch (e) {
-                if (kDebugMode) debugPrint('Error parsing daily total for date $dateKey: $e');
-              }
+              } catch (_) {}
             }
           }
         }
@@ -160,8 +150,7 @@ class DailyTotalService {
       allTotals.sort((a, b) => b.date.compareTo(a.date));
 
       return allTotals;
-    } catch (e) {
-      if (kDebugMode) debugPrint('Error getting all daily totals: $e');
+    } catch (_) {
       return [];
     }
   }
@@ -204,8 +193,7 @@ class DailyTotalService {
             monthlyData[monthKey] = {};
           }
           monthlyData[monthKey]![dateString] = dailyTotal;
-        } catch (e) {
-          if (kDebugMode) debugPrint('Error preparing date $dateString: $e');
+        } catch (_) {
           errorCount++;
           errorDates.add(dateString);
         }
@@ -232,8 +220,7 @@ class DailyTotalService {
           // Count synced dates for this month
           syncedCount += datesData.length;
           syncedDates.addAll(datesData.keys);
-        } catch (e) {
-          if (kDebugMode) debugPrint('Error syncing month $monthKey: $e');
+        } catch (_) {
           errorCount += datesData.length;
           errorDates.addAll(datesData.keys);
         }
@@ -248,7 +235,6 @@ class DailyTotalService {
         'monthsProcessed': monthlyData.length,
       };
     } catch (e) {
-      if (kDebugMode) debugPrint('Error syncing all date totals: $e');
       throw Exception('Failed to sync all date totals: $e');
     }
   }
