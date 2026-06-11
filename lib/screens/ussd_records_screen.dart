@@ -357,6 +357,10 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
           (currentMonthIndex + direction).clamp(0, monthsWithData.length - 1);
       _updateCurrentMonthTotal();
     });
+    _computeFilteredTotal();
+    if (_scrollController.hasClients) {
+      _scrollController.jumpTo(0);
+    }
   }
 
   @override
@@ -446,7 +450,16 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
           ? const Center(child: CircularProgressIndicator())
           : records.isEmpty
               ? _buildEmptyState(theme)
-              : ScrollIndicatorWrapper(
+              : GestureDetector(
+                  onHorizontalDragEnd: (details) {
+                    if (details.primaryVelocity == null) return;
+                    if (details.primaryVelocity! > 300) {
+                      _navigateMonth(1); // swipe right → older month (< arrow)
+                    } else if (details.primaryVelocity! < -300) {
+                      _navigateMonth(-1); // swipe left → newer month (> arrow)
+                    }
+                  },
+                  child: ScrollIndicatorWrapper(
                   controller: _scrollController,
                   showTopIndicator: true,
                   showBottomIndicator: true,
@@ -513,11 +526,19 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                       SliverToBoxAdapter(
                         child: _buildReasonFilters(theme),
                       ),
+                      // Month section header
+                      if (monthsWithData.isNotEmpty &&
+                          filterStartDate == null &&
+                          filterEndDate == null)
+                        SliverToBoxAdapter(
+                          child: _buildMonthHeader(theme),
+                        ),
                       // Records list
                       _buildRecordsListSliver(theme),
                     ],
                   ),
                 ),
+              ),
     );
   }
 
@@ -1104,6 +1125,10 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
         continue;
       if (filterEndDate != null && r.timestamp.isAfter(filterEndDate!))
         continue;
+      if (filterStartDate == null && filterEndDate == null && monthsWithData.isNotEmpty) {
+        final m = monthsWithData[currentMonthIndex];
+        if (r.timestamp.year != m.year || r.timestamp.month != m.month) continue;
+      }
 
       // Apply search filter
       if (searchQuery.isNotEmpty) {
@@ -1711,6 +1736,72 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
     );
   }
 
+  Widget _buildMonthHeader(ThemeData theme) {
+    final month = monthsWithData[currentMonthIndex];
+    final label = safeDateFormat('MMMM yyyy').format(month);
+    final count = records.where((r) =>
+        r.timestamp.year == month.year &&
+        r.timestamp.month == month.month).length;
+
+    final canGoOlder = currentMonthIndex < monthsWithData.length - 1;
+    final canGoNewer = currentMonthIndex > 0;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: canGoOlder ? () => _navigateMonth(1) : null,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+              child: Icon(
+                Icons.chevron_left_rounded,
+                size: 20,
+                color: canGoOlder
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.onSurface.withValues(alpha: 0.2),
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Row(
+              children: [
+                Text(
+                  label,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '· $count ${count == 1 ? 'transaction' : 'transactions'}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          GestureDetector(
+            onTap: canGoNewer ? () => _navigateMonth(-1) : null,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+              child: Icon(
+                Icons.chevron_right_rounded,
+                size: 20,
+                color: canGoNewer
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.onSurface.withValues(alpha: 0.2),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildRecordsListSliver(ThemeData theme) {
     // Apply combined filters: activeFilter (tab), recipientTypeFilter (advanced), reason, date range
     var filteredRecords = records.where((record) {
@@ -1726,6 +1817,10 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
           record.timestamp.isBefore(filterStartDate!)) return false;
       if (filterEndDate != null && record.timestamp.isAfter(filterEndDate!))
         return false;
+      if (filterStartDate == null && filterEndDate == null && monthsWithData.isNotEmpty) {
+        final m = monthsWithData[currentMonthIndex];
+        if (record.timestamp.year != m.year || record.timestamp.month != m.month) return false;
+      }
       return true;
     }).toList();
 
