@@ -14,6 +14,7 @@ migrate_working_dir/
 .claude/
 .vscode/
 *.jks
+flutter_*.png
 
 # IntelliJ related
 *.iml

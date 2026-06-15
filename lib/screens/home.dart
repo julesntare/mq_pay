@@ -259,6 +259,9 @@ class _HomeState extends State<Home> {
     if (currentStep < 1) {
       setState(() {
         currentStep++;
+        // Suppress the suggestions overlay when arriving at the contact step
+        // so the user sees favorites first instead of the fullscreen overlay.
+        _suggestionDismissed = true;
       });
 
       if (currentStep == 1) {
@@ -487,7 +490,6 @@ class _HomeState extends State<Home> {
                 children: [
                   _buildAppHeader(context, theme),
                   const SizedBox(height: 16),
-                  _buildFavoritesRow(theme),
                   _buildBillShortcutsRow(context, theme),
                   _buildStreamlinedPaymentForm(context, theme),
                 ],
@@ -663,10 +665,6 @@ class _HomeState extends State<Home> {
                     isPhoneNumberMomo = _isValidMomoCode(fav.phoneNumber) &&
                         !_isValidPhoneNumber(fav.phoneNumber);
                     _suggestionDismissed = true;
-                    currentStep = 0;
-                  });
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    amountFocusNode.requestFocus();
                   });
                 },
                 onLongPress: () async {
@@ -1180,58 +1178,66 @@ class _HomeState extends State<Home> {
                           : _buildPhoneStep(theme)),
                 ),
 
-                const SizedBox(height: 24),
-
-                // Navigation Buttons
-                Row(
-                  children: [
-                    if (currentStep > 0)
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: _previousStep,
-                          icon: Icon(Icons.arrow_back_rounded),
-                          label: Text(S.of(context).back),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(15),
+                // Navigation — collapses to zero height when nothing to show
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeInOut,
+                  child: (currentStep == 0 && _getNextButtonAction() == null)
+                      ? const SizedBox(width: double.infinity)
+                      : Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const SizedBox(height: 12),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                if (currentStep > 0)
+                                  OutlinedButton(
+                                    onPressed: _previousStep,
+                                    style: OutlinedButton.styleFrom(
+                                      shape: const CircleBorder(),
+                                      padding: const EdgeInsets.all(12),
+                                    ),
+                                    child: const Icon(
+                                        Icons.arrow_back_rounded, size: 22),
+                                  )
+                                else
+                                  const SizedBox.shrink(),
+                                AnimatedOpacity(
+                                  opacity:
+                                      _getNextButtonAction() != null ? 1.0 : 0.0,
+                                  duration: const Duration(milliseconds: 250),
+                                  curve: Curves.easeInOut,
+                                  child: AnimatedScale(
+                                    scale: _getNextButtonAction() != null
+                                        ? 1.0
+                                        : 0.6,
+                                    duration: const Duration(milliseconds: 250),
+                                    curve: Curves.easeInOut,
+                                    child: IgnorePointer(
+                                      ignoring: _getNextButtonAction() == null,
+                                      child: FilledButton(
+                                        onPressed: _getNextButtonAction(),
+                                        style: FilledButton.styleFrom(
+                                          shape: const CircleBorder(),
+                                          padding: const EdgeInsets.all(12),
+                                        ),
+                                        child: Icon(
+                                          currentStep == 0
+                                              ? Icons.arrow_forward_rounded
+                                              : (isRecordOnlyMode
+                                                  ? Icons.save_rounded
+                                                  : Icons.send_rounded),
+                                          size: 22,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
+                          ],
                         ),
-                      ),
-                    if (currentStep > 0) const SizedBox(width: 16),
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: _getNextButtonAction(),
-                        icon: Icon(currentStep == 0
-                            ? Icons.arrow_forward_rounded
-                            : (isRecordOnlyMode
-                                ? Icons.save_rounded
-                                : Icons.send_rounded)),
-                        label: Text(
-                          currentStep == 0
-                              ? S.of(context).next
-                              : (isRecordOnlyMode
-                                  ? S.of(context).saveRecord
-                                  : S.of(context).payNow),
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: theme.colorScheme.primary,
-                          foregroundColor: Colors.white,
-                          disabledBackgroundColor: theme.colorScheme.onSurface
-                              .withValues(alpha: 0.12),
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(15),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
                 ),
               ],
             ],
@@ -1485,6 +1491,9 @@ class _HomeState extends State<Home> {
           controller: amountController,
           focusNode: amountFocusNode,
           keyboardType: TextInputType.text,
+          textInputAction: (recipientFirst && currentStep == 1)
+              ? (isRecordOnlyMode ? TextInputAction.done : TextInputAction.send)
+              : TextInputAction.next,
           autofocus: true,
           inputFormatters: [
             FilteringTextInputFormatter.allow(RegExp(r'[0-9kKmM.,]')),
@@ -1554,15 +1563,7 @@ class _HomeState extends State<Home> {
             // Intermediate decimal like "1.5" (before k/m is typed): leave as-is.
             setState(() {});
           },
-          onSubmitted: (_) {
-            if (_isValidAmount()) {
-              if (recipientFirst && currentStep == 1) {
-                if (_canProceedWithPayment()) _processPayment(context);
-              } else {
-                _nextStep();
-              }
-            }
-          },
+          onSubmitted: (_) => _getNextButtonAction()?.call(),
         ),
         const SizedBox(height: 16),
         if (amountController.text.isNotEmpty && !_isValidAmount())
@@ -1607,7 +1608,8 @@ class _HomeState extends State<Home> {
             color: theme.colorScheme.onSurface,
           ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 12),
+        _buildFavoritesRow(theme),
 
         // Contact chip (when a contact is selected) OR unified input field
         if (_selectedContact != null)
@@ -1617,6 +1619,11 @@ class _HomeState extends State<Home> {
             controller: mobileController,
             focusNode: phoneFocusNode,
             keyboardType: TextInputType.text,
+            textInputAction: (!recipientFirst && currentStep == 1)
+                ? (isRecordOnlyMode
+                    ? TextInputAction.done
+                    : TextInputAction.send)
+                : TextInputAction.next,
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w500,
@@ -1681,14 +1688,7 @@ class _HomeState extends State<Home> {
                 _selectContactSuggestion(filteredContacts[0]);
                 return;
               }
-              if (recipientFirst && currentStep == 0) {
-                final hasValid = isRecordOnlyMode ||
-                    _isValidPhoneNumber(value) ||
-                    _isValidMomoCode(value);
-                if (hasValid) _nextStep();
-              } else if (_canProceedWithPayment()) {
-                _processPayment(context);
-              }
+              _getNextButtonAction()?.call();
             },
           ),
 
