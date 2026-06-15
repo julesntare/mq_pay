@@ -71,6 +71,8 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
   // ScrollController for scroll indicators
   final ScrollController _scrollController = ScrollController();
 
+  int _currentMonthCount = 0;
+
   // Fee display toggle
   bool includeFees =
       true; // true = show total with fees, false = show amount only
@@ -349,6 +351,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
       currentMonthTotal = total;
       currentMonthTotalFees = fees;
       currentMonthAmountByType = amountsByType;
+      _currentMonthCount = monthRecords.length;
     });
   }
 
@@ -358,6 +361,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
     setState(() {
       currentMonthIndex =
           (currentMonthIndex + direction).clamp(0, monthsWithData.length - 1);
+      _selectedChartMonth = null;
       _updateCurrentMonthTotal();
     });
     _computeFilteredTotal();
@@ -1111,6 +1115,12 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
     );
   }
 
+  bool _passesMonthFilter(UssdRecord r) {
+    if (filterStartDate != null || filterEndDate != null || monthsWithData.isEmpty) return true;
+    final m = monthsWithData[currentMonthIndex];
+    return r.timestamp.year == m.year && r.timestamp.month == m.month;
+  }
+
   void _computeFilteredTotal() {
     double total = 0.0;
     int count = 0;
@@ -1119,6 +1129,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
       // Skip pending transactions from totals
       if (r.status == TransactionStatus.pending) continue;
 
+      if (activeFilter != null && r.recipientType != activeFilter) continue;
       if (recipientTypeFilter != null && r.recipientType != recipientTypeFilter)
         continue;
       if (selectedReason != null &&
@@ -1128,10 +1139,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
         continue;
       if (filterEndDate != null && r.timestamp.isAfter(filterEndDate!))
         continue;
-      if (filterStartDate == null && filterEndDate == null && monthsWithData.isNotEmpty) {
-        final m = monthsWithData[currentMonthIndex];
-        if (r.timestamp.year != m.year || r.timestamp.month != m.month) continue;
-      }
+      if (!_passesMonthFilter(r)) continue;
 
       // Apply search filter
       if (searchQuery.isNotEmpty) {
@@ -1768,9 +1776,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
   Widget _buildMonthHeader(ThemeData theme) {
     final month = monthsWithData[currentMonthIndex];
     final label = safeDateFormat('MMMM yyyy').format(month);
-    final count = records.where((r) =>
-        r.timestamp.year == month.year &&
-        r.timestamp.month == month.month).length;
+    final count = _currentMonthCount;
 
     final canGoOlder = currentMonthIndex < monthsWithData.length - 1;
     final canGoNewer = currentMonthIndex > 0;
@@ -1846,10 +1852,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
           record.timestamp.isBefore(filterStartDate!)) return false;
       if (filterEndDate != null && record.timestamp.isAfter(filterEndDate!))
         return false;
-      if (filterStartDate == null && filterEndDate == null && monthsWithData.isNotEmpty) {
-        final m = monthsWithData[currentMonthIndex];
-        if (record.timestamp.year != m.year || record.timestamp.month != m.month) return false;
-      }
+      if (!_passesMonthFilter(record)) return false;
       return true;
     }).toList();
 

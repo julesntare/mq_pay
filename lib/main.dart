@@ -70,14 +70,16 @@ void main() async {
     try {
       await SupabaseBackupService.initialize();
     } catch (_) {}
-    await Workmanager().initialize(callbackDispatcher, isInDebugMode: false);
-    await DailyTotalService.scheduleDailyTask();
-    await NotificationService.initialize();
-    await SmsListenerService.initialize();
-    UssdTransactionManager.initialize();
-    await UssdDetectorService.initialize();
-    BackupService.performAutoBackupIfNeeded();
-    SupabaseBackupService.performAutoBackupIfNeeded();
+    try {
+      await Workmanager().initialize(callbackDispatcher);
+      await DailyTotalService.scheduleDailyTask();
+      await NotificationService.initialize();
+      await SmsListenerService.initialize();
+      UssdTransactionManager.initialize();
+      await UssdDetectorService.initialize();
+      BackupService.performAutoBackupIfNeeded();
+      SupabaseBackupService.performAutoBackupIfNeeded();
+    } catch (_) {}
   });
 
   runApp(

@@ -117,24 +117,23 @@ class _HomeState extends State<Home> {
         .map((e) => FavoriteContact(name: displayNames[e.key] ?? e.key, phoneNumber: e.key))
         .toList();
 
-    // Decode payment methods from prefs
-    List<PaymentMethod> methods = [];
-    final paymentMethodsJson = prefs.getString('paymentMethods');
-    if (paymentMethodsJson != null) {
-      final List<dynamic> methodList = jsonDecode(paymentMethodsJson);
-      methods = methodList.map((json) => PaymentMethod.fromJson(json)).toList();
-    }
-
     if (mounted) {
       setState(() {
         mobileNumber = prefs.getString('mobileNumber') ?? '';
         momoCode = prefs.getString('momoCode') ?? '';
-        paymentMethods = methods;
+        paymentMethods = _decodePaymentMethods(prefs);
         _favorites = favs;
         _frequentContacts = frequent;
         _billShortcuts = shortcuts;
       });
     }
+  }
+
+  List<PaymentMethod> _decodePaymentMethods(SharedPreferences prefs) {
+    final json = prefs.getString('paymentMethods');
+    if (json == null) return [];
+    final list = jsonDecode(json) as List<dynamic>;
+    return list.map((j) => PaymentMethod.fromJson(j)).toList();
   }
 
   Future<void> _loadBillShortcuts() async {
@@ -358,18 +357,13 @@ class _HomeState extends State<Home> {
 
   Future<void> _loadSavedPreferences() async {
     final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      mobileNumber = prefs.getString('mobileNumber') ?? '';
-      momoCode = prefs.getString('momoCode') ?? '';
-
-      // Load payment methods
-      final paymentMethodsJson = prefs.getString('paymentMethods');
-      if (paymentMethodsJson != null) {
-        final List<dynamic> methodList = jsonDecode(paymentMethodsJson);
-        paymentMethods =
-            methodList.map((json) => PaymentMethod.fromJson(json)).toList();
-      }
-    });
+    if (mounted) {
+      setState(() {
+        mobileNumber = prefs.getString('mobileNumber') ?? '';
+        momoCode = prefs.getString('momoCode') ?? '';
+        paymentMethods = _decodePaymentMethods(prefs);
+      });
+    }
   }
 
   Future<void> _scanQrCode() async {
