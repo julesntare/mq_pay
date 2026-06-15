@@ -178,6 +178,24 @@ class UssdRecordService {
     return reasons.toList();
   }
 
+  // Return reasons sorted by usage frequency (most used first), optionally limited.
+  static Future<List<String>> getMostUsedReasons({int? limit}) async {
+    final records = await getUssdRecords();
+    final Map<String, int> counts = {};
+    for (final r in records) {
+      if (r.reason != null && r.reason!.trim().isNotEmpty) {
+        for (final part in r.reason!.split(',')) {
+          final trimmed = part.trim();
+          if (trimmed.isNotEmpty) counts[trimmed] = (counts[trimmed] ?? 0) + 1;
+        }
+      }
+    }
+    final sorted = counts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final result = sorted.map((e) => e.key).toList();
+    return limit != null ? result.take(limit).toList() : result;
+  }
+
   // Get total amount for a given reason across all records
   static Future<double> getTotalByReason(String reason) async {
     final records = await getUssdRecords();
