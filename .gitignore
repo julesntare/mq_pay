@@ -15,6 +15,7 @@ migrate_working_dir/
 .vscode/
 *.jks
 flutter_*.png
+ussd-codes.txt
 
 # IntelliJ related
 *.iml

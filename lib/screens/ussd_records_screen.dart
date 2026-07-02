@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../generated/l10n.dart';
 import 'package:intl/intl.dart';
 import '../helpers/safe_date_format.dart';
@@ -2295,9 +2296,12 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             Text(
-                              _formatCurrency(includeFees
-                                  ? record.amount + record.calculateFee()
-                                  : record.amount),
+                              record.amount <= 0 &&
+                                      record.status == TransactionStatus.pending
+                                  ? 'Amount pending'
+                                  : _formatCurrency(includeFees
+                                      ? record.amount + record.calculateFee()
+                                      : record.amount),
                               style: theme.textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.bold,
                                 color: color,
@@ -2370,6 +2374,49 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurface
                                 .withValues(alpha: 0.6),
+                          ),
+                        ),
+                      ),
+                    if (record.extraDetails != null &&
+                        record.extraDetails!.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8.0),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.secondaryContainer
+                                .withValues(alpha: 0.4),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  record.extraDetails!,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurface
+                                        .withValues(alpha: 0.8),
+                                  ),
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: () {
+                                  Clipboard.setData(
+                                      ClipboardData(text: record.extraDetails!));
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Copied to clipboard'),
+                                      duration: Duration(seconds: 1),
+                                    ),
+                                  );
+                                },
+                                child: Icon(Icons.copy_rounded,
+                                    size: 16,
+                                    color: theme.colorScheme.onSurface
+                                        .withValues(alpha: 0.5)),
+                              ),
+                            ],
                           ),
                         ),
                       ),

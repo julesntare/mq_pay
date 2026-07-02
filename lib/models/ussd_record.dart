@@ -19,6 +19,8 @@ class UssdRecord {
   final DateTime? statusUpdatedAt; // When status was last updated
   final bool isLoan; // Whether this transaction is a loan
   final bool loanRecovered; // Whether the loan has been recovered
+  final String? serviceKey; // e.g. 'umutekano' | 'efashe' | 'canalbox' | 'yego' | 'custom:<id>'
+  final String? extraDetails; // Enrichment text from a delayed service SMS (e.g. Cash Power token)
 
   UssdRecord({
     required this.id,
@@ -38,6 +40,8 @@ class UssdRecord {
     this.statusUpdatedAt,
     this.isLoan = false,
     this.loanRecovered = false,
+    this.serviceKey,
+    this.extraDetails,
   });
 
   Map<String, dynamic> toJson() {
@@ -59,6 +63,8 @@ class UssdRecord {
       'statusUpdatedAt': statusUpdatedAt?.toIso8601String(),
       'isLoan': isLoan,
       'loanRecovered': loanRecovered,
+      'serviceKey': serviceKey,
+      'extraDetails': extraDetails,
     };
   }
 
@@ -86,6 +92,8 @@ class UssdRecord {
           : null,
       isLoan: json['isLoan'] as bool? ?? false,
       loanRecovered: json['loanRecovered'] as bool? ?? false,
+      serviceKey: json['serviceKey'] as String?,
+      extraDetails: json['extraDetails'] as String?,
     );
   }
 
@@ -107,6 +115,8 @@ class UssdRecord {
     DateTime? statusUpdatedAt,
     bool? isLoan,
     bool? loanRecovered,
+    String? serviceKey,
+    String? extraDetails,
   }) {
     return UssdRecord(
       id: id ?? this.id,
@@ -126,6 +136,8 @@ class UssdRecord {
       statusUpdatedAt: statusUpdatedAt ?? this.statusUpdatedAt,
       isLoan: isLoan ?? this.isLoan,
       loanRecovered: loanRecovered ?? this.loanRecovered,
+      serviceKey: serviceKey ?? this.serviceKey,
+      extraDetails: extraDetails ?? this.extraDetails,
     );
   }
 

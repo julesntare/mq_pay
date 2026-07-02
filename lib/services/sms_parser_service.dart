@@ -49,6 +49,160 @@ class SmsParserService {
       'status': 'success',
       'confirmationCode': _extractConfirmationCode(sms),
       'fee': _extractFee(sms),
+      'merchantName': _extractMerchantName(sms),
+      'rawText': sms,
+    };
+  }
+
+  /// Extracts the merchant/biller name from generic MTN completion messages,
+  /// e.g. "A transaction of 2000 RWF by CITY OF KIGALI ... was completed".
+  static String? _extractMerchantName(String sms) {
+    final pattern = RegExp(
+      r'by\s+([A-Z][A-Za-z0-9\s&.()]+?)\s+was completed',
+      caseSensitive: false,
+    );
+    final match = pattern.firstMatch(sms);
+    if (match != null) return match.group(1)!.trim();
+    return null;
+  }
+
+  /// Confirmed sender IDs for each service's delayed enrichment SMS.
+  static const Map<String, String> _enrichmentSenderIds = {
+    'efashe': 'efashe',
+    'canalbox': 'canalbox',
+    'umutekano': 'umutekano',
+  };
+
+  /// Detects a delayed, service-specific enrichment message (Cash Power token,
+  /// Canalbox renewal, Umutekano confirmation) that doesn't look like a
+  /// standard MoMo debit receipt and would otherwise be silently dropped.
+  /// Primarily content-signature based; when [sender] is available it must
+  /// also match the confirmed sender ID for that service, as a defense-in-depth
+  /// check against an unrelated SMS coincidentally matching the body pattern.
+  static Map<String, dynamic>? detectServiceEnrichment(String smsBody, {String? sender}) {
+    final sms = smsBody.trim();
+    final lower = sms.toLowerCase();
+
+    String? serviceKey;
+    if (lower.contains('meter#') && lower.contains('token')) {
+      serviceKey = 'efashe';
+    } else if (lower.contains('canalbox')) {
+      serviceKey = 'canalbox';
+    } else if (lower.contains('umutekano')) {
+      serviceKey = 'umutekano';
+    } else if (lower.contains('has been debited')) {
+      serviceKey = 'bk';
+    }
+    if (serviceKey == null) return null;
+
+    // Sender confirmation is only enforced when we actually know the
+    // expected sender ID for this service (e.g. BK's sender wasn't
+    // confirmed) — otherwise fall back to content-signature only.
+    final expectedSender = _enrichmentSenderIds[serviceKey];
+    if (expectedSender != null && sender != null && sender.trim().isNotEmpty) {
+      if (!sender.toLowerCase().contains(expectedSender)) return null;
+    }
+
+    switch (serviceKey) {
+      case 'efashe':
+        return _parseEfasheEnrichment(sms);
+      case 'canalbox':
+        return _parseCanalboxEnrichment(sms);
+      case 'umutekano':
+        return _parseUmutekanoEnrichment(sms);
+      case 'bk':
+        return _parseBankDebit(sms);
+    }
+    return null;
+  }
+
+  static Map<String, dynamic>? _parseEfasheEnrichment(String sms) {
+    final meterMatch = RegExp(r'Meter#\s*:\s*(\S+)', caseSensitive: false).firstMatch(sms);
+    final tokenMatch = RegExp(r'Token\s*:\s*(\S+)', caseSensitive: false).firstMatch(sms);
+    final unitsMatch = RegExp(r'Units\s*:\s*([\d.]+)\s*KW', caseSensitive: false).firstMatch(sms);
+    final amountMatch = RegExp(r'Amount\s*:\s*([\d.]+)', caseSensitive: false).firstMatch(sms);
+
+    if (tokenMatch == null) return null;
+
+    final parts = <String>['Token: ${tokenMatch.group(1)}'];
+    if (unitsMatch != null) {
+      final units = double.tryParse(unitsMatch.group(1)!);
+      parts.add('Units: ${units != null ? units.toStringAsFixed(2) : unitsMatch.group(1)} KWh');
+    }
+    if (meterMatch != null) parts.add('Meter: ${meterMatch.group(1)}');
+
+    return {
+      'serviceKey': 'efashe',
+      'extraDetails': parts.join(' · '),
+      'amount': amountMatch != null ? double.tryParse(amountMatch.group(1)!) : null,
+      'refId': null,
+      'rawText': sms,
+    };
+  }
+
+  static Map<String, dynamic>? _parseCanalboxEnrichment(String sms) {
+    final validMatch =
+        RegExp(r'valid until\s*([\d\-\/]+)', caseSensitive: false).firstMatch(sms);
+    final amountMatch =
+        RegExp(r'Amount paid\s*:?\s*([\d,]+)\s*RWF', caseSensitive: false).firstMatch(sms);
+
+    final parts = <String>['Subscription renewed'];
+    if (validMatch != null) parts.add('Valid until ${validMatch.group(1)}');
+
+    return {
+      'serviceKey': 'canalbox',
+      'extraDetails': parts.join(' · '),
+      'amount': amountMatch != null
+          ? double.tryParse(amountMatch.group(1)!.replaceAll(',', ''))
+          : null,
+      'refId': null,
+      'rawText': sms,
+    };
+  }
+
+  static Map<String, dynamic>? _parseUmutekanoEnrichment(String sms) {
+    final amountMatch = RegExp(r'Umutekano\s*([\d,]+)F', caseSensitive: false).firstMatch(sms);
+    final tridMatch = RegExp(r'TRID\s+([A-Za-z0-9]+)', caseSensitive: false).firstMatch(sms);
+
+    return {
+      'serviceKey': 'umutekano',
+      'extraDetails': 'Confirmed via Umutekano'
+          '${tridMatch != null ? ' · TRID ${tridMatch.group(1)}' : ''}',
+      'amount': amountMatch != null
+          ? double.tryParse(amountMatch.group(1)!.replaceAll(',', ''))
+          : null,
+      'refId': tridMatch?.group(1),
+      'rawText': sms,
+    };
+  }
+
+  /// Bank debit alert (e.g. BK) — a standalone completion message, not a
+  /// MoMo transaction at all, so it never goes through `parseSms`/the
+  /// generic MTN pipeline. Deliberately ignores "Available Balance" —
+  /// only the debited amount and the transaction charge matter here.
+  static Map<String, dynamic>? _parseBankDebit(String sms) {
+    final amountMatch = RegExp(r'debited\s+RWF\s*([\d,]+(?:\.\d+)?)', caseSensitive: false)
+        .firstMatch(sms);
+    if (amountMatch == null) return null;
+
+    final refMatch = RegExp(r'Ref:\s*([A-Za-z0-9]+)', caseSensitive: false).firstMatch(sms);
+    final chargeMatch =
+        RegExp(r'Txn Charge:\s*RWF\s*([\d,]+(?:\.\d+)?)', caseSensitive: false).firstMatch(sms);
+    final descMatch =
+        RegExp(r'Txn Description:\s*([^.]+)\.', caseSensitive: false).firstMatch(sms);
+
+    final parts = <String>[];
+    if (descMatch != null) parts.add(descMatch.group(1)!.trim());
+    if (refMatch != null) parts.add('Ref: ${refMatch.group(1)}');
+
+    return {
+      'serviceKey': 'bk',
+      'extraDetails': parts.isEmpty ? null : parts.join(' · '),
+      'amount': double.tryParse(amountMatch.group(1)!.replaceAll(',', '')),
+      'fee': chargeMatch != null
+          ? double.tryParse(chargeMatch.group(1)!.replaceAll(',', ''))
+          : null,
+      'refId': refMatch?.group(1),
       'rawText': sms,
     };
   }
@@ -143,7 +297,7 @@ class SmsParserService {
   static String? _extractConfirmationCode(String sms) {
     final patterns = [
       RegExp(r'TxId\s*:\s*(\d+)', caseSensitive: false),
-      RegExp(r'ET\s*Id\s*:\s*(\d+)', caseSensitive: false),
+      RegExp(r'ET\s*Id\s*:\s*([A-Za-z0-9\-]+)', caseSensitive: false),
       RegExp(r'Transaction\s*ID\s*:\s*(\d+)', caseSensitive: false),
       RegExp(r'Txn\s*ID\s*:\s*(\d+)', caseSensitive: false),
       RegExp(r'Ref(?:erence)?\s*(?:No\.?)?\s*:\s*([A-Z0-9]{6,})', caseSensitive: false),

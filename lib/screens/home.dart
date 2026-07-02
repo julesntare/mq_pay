@@ -20,6 +20,10 @@ import '../models/favorite_contact.dart';
 import '../services/favorites_service.dart';
 import '../models/bill_shortcut.dart';
 import '../services/bill_shortcuts_service.dart';
+import '../models/ussd_service_shortcut.dart';
+import '../services/ussd_services_catalog_service.dart';
+import '../helpers/ussd_service_actions.dart';
+import 'ussd_services_screen.dart';
 
 class Home extends StatefulWidget {
   const Home({super.key});
@@ -76,6 +80,9 @@ class _HomeState extends State<Home> {
   // Bill shortcuts
   List<BillShortcut> _billShortcuts = [];
 
+  // Other USSD services (Cash Power, Canalbox, Umutekano, Yego Cab, custom)
+  List<UssdServiceShortcut> _ussdServices = [];
+
   Future<void> _loadFavorites() async {
     final favs = await FavoritesService.getFavorites();
     if (mounted) setState(() => _favorites = favs);
@@ -89,11 +96,13 @@ class _HomeState extends State<Home> {
       FavoritesService.getFavorites(),
       UssdRecordService.getUssdRecords(),
       BillShortcutsService.getShortcuts(),
+      UssdServicesCatalogService.getServices(),
     ]);
     final prefs = results[0] as SharedPreferences;
     final favs = results[1] as List<FavoriteContact>;
     final records = results[2] as List<UssdRecord>;
     final shortcuts = results[3] as List<BillShortcut>;
+    final ussdServices = results[4] as List<UssdServiceShortcut>;
 
     // Compute frequent contacts from records
     final counts = <String, int>{};
@@ -125,8 +134,14 @@ class _HomeState extends State<Home> {
         _favorites = favs;
         _frequentContacts = frequent;
         _billShortcuts = shortcuts;
+        _ussdServices = ussdServices;
       });
     }
+  }
+
+  Future<void> _loadUssdServices() async {
+    final services = await UssdServicesCatalogService.getServices();
+    if (mounted) setState(() => _ussdServices = services);
   }
 
   List<PaymentMethod> _decodePaymentMethods(SharedPreferences prefs) {
@@ -491,6 +506,7 @@ class _HomeState extends State<Home> {
                   _buildAppHeader(context, theme),
                   const SizedBox(height: 16),
                   _buildBillShortcutsRow(context, theme),
+                  _buildUssdServicesRow(context, theme),
                   _buildStreamlinedPaymentForm(context, theme),
                 ],
               ),
@@ -959,6 +975,130 @@ class _HomeState extends State<Home> {
             onTap: () => _showAddShortcutDialog(context),
             child: Text(
               'Tap + to add a quick-pay shortcut',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ),
+        ],
+        const SizedBox(height: 14),
+      ],
+    );
+  }
+
+  Future<void> _unfavoriteUssdService(
+      BuildContext context, UssdServiceShortcut service) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Remove "${service.label}" from favorites?'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Remove')),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await UssdServicesCatalogService.updateService(
+          service.copyWith(isFavorite: false));
+      await _loadUssdServices();
+    }
+  }
+
+  Widget _buildUssdServicesRow(BuildContext context, ThemeData theme) {
+    final favorites = _ussdServices.where((s) => s.isFavorite).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              'Other services',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                letterSpacing: 0.5,
+              ),
+            ),
+            const Spacer(),
+            GestureDetector(
+              onTap: () async {
+                await Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => const UssdServicesScreen()));
+                await _loadUssdServices();
+              },
+              child: Row(
+                children: [
+                  Text('See all',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.primary.withValues(alpha: 0.8),
+                        fontWeight: FontWeight.w600,
+                      )),
+                  Icon(Icons.chevron_right_rounded,
+                      size: 16,
+                      color: theme.colorScheme.primary.withValues(alpha: 0.8)),
+                ],
+              ),
+            ),
+          ],
+        ),
+        if (favorites.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 64,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: favorites.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (context, i) {
+                final s = favorites[i];
+                return GestureDetector(
+                  onTap: () => triggerUssdService(context, s),
+                  onLongPress: () => _unfavoriteUssdService(context, s),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.tertiaryContainer
+                          .withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(s.label,
+                            style: theme.textTheme.labelMedium
+                                ?.copyWith(fontWeight: FontWeight.w700)),
+                        Text(
+                          s.ussdCode ?? 'Tap to mark pending',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.55),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ] else ...[
+          const SizedBox(height: 6),
+          GestureDetector(
+            onTap: () async {
+              await Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => const UssdServicesScreen()));
+              await _loadUssdServices();
+            },
+            child: Text(
+              'Tap "See all" to star a service for quick access',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
                 fontStyle: FontStyle.italic,

@@ -20,6 +20,7 @@ import 'services/sms_listener_service.dart';
 import 'services/notification_service.dart';
 import 'services/ussd_detector_service.dart';
 import 'services/ussd_transaction_manager.dart';
+import 'services/service_polling_scheduler.dart';
 
 @pragma('vm:entry-point')
 void callbackDispatcher() {
@@ -29,7 +30,12 @@ void callbackDispatcher() {
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
       );
-      await DailyTotalService.sendDailyTotal();
+      if (task == ServicePollingScheduler.taskName) {
+        await NotificationService.initialize();
+        await SmsListenerService.pollServiceTransactions();
+      } else {
+        await DailyTotalService.sendDailyTotal();
+      }
       return Future.value(true);
     } catch (e) {
       return Future.value(false);

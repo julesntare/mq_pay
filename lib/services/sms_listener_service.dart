@@ -5,6 +5,7 @@ import 'transaction_matcher_service.dart';
 import 'sms_parser_service.dart';
 import 'notification_service.dart';
 import '../services/ussd_record_service.dart';
+import 'service_polling_scheduler.dart';
 
 class SmsListenerService {
   static final SmsQuery _query = SmsQuery();
@@ -71,6 +72,16 @@ class SmsListenerService {
     final matched = await TransactionMatcherService.processSms(body, sender);
     if (matched != null) {
       await NotificationService.showTransactionNotification(matched);
+      return;
+    }
+
+    final enriched = await TransactionMatcherService.tryMatchServiceEnrichment(
+      body,
+      smsTimestamp: message.date,
+      sender: sender,
+    );
+    if (enriched != null) {
+      await NotificationService.showTransactionNotification(enriched);
     }
   }
 
@@ -98,7 +109,13 @@ class SmsListenerService {
         r.status.name == 'pending' && r.timestamp.isAfter(cutoff),
       ).toList();
 
-      if (pendingRecent.isEmpty) return 0;
+      // Service-tagged records (pending or already-success) can still
+      // receive a delayed enrichment SMS even after stage-1 resolved them.
+      final serviceCandidates = records.where((r) =>
+        r.serviceKey != null && r.timestamp.isAfter(cutoff),
+      ).toList();
+
+      if (pendingRecent.isEmpty && serviceCandidates.isEmpty) return 0;
 
       final messages = await _query.querySms(
         kinds: [SmsQueryKind.inbox],
@@ -117,28 +134,50 @@ class SmsListenerService {
         final body = message.body ?? '';
         final smsTime = message.date;
 
-        if (!_isFromMobileMoney(sender)) continue;
+        if (pendingRecent.isNotEmpty && _isFromMobileMoney(sender)) {
+          final parsedSms = SmsParserService.parseSms(body);
+          if (parsedSms != null) {
+            // requireSmsAfterTransaction removes the strict upper time cap so
+            // transactions that took >5 min to confirm still get matched.
+            final matchedRecord = await TransactionMatcherService.matchSmsToTransaction(
+              parsedSms,
+              smsTimestamp: smsTime,
+              requireSmsAfterTransaction: true,
+            );
 
-        final parsedSms = SmsParserService.parseSms(body);
-        if (parsedSms == null) continue;
+            if (matchedRecord != null) {
+              await UssdRecordService.updateUssdRecord(matchedRecord);
+              matchedCount++;
+              continue;
+            }
+          }
+        }
 
-        // requireSmsAfterTransaction removes the strict upper time cap so
-        // transactions that took >5 min to confirm still get matched.
-        final matchedRecord = await TransactionMatcherService.matchSmsToTransaction(
-          parsedSms,
-          smsTimestamp: smsTime,
-          requireSmsAfterTransaction: true,
-        );
-
-        if (matchedRecord != null) {
-          await UssdRecordService.updateUssdRecord(matchedRecord);
-          matchedCount++;
+        if (serviceCandidates.isNotEmpty) {
+          final enriched = await TransactionMatcherService.tryMatchServiceEnrichment(
+            body,
+            smsTimestamp: smsTime,
+            sender: sender,
+          );
+          if (enriched != null) matchedCount++;
         }
       }
 
+      await ServicePollingScheduler.cancelIfIdle();
       return matchedCount;
     } catch (_) {
       return 0;
+    }
+  }
+
+  /// Background-task entry point (called from WorkManager's callbackDispatcher
+  /// every ~15 min while a service-tagged pending transaction exists).
+  /// Reuses the same 24h scan as the resume catch-up, then notifies if
+  /// anything resolved and self-cancels the background task once idle.
+  static Future<void> pollServiceTransactions() async {
+    final matchedCount = await retryPendingTransactionMatching();
+    if (matchedCount > 0) {
+      await NotificationService.showTransactionStatusNotification();
     }
   }
 

@@ -40,6 +40,10 @@ class BackupService {
       final billShortcutsJson = prefs.getString('bill_shortcuts') ?? '[]';
       final List<dynamic> billShortcutsList = jsonDecode(billShortcutsJson);
 
+      // Get USSD services catalog
+      final ussdServicesJson = prefs.getString('ussd_services') ?? '[]';
+      final List<dynamic> ussdServicesList = jsonDecode(ussdServicesJson);
+
       // Create backup object with timestamp
       final backupData = {
         'version': _backupVersion,
@@ -49,6 +53,7 @@ class BackupService {
           'paymentMethods': paymentMethodsList,
           'favoriteContacts': favoriteContactsList,
           'billShortcuts': billShortcutsList,
+          'ussdServices': ussdServicesList,
           'settings': {
             'mobileNumber': mobileNumber,
             'momoCode': momoCode,
@@ -207,6 +212,20 @@ class BackupService {
             .toList();
         final allShortcuts = [...existingShortcuts, ...newShortcuts];
         await prefs.setString('bill_shortcuts', jsonEncode(allShortcuts));
+      }
+
+      // Merge USSD services catalog
+      if (data.containsKey('ussdServices')) {
+        final List<dynamic> backupServices = data['ussdServices'] as List;
+        final existingServicesJson = prefs.getString('ussd_services') ?? '[]';
+        final List<dynamic> existingServices = jsonDecode(existingServicesJson);
+        final existingIds =
+            existingServices.map((s) => s['id'] as String).toSet();
+        final newServices = backupServices
+            .where((s) => !existingIds.contains(s['id']))
+            .toList();
+        final allServices = [...existingServices, ...newServices];
+        await prefs.setString('ussd_services', jsonEncode(allServices));
       }
 
       // Restore settings only if not already set
@@ -372,6 +391,20 @@ class BackupService {
         await prefs.setString('bill_shortcuts', jsonEncode(allShortcuts));
       }
 
+      // Merge USSD services catalog
+      if (data.containsKey('ussdServices')) {
+        final List<dynamic> backupServices = data['ussdServices'] as List;
+        final existingServicesJson = prefs.getString('ussd_services') ?? '[]';
+        final List<dynamic> existingServices = jsonDecode(existingServicesJson);
+        final existingIds =
+            existingServices.map((s) => s['id'] as String).toSet();
+        final newServices = backupServices
+            .where((s) => !existingIds.contains(s['id']))
+            .toList();
+        final allServices = [...existingServices, ...newServices];
+        await prefs.setString('ussd_services', jsonEncode(allServices));
+      }
+
       // Restore settings (overwrite existing)
       if (data.containsKey('settings')) {
         final settings = data['settings'] as Map<String, dynamic>;
@@ -436,6 +469,10 @@ class BackupService {
       final billShortcutsJson = prefs.getString('bill_shortcuts') ?? '[]';
       final List<dynamic> billShortcutsList = jsonDecode(billShortcutsJson);
 
+      // Get USSD services catalog
+      final ussdServicesJson = prefs.getString('ussd_services') ?? '[]';
+      final List<dynamic> ussdServicesList = jsonDecode(ussdServicesJson);
+
       // Create backup object
       final backupData = {
         'version': _backupVersion,
@@ -445,6 +482,7 @@ class BackupService {
           'paymentMethods': paymentMethodsList,
           'favoriteContacts': favoriteContactsList,
           'billShortcuts': billShortcutsList,
+          'ussdServices': ussdServicesList,
           'settings': {
             'mobileNumber': mobileNumber,
             'momoCode': momoCode,
