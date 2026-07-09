@@ -7,6 +7,7 @@ class UssdServiceShortcut {
   final String? icon;
   final bool isBuiltIn;
   final bool isFavorite; // pinned to the home-screen quick-access row
+  final double? fee; // flat fee applied to this service's transactions; null/unset = 0
 
   const UssdServiceShortcut({
     required this.id,
@@ -17,6 +18,7 @@ class UssdServiceShortcut {
     this.icon,
     this.isBuiltIn = false,
     this.isFavorite = false,
+    this.fee,
   });
 
   UssdServiceShortcut copyWith({
@@ -25,6 +27,8 @@ class UssdServiceShortcut {
     bool clearUssdCode = false,
     String? icon,
     bool? isFavorite,
+    double? fee,
+    bool clearFee = false,
   }) {
     return UssdServiceShortcut(
       id: id,
@@ -35,6 +39,7 @@ class UssdServiceShortcut {
       icon: icon ?? this.icon,
       isBuiltIn: isBuiltIn,
       isFavorite: isFavorite ?? this.isFavorite,
+      fee: clearFee ? null : (fee ?? this.fee),
     );
   }
 
@@ -47,6 +52,7 @@ class UssdServiceShortcut {
         if (icon != null) 'icon': icon,
         'isBuiltIn': isBuiltIn,
         'isFavorite': isFavorite,
+        if (fee != null) 'fee': fee,
       };
 
   factory UssdServiceShortcut.fromJson(Map<String, dynamic> json) =>
@@ -59,5 +65,6 @@ class UssdServiceShortcut {
         icon: json['icon'] as String?,
         isBuiltIn: json['isBuiltIn'] as bool? ?? false,
         isFavorite: json['isFavorite'] as bool? ?? false,
+        fee: json['fee'] != null ? (json['fee'] as num).toDouble() : null,
       );
 }

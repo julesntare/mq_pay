@@ -187,6 +187,8 @@ Future<void> triggerUssdService(
       amount: amount,
       timestamp: DateTime.now(),
       serviceKey: service.serviceKey,
+      fee: service.fee ?? 0.0,
+      applyFee: true,
     );
 
     await UssdRecordService.saveUssdRecord(record);
@@ -206,8 +208,8 @@ Future<void> triggerUssdService(
       amount: input.amount ?? kUnknownServiceAmount,
       timestamp: DateTime.now(),
       serviceKey: service.serviceKey,
-      fee: input.fee,
-      applyFee: input.fee != null,
+      fee: input.fee ?? service.fee,
+      applyFee: (input.fee ?? service.fee) != null,
     );
 
     await UssdRecordService.saveUssdRecord(record);

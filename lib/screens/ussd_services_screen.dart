@@ -27,10 +27,11 @@ class _UssdServicesScreenState extends State<UssdServicesScreen> {
 
   Future<void> _load() async {
     final services = await UssdServicesCatalogService.getServices();
-    if (mounted) setState(() {
-      _services = services;
-      _loading = false;
-    });
+    if (mounted)
+      setState(() {
+        _services = services;
+        _loading = false;
+      });
   }
 
   Future<void> _toggleFavorite(UssdServiceShortcut service) async {
@@ -41,17 +42,33 @@ class _UssdServicesScreenState extends State<UssdServicesScreen> {
 
   Future<void> _editCode(UssdServiceShortcut service) async {
     final codeCtrl = TextEditingController(text: service.ussdCode ?? '');
+    final feeCtrl = TextEditingController(
+        text: service.fee != null ? _formatFee(service.fee!) : '');
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Edit "${service.label}" code'),
-        content: TextField(
-          controller: codeCtrl,
-          autofocus: true,
-          decoration: const InputDecoration(
-              labelText: 'USSD code',
-              hintText: 'e.g. *123#  — leave blank for no-dial'),
+        title: Text('Edit "${service.label}"'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: codeCtrl,
+              autofocus: true,
+              decoration: const InputDecoration(
+                  labelText: 'USSD code',
+                  hintText: 'e.g. *123#  — leave blank for no-dial'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: feeCtrl,
+              decoration: const InputDecoration(
+                  labelText: 'Fee (blank defaults to 0)',
+                  hintText: 'e.g. 100 — leave blank for 0 fee'),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -65,12 +82,18 @@ class _UssdServicesScreenState extends State<UssdServicesScreen> {
     );
     if (confirmed != true) return;
     final newCode = codeCtrl.text.trim();
+    final newFee = double.tryParse(feeCtrl.text.trim());
     await UssdServicesCatalogService.updateService(service.copyWith(
       ussdCode: newCode.isEmpty ? null : newCode,
       clearUssdCode: newCode.isEmpty,
+      fee: newFee,
+      clearFee: newFee == null,
     ));
     await _load();
   }
+
+  String _formatFee(double fee) =>
+      fee == fee.roundToDouble() ? fee.toStringAsFixed(0) : fee.toString();
 
   Future<void> _resetCode(UssdServiceShortcut service) async {
     await UssdServicesCatalogService.updateService(service.copyWith(
@@ -104,6 +127,7 @@ class _UssdServicesScreenState extends State<UssdServicesScreen> {
   Future<void> _addService() async {
     final labelCtrl = TextEditingController();
     final codeCtrl = TextEditingController();
+    final feeCtrl = TextEditingController();
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -126,6 +150,15 @@ class _UssdServicesScreenState extends State<UssdServicesScreen> {
                   labelText: 'USSD code (optional)',
                   hintText: 'e.g. *123#  — leave blank for no-dial services'),
             ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: feeCtrl,
+              decoration: const InputDecoration(
+                  labelText: 'Fee (blank defaults to 0)',
+                  hintText: 'e.g. 100 — leave blank for 0 fee'),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+            ),
           ],
         ),
         actions: [
@@ -143,6 +176,7 @@ class _UssdServicesScreenState extends State<UssdServicesScreen> {
     final label = labelCtrl.text.trim();
     if (label.isEmpty) return;
     final code = codeCtrl.text.trim();
+    final fee = double.tryParse(feeCtrl.text.trim());
     final id = DateTime.now().millisecondsSinceEpoch.toString();
 
     await UssdServicesCatalogService.addService(UssdServiceShortcut(
@@ -150,6 +184,7 @@ class _UssdServicesScreenState extends State<UssdServicesScreen> {
       label: label,
       serviceKey: 'custom:$id',
       ussdCode: code.isEmpty ? null : code,
+      fee: fee,
     ));
     await _load();
   }
@@ -192,8 +227,8 @@ class _UssdServicesScreenState extends State<UssdServicesScreen> {
               ? Center(
                   child: Text('No services yet — tap + to add one',
                       style: theme.textTheme.bodyMedium?.copyWith(
-                          color:
-                              theme.colorScheme.onSurface.withValues(alpha: 0.5))),
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.5))),
                 )
               : ListView.builder(
                   padding: const EdgeInsets.symmetric(vertical: 8),
@@ -203,10 +238,14 @@ class _UssdServicesScreenState extends State<UssdServicesScreen> {
                     return ListTile(
                       leading: IconButton(
                         icon: Icon(
-                          s.isFavorite ? Icons.star_rounded : Icons.star_border_rounded,
+                          s.isFavorite
+                              ? Icons.star_rounded
+                              : Icons.star_border_rounded,
                           color: s.isFavorite ? Colors.amber : null,
                         ),
-                        tooltip: s.isFavorite ? 'Remove from favorites' : 'Add to favorites',
+                        tooltip: s.isFavorite
+                            ? 'Remove from favorites'
+                            : 'Add to favorites',
                         onPressed: () => _toggleFavorite(s),
                       ),
                       title: Text(s.label),
@@ -228,10 +267,11 @@ class _UssdServicesScreenState extends State<UssdServicesScreen> {
                         },
                         itemBuilder: (ctx) => [
                           const PopupMenuItem(
-                              value: 'edit', child: Text('Edit USSD code')),
+                              value: 'edit', child: Text('Edit service')),
                           if (s.defaultUssdCode != null)
                             const PopupMenuItem(
-                                value: 'reset', child: Text('Reset to default')),
+                                value: 'reset',
+                                child: Text('Reset to default')),
                           const PopupMenuItem(
                               value: 'delete', child: Text('Delete')),
                         ],
