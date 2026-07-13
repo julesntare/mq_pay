@@ -639,6 +639,8 @@ class BackupService {
         'Contact Name',
         'Reason',
         'USSD Code',
+        'Is Loan',
+        'Loan Recovered',
       ];
 
       for (var i = 0; i < headers.length; i++) {
@@ -666,6 +668,8 @@ class BackupService {
           record.contactName ?? '',
           record.reason ?? '',
           record.ussdCode,
+          record.isLoan ? 'Yes' : '',
+          record.isLoan ? (record.loanRecovered ? 'Yes' : 'No') : '',
         ];
 
         for (var j = 0; j < rowData.length; j++) {
@@ -684,6 +688,8 @@ class BackupService {
       transactionsSheet.setColumnWidth(5, 20); // Contact Name
       transactionsSheet.setColumnWidth(6, 20); // Reason
       transactionsSheet.setColumnWidth(7, 12); // USSD Code
+      transactionsSheet.setColumnWidth(8, 8); // Is Loan
+      transactionsSheet.setColumnWidth(9, 14); // Loan Recovered
 
       // Create Summary sheet
       final summarySheet = excel['Summary'];

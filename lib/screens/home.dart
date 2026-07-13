@@ -24,6 +24,7 @@ import '../models/ussd_service_shortcut.dart';
 import '../services/ussd_services_catalog_service.dart';
 import '../helpers/ussd_service_actions.dart';
 import 'ussd_services_screen.dart';
+import '../widgets/calculator_sheet.dart';
 
 class Home extends StatefulWidget {
   const Home({super.key});
@@ -1409,14 +1410,24 @@ class _HomeState extends State<Home> {
             hintText: S.of(context).enterAmount,
             helperText: 'e.g. 5000, 5k, 2.5m',
             prefixIcon: const Icon(Icons.attach_money_rounded),
-            suffixIcon: amountController.text.isNotEmpty
-                ? IconButton(
+            suffixIcon: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (amountController.text.isNotEmpty)
+                  IconButton(
                     icon: Icon(Icons.clear_rounded,
                         color:
                             theme.colorScheme.onSurface.withValues(alpha: 0.5)),
                     onPressed: () => setState(() => amountController.clear()),
-                  )
-                : null,
+                  ),
+                IconButton(
+                  icon: Icon(Icons.calculate_rounded,
+                      color: theme.colorScheme.primary),
+                  tooltip: 'Calculator',
+                  onPressed: _openCalculator,
+                ),
+              ],
+            ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(15),
             ),
@@ -1647,14 +1658,24 @@ class _HomeState extends State<Home> {
             hintText: S.of(context).enterAmount,
             helperText: 'e.g. 5000, 5k, 2.5m',
             prefixIcon: const Icon(Icons.attach_money_rounded),
-            suffixIcon: amountController.text.isNotEmpty
-                ? IconButton(
+            suffixIcon: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (amountController.text.isNotEmpty)
+                  IconButton(
                     icon: Icon(Icons.clear_rounded,
                         color:
                             theme.colorScheme.onSurface.withValues(alpha: 0.5)),
                     onPressed: () => setState(() => amountController.clear()),
-                  )
-                : null,
+                  ),
+                IconButton(
+                  icon: Icon(Icons.calculate_rounded,
+                      color: theme.colorScheme.primary),
+                  tooltip: 'Calculator',
+                  onPressed: _openCalculator,
+                ),
+              ],
+            ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(15),
             ),
@@ -2138,6 +2159,7 @@ class _HomeState extends State<Home> {
       context: context,
       builder: (BuildContext context) {
         bool applyFee = true; // Default to applying fee
+        bool isLoan = false;
 
         return StatefulBuilder(
           builder: (context, setState) {
@@ -2176,7 +2198,8 @@ class _HomeState extends State<Home> {
                     ),
                     SizedBox(height: 10),
                     Text(
-                      S.of(context).amountRwfLabel(amountController.text),
+                      S.of(context).amountRwfLabel(
+                          _formatAmountDisplay(_getRawAmount())),
                       style: theme.textTheme.bodyLarge,
                     ),
                     SizedBox(height: 12),
@@ -2252,6 +2275,53 @@ class _HomeState extends State<Home> {
                           )),
                       SizedBox(height: 8),
                     ],
+                    // Loan toggle switch
+                    Container(
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Mark as Loan',
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                SizedBox(height: 2),
+                                Text(
+                                  isLoan
+                                      ? 'This transaction is a loan'
+                                      : 'Not a loan',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurface
+                                        .withValues(alpha: 0.6),
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Switch(
+                            value: isLoan,
+                            activeThumbColor: Colors.deepPurple,
+                            onChanged: (value) {
+                              setState(() {
+                                isLoan = value;
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(height: 8),
                     if (selectedName != null && selectedName!.isNotEmpty)
                       Text(S.of(context).toRecipient(selectedName!)),
                     Text(isPhoneNumber
@@ -2414,7 +2484,8 @@ class _HomeState extends State<Home> {
                     }
 
                     await _saveUssdRecord(ussdCode, paymentInfo, recipientType,
-                        amount, reason, fee, applyFee);
+                        amount, reason, fee, applyFee,
+                        isLoan: isLoan);
 
                     launchUSSD(ussdCode, context);
 
@@ -2471,6 +2542,7 @@ class _HomeState extends State<Home> {
       context: context,
       builder: (BuildContext context) {
         bool applyFee = false; // Default to no fee in record-only mode
+        bool isLoan = false;
 
         return StatefulBuilder(
           builder: (context, setState) {
@@ -2508,7 +2580,8 @@ class _HomeState extends State<Home> {
                     ),
                     SizedBox(height: 10),
                     Text(
-                      S.of(context).amountRwfLabel(amountController.text),
+                      S.of(context).amountRwfLabel(
+                          _formatAmountDisplay(_getRawAmount())),
                       style: theme.textTheme.bodyLarge,
                     ),
                     SizedBox(height: 12),
@@ -2588,6 +2661,53 @@ class _HomeState extends State<Home> {
                       ),
                       SizedBox(height: 8),
                     ],
+                    // Loan toggle switch
+                    Container(
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Mark as Loan',
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                SizedBox(height: 2),
+                                Text(
+                                  isLoan
+                                      ? 'This transaction is a loan'
+                                      : 'Not a loan',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurface
+                                        .withValues(alpha: 0.6),
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Switch(
+                            value: isLoan,
+                            activeThumbColor: Colors.deepPurple,
+                            onChanged: (value) {
+                              setState(() {
+                                isLoan = value;
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(height: 8),
                     if (selectedName != null && selectedName!.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.only(top: 4),
@@ -2754,7 +2874,8 @@ class _HomeState extends State<Home> {
                         'RECORD-ONLY-${DateTime.now().millisecondsSinceEpoch}';
 
                     await _saveUssdRecord(ussdCode, recipient, recipientType,
-                        amount, reason, fee, applyFee);
+                        amount, reason, fee, applyFee,
+                        isLoan: isLoan);
 
                     // Show success message
                     if (mounted) {
@@ -2792,7 +2913,8 @@ class _HomeState extends State<Home> {
       double amount,
       String? reason,
       double? fee,
-      bool applyFee) async {
+      bool applyFee,
+      {bool isLoan = false}) async {
     final record = UssdRecord(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       ussdCode: ussdCode,
@@ -2806,6 +2928,7 @@ class _HomeState extends State<Home> {
       reason: reason,
       fee: fee,
       applyFee: applyFee,
+      isLoan: isLoan,
     );
 
     // Check if this is a record-only transaction (no actual USSD to dial)
@@ -2842,6 +2965,21 @@ class _HomeState extends State<Home> {
   String _getRawAmount() =>
       _expandShorthand(amountController.text.replaceAll(',', ''));
 
+  /// Opens the calculator sheet, seeded with the current amount; on proceed
+  /// the result replaces the amount field.
+  Future<void> _openCalculator() async {
+    final result = await showCalculatorSheet(
+      context,
+      initialValue: double.tryParse(_getRawAmount()),
+    );
+    if (result != null) {
+      setState(() {
+        amountController.text =
+            _formatAmountDisplay(result.round().toString());
+      });
+    }
+  }
+
   String _formatAmountDisplay(String raw) {
     final digits = raw.replaceAll(RegExp(r'[^0-9]'), '');
     final n = int.tryParse(digits);
@@ -2875,7 +3013,7 @@ class _HomeState extends State<Home> {
     }
 
     final theme = Theme.of(context);
-    final amount = amountController.text;
+    final amount = _getRawAmount();
 
     // Determine which payment method to include in QR
     String? selectedPaymentNumber;
@@ -2993,7 +3131,7 @@ class _HomeState extends State<Home> {
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              '$amount RWF',
+                              '${_formatAmountDisplay(amount)} RWF',
                               style: theme.textTheme.headlineMedium?.copyWith(
                                 fontWeight: FontWeight.bold,
                                 color: theme.colorScheme.primary,

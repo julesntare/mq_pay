@@ -21,6 +21,7 @@ import 'services/notification_service.dart';
 import 'services/ussd_detector_service.dart';
 import 'services/ussd_transaction_manager.dart';
 import 'services/service_polling_scheduler.dart';
+import 'services/background_scan_service.dart';
 
 @pragma('vm:entry-point')
 void callbackDispatcher() {
@@ -33,6 +34,9 @@ void callbackDispatcher() {
       if (task == ServicePollingScheduler.taskName) {
         await NotificationService.initialize();
         await SmsListenerService.pollServiceTransactions();
+      } else if (task == BackgroundScanService.taskName) {
+        await NotificationService.initialize();
+        await BackgroundScanService.scanForUnrecorded();
       } else {
         await DailyTotalService.sendDailyTotal();
       }
@@ -81,6 +85,7 @@ void main() async {
       await DailyTotalService.scheduleDailyTask();
       await NotificationService.initialize();
       await SmsListenerService.initialize();
+      await BackgroundScanService.ensureRegisteredIfEnabled();
       UssdTransactionManager.initialize();
       await UssdDetectorService.initialize();
       BackupService.performAutoBackupIfNeeded();

@@ -12,6 +12,8 @@ import '../widgets/scroll_indicator.dart';
 import 'package:file_picker/file_picker.dart';
 import '../helpers/safe_date_format.dart';
 import '../widgets/accessibility_permission_card.dart';
+import 'package:permission_handler/permission_handler.dart';
+import '../services/background_scan_service.dart';
 
 // Payment Method Model
 class PaymentMethod {
@@ -78,6 +80,10 @@ class _SettingsPageState extends State<SettingsPage> {
   String _autoBackupFrequency = 'daily'; // daily, weekly, monthly
   String? _autoBackupLocation; // Custom backup location path
 
+  // Auto-detect transactions (background SMS scan) settings
+  bool _autoScanEnabled = false;
+  int _autoScanIntervalHours = 2;
+
   // Supabase backup settings
   bool _supabaseConfigured = false;
 
@@ -92,7 +98,39 @@ class _SettingsPageState extends State<SettingsPage> {
     selectedLanguage = widget.selectedLanguage;
     _loadPaymentMethods();
     _loadAutoBackupSettings();
+    _loadAutoScanSettings();
     _loadSupabaseSettings();
+  }
+
+  Future<void> _loadAutoScanSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _autoScanEnabled =
+          prefs.getBool(BackgroundScanService.enabledKey) ?? false;
+      _autoScanIntervalHours =
+          prefs.getInt(BackgroundScanService.intervalKey) ?? 2;
+    });
+  }
+
+  Future<void> _setAutoScanEnabled(bool enabled) async {
+    if (enabled) {
+      // Background scan needs SMS permission; revert the switch if denied.
+      final granted = (await Permission.sms.request()).isGranted;
+      if (!granted) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content:
+                    Text('SMS permission is required to auto-detect transactions')),
+          );
+        }
+        setState(() => _autoScanEnabled = false);
+        return;
+      }
+    }
+    setState(() => _autoScanEnabled = enabled);
+    await BackgroundScanService.setEnabled(enabled,
+        hours: _autoScanIntervalHours);
   }
 
   Future<void> _loadPaymentMethods() async {
@@ -1112,6 +1150,65 @@ class _SettingsPageState extends State<SettingsPage> {
                     icon: Icons.restore_rounded,
                     label: S.of(context).viewRestoreBackups,
                     onTap: _showBackupsDialog),
+              ],
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 12),
+
+        // --- Auto-detect transactions (background SMS scan) ---
+        Card(
+          elevation: 2,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Column(
+            children: [
+              SwitchListTile(
+                secondary: _iconBox(theme,
+                    child: Icon(Icons.auto_awesome_rounded,
+                        color: theme.colorScheme.primary, size: 20)),
+                title: const Text('Auto-detect transactions'),
+                subtitle: Text(
+                  'Scan MoMo SMS periodically and record missed payments',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                      color:
+                          theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+                ),
+                value: _autoScanEnabled,
+                onChanged: _setAutoScanEnabled,
+                activeThumbColor: theme.colorScheme.primary,
+              ),
+              if (_autoScanEnabled) ...[
+                const Divider(height: 1, indent: 56),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(72, 4, 16, 8),
+                  child: Row(
+                    children: [1, 2, 4].map((hours) {
+                      final isSelected = _autoScanIntervalHours == hours;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: FilterChip(
+                          label: Text('Every ${hours}h',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: isSelected
+                                      ? FontWeight.w600
+                                      : FontWeight.normal)),
+                          selected: isSelected,
+                          onSelected: (_) {
+                            setState(() => _autoScanIntervalHours = hours);
+                            BackgroundScanService.setEnabled(true,
+                                hours: hours);
+                          },
+                          selectedColor: theme.colorScheme.primary
+                              .withValues(alpha: 0.15),
+                          checkmarkColor: theme.colorScheme.primary,
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
               ],
             ],
           ),

@@ -34,6 +34,8 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
   int currentMonthIndex = 0;
   double currentMonthTotal = 0.0;
   Map<String, double> currentMonthAmountByType = {};
+  double currentMonthLoanOutstanding = 0.0;
+  double currentMonthLoanRecovered = 0.0;
 
   // Tab selection for breakdown view
   int selectedTab = 0; // 0: Mobile, 1: MoCode, 2: Misc
@@ -42,6 +44,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
   String? activeFilter; // null = no filter, 'phone', 'momo', 'misc'
   // Advanced filter controls
   String? recipientTypeFilter; // 'phone' | 'momo' | 'misc' | null
+  String? loanFilter; // null | 'loans' | 'outstanding' | 'recovered'
   DateTime? filterStartDate;
   DateTime? filterEndDate;
   double filteredTotal = 0.0;
@@ -316,6 +319,8 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
         currentMonthTotal = 0.0;
         currentMonthTotalFees = 0.0;
         currentMonthAmountByType = {};
+        currentMonthLoanOutstanding = 0.0;
+        currentMonthLoanRecovered = 0.0;
       });
       return;
     }
@@ -348,11 +353,25 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
           .fold(0.0, (sum, r) => sum + r.amount),
     };
 
+    // Loan sums for the month (computed before the recovered-loan exclusion)
+    final monthLoans = records.where((record) =>
+        safeDateFormat('yyyy-MM').format(record.timestamp) == monthKey &&
+        record.status != TransactionStatus.pending &&
+        record.isLoan);
+    final loanOutstanding = monthLoans
+        .where((r) => !r.loanRecovered)
+        .fold(0.0, (sum, r) => sum + r.amount);
+    final loanRecovered = monthLoans
+        .where((r) => r.loanRecovered)
+        .fold(0.0, (sum, r) => sum + r.amount);
+
     setState(() {
       currentMonthTotal = total;
       currentMonthTotalFees = fees;
       currentMonthAmountByType = amountsByType;
       _currentMonthCount = monthRecords.length;
+      currentMonthLoanOutstanding = loanOutstanding;
+      currentMonthLoanRecovered = loanRecovered;
     });
   }
 
@@ -515,6 +534,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                       // Filtered total badge
                       if (recipientTypeFilter != null ||
                           selectedReason != null ||
+                          loanFilter != null ||
                           filterStartDate != null ||
                           filterEndDate != null ||
                           searchQuery.isNotEmpty)
@@ -785,7 +805,8 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                     icon: Icon(Icons.filter_list,
                         color: filterStartDate != null ||
                                 recipientTypeFilter != null ||
-                                selectedReason != null
+                                selectedReason != null ||
+                                loanFilter != null
                             ? theme.colorScheme.primary
                             : theme.colorScheme.onSurface
                                 .withValues(alpha: 0.5)),
@@ -835,6 +856,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
           if (searchQuery.isNotEmpty ||
               recipientTypeFilter != null ||
               selectedReason != null ||
+              loanFilter != null ||
               filterStartDate != null ||
               filterEndDate != null)
             Padding(
@@ -867,12 +889,14 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
         // Default to single-date mode as requested
         bool singleDateMode = true;
         String? localReason = selectedReason;
+        String? localLoan = loanFilter;
 
         return StatefulBuilder(builder: (context, setLocalState) {
           void applyLocal() {
             setState(() {
               recipientTypeFilter = localRecipientType;
               selectedReason = localReason;
+              loanFilter = localLoan;
 
               if (singleDateMode) {
                 if (localStart != null) {
@@ -977,6 +1001,32 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                     ),
                   ),
                   onChanged: (v) => setLocalState(() => localReason = v),
+                ),
+                const SizedBox(height: 12),
+                // Loan filter chips
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Wrap(
+                    spacing: 8,
+                    children: [
+                      for (final entry in const <MapEntry<String?, String>>[
+                        MapEntry(null, 'All'),
+                        MapEntry('loans', 'Loans'),
+                        MapEntry('outstanding', 'Outstanding'),
+                        MapEntry('recovered', 'Recovered'),
+                      ])
+                        ChoiceChip(
+                          label: Text(entry.value,
+                              style: const TextStyle(fontSize: 12)),
+                          visualDensity: VisualDensity.compact,
+                          selected: localLoan == entry.key,
+                          selectedColor:
+                              Colors.deepPurple.withValues(alpha: 0.2),
+                          onSelected: (_) =>
+                              setLocalState(() => localLoan = entry.key),
+                        ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 12),
                 // Single date or range toggle
@@ -1094,6 +1144,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                           localStart = null;
                           localEnd = null;
                           localReason = null;
+                          localLoan = null;
                           singleDateMode = false;
                         });
                       },
@@ -1122,6 +1173,19 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
     return r.timestamp.year == m.year && r.timestamp.month == m.month;
   }
 
+  bool _passesLoanFilter(UssdRecord r) {
+    switch (loanFilter) {
+      case 'loans':
+        return r.isLoan;
+      case 'outstanding':
+        return r.isLoan && !r.loanRecovered;
+      case 'recovered':
+        return r.isLoan && r.loanRecovered;
+      default:
+        return true;
+    }
+  }
+
   void _computeFilteredTotal() {
     double total = 0.0;
     int count = 0;
@@ -1141,6 +1205,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
       if (filterEndDate != null && r.timestamp.isAfter(filterEndDate!))
         continue;
       if (!_passesMonthFilter(r)) continue;
+      if (!_passesLoanFilter(r)) continue;
 
       // Apply search filter
       if (searchQuery.isNotEmpty) {
@@ -1454,6 +1519,17 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                                       '+ ${_formatCurrency(currentMonthTotalFees)} ${S.of(context).fees}',
                                       style: theme.textTheme.bodySmall?.copyWith(
                                         color: Colors.white60,
+                                        fontSize: 9,
+                                      ),
+                                    ),
+                                  if (currentMonthLoanOutstanding > 0 ||
+                                      currentMonthLoanRecovered > 0)
+                                    Text(
+                                      'Loans: '
+                                      '${_formatCurrency(currentMonthLoanOutstanding)} outstanding'
+                                      '${currentMonthLoanRecovered > 0 ? ' · ${_formatCurrency(currentMonthLoanRecovered)} recovered' : ''}',
+                                      style: theme.textTheme.bodySmall?.copyWith(
+                                        color: Colors.white70,
                                         fontSize: 9,
                                       ),
                                     ),
@@ -1854,6 +1930,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
       if (filterEndDate != null && record.timestamp.isAfter(filterEndDate!))
         return false;
       if (!_passesMonthFilter(record)) return false;
+      if (!_passesLoanFilter(record)) return false;
       return true;
     }).toList();
 
@@ -2439,6 +2516,11 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                               _LoanBadge(recovered: record.loanRecovered),
                               const SizedBox(width: 4),
                             ],
+                            // Auto-detected badge
+                            if (record.autoDetected) ...[
+                              const _AutoBadge(),
+                              const SizedBox(width: 4),
+                            ],
                             // Show status badge for pending transactions (any date) or today's transactions
                             Builder(
                               builder: (context) {
@@ -2961,6 +3043,40 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
             child: Text(S.of(context).close),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AutoBadge extends StatelessWidget {
+  const _AutoBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    const color = Colors.indigo;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.auto_awesome_rounded, color: color, size: 14),
+          const SizedBox(width: 4),
+          Text(
+            'Auto',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w600,
+              fontSize: 11,
+            ),
           ),
         ],
       ),

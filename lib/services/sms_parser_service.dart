@@ -1,4 +1,14 @@
 class SmsParserService {
+  /// Whether [sender] looks like a mobile-money / telco sender ID.
+  static bool isFromMobileMoney(String sender) {
+    final s = sender.toLowerCase().trim();
+    return s.contains('m-money') ||
+        s.contains('mmoney') ||
+        s.contains('mtn') ||
+        s.contains('airtel') ||
+        s.contains('ekash');
+  }
+
   static Map<String, dynamic>? parseSms(String smsBody) {
     final cleaned = smsBody.trim();
     final isSuccess = _isSuccessMessage(cleaned);

@@ -74,6 +74,45 @@ class NotificationService {
     );
   }
 
+  static const AndroidNotificationDetails _autoRecordedDetails =
+      AndroidNotificationDetails(
+    'auto_recorded',
+    'Auto-detected Transactions',
+    channelDescription:
+        'Notifications for transactions recorded automatically from SMS',
+    importance: Importance.high,
+    priority: Priority.high,
+  );
+
+  /// Notify about a single transaction recorded by the background SMS scan.
+  static Future<void> showAutoRecordedNotification(UssdRecord record) async {
+    await initialize();
+
+    final amountStr = _formatAmount(record.amount);
+    final recipient = record.contactName ??
+        record.maskedRecipient ??
+        record.recipient;
+
+    await _notifications.show(
+      record.id.hashCode,
+      'Transaction recorded',
+      '$amountStr to $recipient was detected and recorded',
+      const NotificationDetails(android: _autoRecordedDetails),
+    );
+  }
+
+  /// Bulk variant when the background scan records several transactions.
+  static Future<void> showAutoRecordedBulkNotification(int count) async {
+    await initialize();
+
+    await _notifications.show(
+      1,
+      'Transactions recorded',
+      '$count transactions were detected and recorded from SMS',
+      const NotificationDetails(android: _autoRecordedDetails),
+    );
+  }
+
   static String _formatAmount(double amount) {
     final s = amount.toStringAsFixed(0);
     final formatted = s.replaceAllMapped(

@@ -21,6 +21,7 @@ class UssdRecord {
   final bool loanRecovered; // Whether the loan has been recovered
   final String? serviceKey; // e.g. 'umutekano' | 'efashe' | 'canalbox' | 'yego' | 'custom:<id>'
   final String? extraDetails; // Enrichment text from a delayed service SMS (e.g. Cash Power token)
+  final bool autoDetected; // Created by the background SMS scan, not the user
 
   UssdRecord({
     required this.id,
@@ -42,6 +43,7 @@ class UssdRecord {
     this.loanRecovered = false,
     this.serviceKey,
     this.extraDetails,
+    this.autoDetected = false,
   });
 
   Map<String, dynamic> toJson() {
@@ -65,6 +67,7 @@ class UssdRecord {
       'loanRecovered': loanRecovered,
       'serviceKey': serviceKey,
       'extraDetails': extraDetails,
+      'autoDetected': autoDetected,
     };
   }
 
@@ -94,6 +97,7 @@ class UssdRecord {
       loanRecovered: json['loanRecovered'] as bool? ?? false,
       serviceKey: json['serviceKey'] as String?,
       extraDetails: json['extraDetails'] as String?,
+      autoDetected: json['autoDetected'] as bool? ?? false,
     );
   }
 
@@ -117,6 +121,7 @@ class UssdRecord {
     bool? loanRecovered,
     String? serviceKey,
     String? extraDetails,
+    bool? autoDetected,
   }) {
     return UssdRecord(
       id: id ?? this.id,
@@ -138,6 +143,7 @@ class UssdRecord {
       loanRecovered: loanRecovered ?? this.loanRecovered,
       serviceKey: serviceKey ?? this.serviceKey,
       extraDetails: extraDetails ?? this.extraDetails,
+      autoDetected: autoDetected ?? this.autoDetected,
     );
   }
 

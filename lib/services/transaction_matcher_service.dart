@@ -224,12 +224,6 @@ class TransactionMatcherService {
     return updated;
   }
 
-  static bool _isFromMobileMoney(String sender) {
-    final s = sender.toLowerCase().trim();
-    return s.contains('m-money') ||
-        s.contains('mmoney') ||
-        s.contains('mtn') ||
-        s.contains('airtel') ||
-        s.contains('ekash');
-  }
+  static bool _isFromMobileMoney(String sender) =>
+      SmsParserService.isFromMobileMoney(sender);
 }
