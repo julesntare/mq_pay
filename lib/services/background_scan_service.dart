@@ -91,7 +91,8 @@ class BackgroundScanService {
           .where((msg) =>
               msg.date != null &&
               msg.date!.isAfter(checkFrom) &&
-              SmsParserService.isFromMobileMoney(msg.sender ?? ''))
+              (SmsParserService.isFromMobileMoney(msg.sender ?? '') ||
+                  SmsParserService.isFromBank(msg.sender ?? '')))
           .toList()
         ..sort((a, b) => a.date!.compareTo(b.date!)); // oldest first
 
@@ -100,6 +101,25 @@ class BackgroundScanService {
 
       for (final msg in candidates) {
         final body = msg.body ?? '';
+
+        // Bank→MoMo pull: not spending, but BK charges a flat fee per
+        // transaction — record a fee-only entry (amount 0, fee 20 RWF).
+        // Must run before the incoming-money skip, since a pull receipt
+        // is an incoming "You have received ..." message.
+        final bankPull = SmsParserService.parseBankPull(body);
+        if (bankPull != null) {
+          if (!_alreadyRecorded(allRecords, created, bankPull, msg.date!)) {
+            final record = _buildRecord(bankPull, msg.date!);
+            await UssdRecordService.saveUssdRecord(record);
+            created.add(record);
+          }
+          continue;
+        }
+
+        // Bank-sender SMS (BKeBANK) are only ever pull confirmations here;
+        // never feed them into the MoMo debit-receipt pipeline below.
+        if (SmsParserService.isFromBank(msg.sender ?? '')) continue;
+
         if (_looksLikeIncomingMoney(body)) continue;
 
         final parsed = SmsParserService.parseSms(body);
@@ -191,6 +211,8 @@ class BackgroundScanService {
       confirmationCode: parsed['confirmationCode'] as String?,
       smsRawText: parsed['rawText'] as String?,
       statusUpdatedAt: DateTime.now(),
+      serviceKey: parsed['serviceKey'] as String?,
+      extraDetails: parsed['extraDetails'] as String?,
       autoDetected: true,
     );
   }

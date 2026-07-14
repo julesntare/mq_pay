@@ -9,6 +9,10 @@ class SmsParserService {
         s.contains('ekash');
   }
 
+  /// Whether [sender] is Bank of Kigali's eBanking sender ID ("BKeBANK").
+  static bool isFromBank(String sender) =>
+      sender.toLowerCase().trim().contains('bkebank');
+
   static Map<String, dynamic>? parseSms(String smsBody) {
     final cleaned = smsBody.trim();
     final isSuccess = _isSuccessMessage(cleaned);
@@ -183,6 +187,93 @@ class SmsParserService {
           : null,
       'refId': tridMatch?.group(1),
       'rawText': sms,
+    };
+  }
+
+  /// Flat fee BK charges on every bank↔MoMo transaction (introduced July 2026).
+  static const double bkTransactionFee = 20.0;
+
+  /// Bank→MoMo pull (BK push & pull). Moving your own money from the bank
+  /// into the wallet is not spending, so the record carries only BK's flat
+  /// transaction fee (amount 0); the pulled amount is kept in extraDetails.
+  /// Two known formats for the same event:
+  ///  - MoMo side (sender "M-Money"): "You have received X RWF from NAME
+  ///    ... Message from sender: fund-transfer to 2507XXXXXXXX. ... FT Id: N"
+  ///  - Bank side (sender "BKeBANK"): "TRANSFER - EKASH Beneficiary: NAME
+  ///    Credited account: 2507XXXXXXXX Debited account: N Amount:RWF X
+  ///    Event #:FTCM... Status: COMPLETED Date: ... Channel:MOBILE"
+  static Map<String, dynamic>? parseBankPull(String smsBody) {
+    final sms = smsBody.trim();
+    return _parseMoMoSidePull(sms) ?? _parseBankSidePull(sms);
+  }
+
+  /// "FT Id" (bank funds-transfer reference) is required so a regular P2P
+  /// receipt whose sender note happens to say "fund-transfer" won't match.
+  static Map<String, dynamic>? _parseMoMoSidePull(String sms) {
+    final lower = sms.toLowerCase();
+    if (!lower.contains('you have received') ||
+        !lower.contains('fund-transfer') ||
+        !lower.contains('ft id')) {
+      return null;
+    }
+
+    final amountMatch = RegExp(
+      r'received\s+([\d,]+(?:\.\d+)?)\s*RWF',
+      caseSensitive: false,
+    ).firstMatch(sms);
+    final ftMatch = RegExp(r'FT\s*Id\s*:\s*([A-Za-z0-9]+)', caseSensitive: false)
+        .firstMatch(sms);
+
+    return _bankPullResult(
+      pulledAmountText: amountMatch?.group(1),
+      confirmationCode: ftMatch?.group(1),
+      rawText: sms,
+    );
+  }
+
+  /// "Credited account"/"Debited account" are required so a MoMo/eKash
+  /// wallet SMS that merely mentions "transfer" and "ekash" won't match.
+  /// Only COMPLETED transfers are recorded.
+  static Map<String, dynamic>? _parseBankSidePull(String sms) {
+    final lower = sms.toLowerCase();
+    if (!lower.contains('transfer') ||
+        !lower.contains('ekash') ||
+        !lower.contains('credited account') ||
+        !lower.contains('debited account') ||
+        !lower.contains('completed')) {
+      return null;
+    }
+
+    final amountMatch = RegExp(
+      r'Amount\s*:\s*RWF\s*([\d,]+(?:\.\d+)?)',
+      caseSensitive: false,
+    ).firstMatch(sms);
+    final eventMatch = RegExp(r'Event\s*#\s*:\s*([A-Za-z0-9]+)', caseSensitive: false)
+        .firstMatch(sms);
+
+    return _bankPullResult(
+      pulledAmountText: amountMatch?.group(1),
+      confirmationCode: eventMatch?.group(1),
+      rawText: sms,
+    );
+  }
+
+  static Map<String, dynamic> _bankPullResult({
+    required String? pulledAmountText,
+    required String? confirmationCode,
+    required String rawText,
+  }) {
+    return {
+      'amount': 0.0,
+      'recipient': 'Bank of Kigali',
+      'status': 'success',
+      'confirmationCode': confirmationCode,
+      'fee': bkTransactionFee,
+      'serviceKey': 'bk-pull',
+      'extraDetails': pulledAmountText != null
+          ? 'Pulled $pulledAmountText RWF from bank'
+          : 'Pull from bank',
+      'rawText': rawText,
     };
   }
 
