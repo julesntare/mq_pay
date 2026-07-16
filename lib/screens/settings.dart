@@ -120,8 +120,8 @@ class _SettingsPageState extends State<SettingsPage> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-                content:
-                    Text('SMS permission is required to auto-detect transactions')),
+                content: Text(
+                    'SMS permission is required to auto-detect transactions')),
           );
         }
         setState(() => _autoScanEnabled = false);
@@ -131,6 +131,63 @@ class _SettingsPageState extends State<SettingsPage> {
     setState(() => _autoScanEnabled = enabled);
     await BackgroundScanService.setEnabled(enabled,
         hours: _autoScanIntervalHours);
+  }
+
+  /// Deep scan for transactions the app never recorded (e.g. after a
+  /// reinstall with an incomplete backup). User picks the look-back window;
+  /// dedup in the scan makes rerunning safe.
+  Future<void> _scanMissedTransactions() async {
+    final granted = (await Permission.sms.request()).isGranted;
+    if (!granted) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text(
+                  'SMS permission is required to scan for missed transactions')),
+        );
+      }
+      return;
+    }
+    if (!mounted) return;
+
+    final days = await showDialog<int>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('Scan how far back?'),
+        children: [7, 30, 90]
+            .map((d) => SimpleDialogOption(
+                  onPressed: () => Navigator.pop(context, d),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Text('Last $d days'),
+                  ),
+                ))
+            .toList(),
+      ),
+    );
+    if (days == null || !mounted) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    int created = 0;
+    try {
+      created = await BackgroundScanService.scanMissed(
+          lookback: Duration(days: days));
+    } catch (_) {}
+
+    if (!mounted) return;
+    Navigator.of(context, rootNavigator: true).pop(); // close progress dialog
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(created == 0
+            ? 'No missed transactions found'
+            : 'Recorded $created missed transaction${created == 1 ? '' : 's'}'),
+      ),
+    );
   }
 
   Future<void> _loadPaymentMethods() async {
@@ -518,7 +575,6 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-
   Widget _buildPaymentConfigSection(BuildContext context, ThemeData theme) {
     return Card(
       elevation: 4,
@@ -536,7 +592,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   size: 24,
                 ),
                 const SizedBox(width: 12),
-                Text(S.of(context).paymentMethods,
+                Text(
+                  S.of(context).paymentMethods,
                   style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -554,8 +611,8 @@ class _SettingsPageState extends State<SettingsPage> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color:
-                      theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                  color: theme.colorScheme.surfaceContainerHighest
+                      .withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
@@ -566,7 +623,8 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: Text(S.of(context).noPaymentMethods,
+                      child: Text(
+                        S.of(context).noPaymentMethods,
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -710,7 +768,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   children: [
                     Icon(Icons.delete_rounded, color: Colors.red),
                     SizedBox(width: 8),
-                    Text(S.of(context).delete, style: TextStyle(color: Colors.red)),
+                    Text(S.of(context).delete,
+                        style: TextStyle(color: Colors.red)),
                   ],
                 ),
               ),
@@ -720,7 +779,6 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
     );
   }
-
 
   void _setAsDefault(PaymentMethod method) {
     setState(() {
@@ -842,11 +900,13 @@ class _SettingsPageState extends State<SettingsPage> {
                         ]
                       : [
                           DropdownMenuItem(
-                              value: 'General', child: Text(S.of(context).general)),
+                              value: 'General',
+                              child: Text(S.of(context).general)),
                           DropdownMenuItem(
                               value: 'MTN', child: Text(S.of(context).mtnMomo)),
                           DropdownMenuItem(
-                              value: 'Airtel', child: Text(S.of(context).airtelMoney)),
+                              value: 'Airtel',
+                              child: Text(S.of(context).airtelMoney)),
                         ],
                   onChanged: (value) {
                     setDialogState(() {
@@ -936,7 +996,8 @@ class _SettingsPageState extends State<SettingsPage> {
       builder: (context, themeProvider, _) {
         return Card(
           elevation: 2,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           child: Column(
             children: [
               ListTile(
@@ -966,7 +1027,8 @@ class _SettingsPageState extends State<SettingsPage> {
                     Icon(Icons.light_mode_rounded,
                         size: 16,
                         color: themeProvider.isDarkMode
-                            ? theme.colorScheme.onSurface.withValues(alpha: 0.25)
+                            ? theme.colorScheme.onSurface
+                                .withValues(alpha: 0.25)
                             : theme.colorScheme.primary),
                     Switch(
                       value: themeProvider.isDarkMode,
@@ -990,8 +1052,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   void _showLanguageBottomSheet(BuildContext context, ThemeData theme) {
-    final localeProvider =
-        Provider.of<LocaleProvider>(context, listen: false);
+    final localeProvider = Provider.of<LocaleProvider>(context, listen: false);
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -1099,8 +1160,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   child: Row(
                     children: ['daily', 'weekly', 'monthly'].map((freq) {
                       final isSelected = _autoBackupFrequency == freq;
-                      final label =
-                          freq[0].toUpperCase() + freq.substring(1);
+                      final label = freq[0].toUpperCase() + freq.substring(1);
                       return Padding(
                         padding: const EdgeInsets.only(right: 8),
                         child: FilterChip(
@@ -1115,8 +1175,8 @@ class _SettingsPageState extends State<SettingsPage> {
                             setState(() => _autoBackupFrequency = freq);
                             _saveAutoBackupSettings();
                           },
-                          selectedColor: theme.colorScheme.primary
-                              .withValues(alpha: 0.15),
+                          selectedColor:
+                              theme.colorScheme.primary.withValues(alpha: 0.15),
                           checkmarkColor: theme.colorScheme.primary,
                         ),
                       );
@@ -1128,15 +1188,15 @@ class _SettingsPageState extends State<SettingsPage> {
                   leading: _iconBox(theme,
                       child: Icon(Icons.folder_outlined,
                           color: theme.colorScheme.primary, size: 20)),
-                  title: Text(
-                      _autoBackupLocation ?? S.of(context).backupLocation),
+                  title:
+                      Text(_autoBackupLocation ?? S.of(context).backupLocation),
                   subtitle: Text(
                     _autoBackupLocation == null
                         ? 'Default'
                         : _autoBackupLocation!,
                     style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface
-                            .withValues(alpha: 0.5)),
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.5)),
                     overflow: TextOverflow.ellipsis,
                   ),
                   trailing: Icon(Icons.chevron_right_rounded,
@@ -1184,7 +1244,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(72, 4, 16, 8),
                   child: Row(
-                    children: [1, 2, 4].map((hours) {
+                    children: [1, 2].map((hours) {
                       final isSelected = _autoScanIntervalHours == hours;
                       return Padding(
                         padding: const EdgeInsets.only(right: 8),
@@ -1201,8 +1261,8 @@ class _SettingsPageState extends State<SettingsPage> {
                             BackgroundScanService.setEnabled(true,
                                 hours: hours);
                           },
-                          selectedColor: theme.colorScheme.primary
-                              .withValues(alpha: 0.15),
+                          selectedColor:
+                              theme.colorScheme.primary.withValues(alpha: 0.15),
                           checkmarkColor: theme.colorScheme.primary,
                         ),
                       );
@@ -1210,6 +1270,11 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                 ),
               ],
+              const Divider(height: 1, indent: 56),
+              _buildActionTile(context, theme,
+                  icon: Icons.manage_search_rounded,
+                  label: 'Scan missed transactions',
+                  onTap: _scanMissedTransactions),
             ],
           ),
         ),
@@ -1321,8 +1386,7 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
       title: Text(label),
       trailing: Icon(Icons.chevron_right_rounded,
-          size: 18,
-          color: theme.colorScheme.onSurface.withValues(alpha: 0.3)),
+          size: 18, color: theme.colorScheme.onSurface.withValues(alpha: 0.3)),
       onTap: onTap,
     );
   }
@@ -1395,7 +1459,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Text(S.of(context).backupExportedSuccess,
+                  child: Text(
+                    S.of(context).backupExportedSuccess,
                     style: TextStyle(fontWeight: FontWeight.w500),
                   ),
                 ),
@@ -1500,7 +1565,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Text(S.of(context).excelExportedSuccess,
+                  child: Text(
+                    S.of(context).excelExportedSuccess,
                     style: TextStyle(fontWeight: FontWeight.w500),
                   ),
                 ),
@@ -1689,7 +1755,8 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  Text(S.of(context).pleaseRestartApp,
+                  Text(
+                    S.of(context).pleaseRestartApp,
                     style: TextStyle(
                       fontStyle: FontStyle.italic,
                       fontSize: 12,
@@ -1897,7 +1964,8 @@ class _SettingsPageState extends State<SettingsPage> {
                           color: theme.colorScheme.primary,
                         ),
                         title: Text(
-                          safeDateFormat('MMM d, y h:mm a').format(localCreated),
+                          safeDateFormat('MMM d, y h:mm a')
+                              .format(localCreated),
                           style: const TextStyle(fontWeight: FontWeight.w600),
                         ),
                         subtitle: Text('Size: $sizeInKB KB'),
@@ -1913,53 +1981,55 @@ class _SettingsPageState extends State<SettingsPage> {
                                     backup['path'] as String);
                               },
                             ),
-                          IconButton(
-                            icon: const Icon(Icons.delete_rounded),
-                            color: Colors.red,
-                            onPressed: () async {
-                              final confirm = await showDialog<bool>(
-                                context: context,
-                                builder: (context) => AlertDialog(
-                                  title: Text(S.of(context).deleteBackupTitle),
-                                  content: Text(S.of(context).deleteBackupMessage),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () =>
-                                          Navigator.pop(context, false),
-                                      child: Text(S.of(context).cancel),
-                                    ),
-                                    ElevatedButton(
-                                      onPressed: () =>
-                                          Navigator.pop(context, true),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.red,
+                            IconButton(
+                              icon: const Icon(Icons.delete_rounded),
+                              color: Colors.red,
+                              onPressed: () async {
+                                final confirm = await showDialog<bool>(
+                                  context: context,
+                                  builder: (context) => AlertDialog(
+                                    title:
+                                        Text(S.of(context).deleteBackupTitle),
+                                    content:
+                                        Text(S.of(context).deleteBackupMessage),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.pop(context, false),
+                                        child: Text(S.of(context).cancel),
                                       ),
-                                      child: Text(S.of(context).delete),
-                                    ),
-                                  ],
-                                ),
-                              );
+                                      ElevatedButton(
+                                        onPressed: () =>
+                                            Navigator.pop(context, true),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.red,
+                                        ),
+                                        child: Text(S.of(context).delete),
+                                      ),
+                                    ],
+                                  ),
+                                );
 
-                              if (confirm == true && mounted) {
-                                Navigator.pop(context);
-                                await _deleteSupabaseBackup(
-                                    backup['path'] as String);
-                              }
-                            },
-                          ),
-                        ],
+                                if (confirm == true && mounted) {
+                                  Navigator.pop(context);
+                                  await _deleteSupabaseBackup(
+                                      backup['path'] as String);
+                                }
+                              },
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text(S.of(context).close),
-              ),
-            ],
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(S.of(context).close),
+                ),
+              ],
             );
           },
         );

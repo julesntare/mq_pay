@@ -223,6 +223,11 @@ class _MainWrapperState extends State<MainWrapper> with WidgetsBindingObserver {
       // Show notification that transactions were matched
       await NotificationService.showTransactionStatusNotification();
     }
+    // Also scan for unrecorded transactions right away (self-gated on the
+    // auto-scan setting) instead of waiting for the next WorkManager tick,
+    // which Android can defer for hours. The high-water mark keeps this
+    // incremental, so it's cheap on every open/resume.
+    await BackgroundScanService.scanForUnrecorded();
   }
 
   @override

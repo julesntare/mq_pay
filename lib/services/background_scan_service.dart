@@ -68,7 +68,9 @@ class BackgroundScanService {
     } catch (_) {}
   }
 
-  /// Background entry point (called from WorkManager's callbackDispatcher).
+  /// Scan entry point — called from WorkManager's callbackDispatcher on the
+  /// periodic tick, and from MainWrapper on every app open/resume so newly
+  /// arrived receipts are recorded without waiting for the next tick.
   static Future<void> scanForUnrecorded() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -82,67 +84,7 @@ class BackgroundScanService {
       var checkFrom = DateTime.fromMillisecondsSinceEpoch(markMs);
       if (checkFrom.isBefore(floor)) checkFrom = floor;
 
-      final messages = await _query.querySms(
-        kinds: [SmsQueryKind.inbox],
-        count: 200,
-      );
-
-      final candidates = messages
-          .where((msg) =>
-              msg.date != null &&
-              msg.date!.isAfter(checkFrom) &&
-              (SmsParserService.isFromMobileMoney(msg.sender ?? '') ||
-                  SmsParserService.isFromBank(msg.sender ?? '')))
-          .toList()
-        ..sort((a, b) => a.date!.compareTo(b.date!)); // oldest first
-
-      final allRecords = await UssdRecordService.getUssdRecords();
-      final created = <UssdRecord>[];
-
-      for (final msg in candidates) {
-        final body = msg.body ?? '';
-
-        // Bank→MoMo pull: not spending, but BK charges a flat fee per
-        // transaction — record a fee-only entry (amount 0, fee 20 RWF).
-        // Must run before the incoming-money skip, since a pull receipt
-        // is an incoming "You have received ..." message.
-        final bankPull = SmsParserService.parseBankPull(body);
-        if (bankPull != null) {
-          if (!_alreadyRecorded(allRecords, created, bankPull, msg.date!)) {
-            final record = _buildRecord(bankPull, msg.date!);
-            await UssdRecordService.saveUssdRecord(record);
-            created.add(record);
-          }
-          continue;
-        }
-
-        // Bank-sender SMS (BKeBANK) are only ever pull confirmations here;
-        // never feed them into the MoMo debit-receipt pipeline below.
-        if (SmsParserService.isFromBank(msg.sender ?? '')) continue;
-
-        if (_looksLikeIncomingMoney(body)) continue;
-
-        final parsed = SmsParserService.parseSms(body);
-        if (parsed == null || parsed['status'] != 'success') continue;
-
-        // Match-first: if this SMS confirms an existing pending record,
-        // resolve that record instead of creating a duplicate.
-        final matched = await TransactionMatcherService.matchSmsToTransaction(
-          parsed,
-          smsTimestamp: msg.date,
-          requireSmsAfterTransaction: true,
-        );
-        if (matched != null) {
-          await UssdRecordService.updateUssdRecord(matched);
-          continue;
-        }
-
-        if (_alreadyRecorded(allRecords, created, parsed, msg.date!)) continue;
-
-        final record = _buildRecord(parsed, msg.date!);
-        await UssdRecordService.saveUssdRecord(record);
-        created.add(record);
-      }
+      final created = await _scanSince(checkFrom, queryCount: 200);
 
       await prefs.setInt(highWaterMarkKey, now.millisecondsSinceEpoch);
 
@@ -153,6 +95,96 @@ class BackgroundScanService {
             created.length);
       }
     } catch (_) {}
+  }
+
+  /// User-triggered deep scan (settings → "Scan missed transactions"):
+  /// looks back [lookback] regardless of the high-water mark, to backfill
+  /// after a reinstall or a restore from an incomplete backup. Dedup makes
+  /// it safe to run repeatedly. Deliberately not gated on [enabledKey] —
+  /// an explicit user action should work even with auto-scan off.
+  /// Returns the number of records created (the caller shows the result in
+  /// the UI, so no notifications here). Advances the mark so the next
+  /// periodic scan doesn't redo this work.
+  static Future<int> scanMissed({required Duration lookback}) async {
+    if (!(await Permission.sms.status).isGranted) return 0;
+
+    final now = DateTime.now();
+    final created = await _scanSince(now.subtract(lookback), queryCount: 1000);
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(highWaterMarkKey, now.millisecondsSinceEpoch);
+    return created.length;
+  }
+
+  /// Shared scan core: records every unrecorded debit receipt (and bank-pull
+  /// fee) from inbox SMS newer than [checkFrom]. Returns the created records.
+  static Future<List<UssdRecord>> _scanSince(
+    DateTime checkFrom, {
+    required int queryCount,
+  }) async {
+    final messages = await _query.querySms(
+      kinds: [SmsQueryKind.inbox],
+      count: queryCount,
+    );
+
+    final candidates = messages
+        .where((msg) =>
+            msg.date != null &&
+            msg.date!.isAfter(checkFrom) &&
+            (SmsParserService.isFromMobileMoney(msg.sender ?? '') ||
+                SmsParserService.isFromBank(msg.sender ?? '')))
+        .toList()
+      ..sort((a, b) => a.date!.compareTo(b.date!)); // oldest first
+
+    final allRecords = await UssdRecordService.getUssdRecords();
+    final created = <UssdRecord>[];
+
+    for (final msg in candidates) {
+      final body = msg.body ?? '';
+
+      // Bank→MoMo pull: not spending, but BK charges a flat fee per
+      // transaction — record a fee-only entry (amount 0, fee 20 RWF).
+      // Must run before the incoming-money skip, since a pull receipt
+      // is an incoming "You have received ..." message.
+      final bankPull = SmsParserService.parseBankPull(body);
+      if (bankPull != null) {
+        if (!_alreadyRecorded(allRecords, created, bankPull, msg.date!)) {
+          final record = _buildRecord(bankPull, msg.date!);
+          await UssdRecordService.saveUssdRecord(record);
+          created.add(record);
+        }
+        continue;
+      }
+
+      // Bank-sender SMS (BKeBANK) are only ever pull confirmations here;
+      // never feed them into the MoMo debit-receipt pipeline below.
+      if (SmsParserService.isFromBank(msg.sender ?? '')) continue;
+
+      if (_looksLikeIncomingMoney(body)) continue;
+
+      final parsed = SmsParserService.parseSms(body);
+      if (parsed == null || parsed['status'] != 'success') continue;
+
+      // Match-first: if this SMS confirms an existing pending record,
+      // resolve that record instead of creating a duplicate.
+      final matched = await TransactionMatcherService.matchSmsToTransaction(
+        parsed,
+        smsTimestamp: msg.date,
+        requireSmsAfterTransaction: true,
+      );
+      if (matched != null) {
+        await UssdRecordService.updateUssdRecord(matched);
+        continue;
+      }
+
+      if (_alreadyRecorded(allRecords, created, parsed, msg.date!)) continue;
+
+      final record = _buildRecord(parsed, msg.date!);
+      await UssdRecordService.saveUssdRecord(record);
+      created.add(record);
+    }
+
+    return created;
   }
 
   /// Defense-in-depth on top of parseSms's outgoing-oriented keywords:
@@ -190,7 +222,8 @@ class BackgroundScanService {
     return existing.any(matches) || created.any(matches);
   }
 
-  static UssdRecord _buildRecord(Map<String, dynamic> parsed, DateTime smsDate) {
+  static UssdRecord _buildRecord(
+      Map<String, dynamic> parsed, DateTime smsDate) {
     final recipient = (parsed['recipient'] as String?) ??
         (parsed['merchantName'] as String?) ??
         'Unknown';

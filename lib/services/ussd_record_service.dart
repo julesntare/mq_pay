@@ -9,6 +9,11 @@ class UssdRecordService {
 
   static Future<List<UssdRecord>> getUssdRecords() async {
     final prefs = await SharedPreferences.getInstance();
+    // The WorkManager background isolate also writes records, and
+    // SharedPreferences caches per isolate: without a reload this isolate
+    // reads a stale list, hides background-created records from the UI,
+    // and a later read-modify-write save would silently drop them.
+    await prefs.reload();
     final recordsJson = prefs.getString(_ussdRecordsKey);
 
     if (recordsJson == null) {
