@@ -15,6 +15,11 @@ class SmsParserService {
 
   static Map<String, dynamic>? parseSms(String smsBody) {
     final cleaned = smsBody.trim();
+    // A bank↔wallet pull is never spending: short-circuit here so no
+    // pipeline can ever record the transferred amount as a payment —
+    // only the flat BK fee (amount 0, fee 20) is kept.
+    final bankPull = parseBankPull(cleaned);
+    if (bankPull != null) return bankPull;
     final isSuccess = _isSuccessMessage(cleaned);
     final isFailure = _isFailureMessage(cleaned);
     if (!isSuccess && !isFailure) return null;
@@ -28,7 +33,9 @@ class SmsParserService {
         lower.contains('was completed') ||
         lower.contains('you have transferred') ||
         lower.contains('you have sent') ||
-        lower.contains('successfully') ||
+        // "successful" alone (new eKash format: "... SUCCESSFUL at <date>"),
+        // guarded so "unsuccessful" never reads as success.
+        (lower.contains('successful') && !lower.contains('unsuccessful')) ||
         lower.contains('congratulations') ||
         lower.contains('transaction successful') ||
         lower.contains('payment successful') ||
@@ -213,7 +220,8 @@ class SmsParserService {
     final lower = sms.toLowerCase();
     if (!lower.contains('you have received') ||
         !lower.contains('fund-transfer') ||
-        !lower.contains('ft id')) {
+        !(lower.contains('ft id') ||
+            lower.contains('financial transaction id'))) {
       return null;
     }
 
@@ -221,8 +229,14 @@ class SmsParserService {
       r'received\s+([\d,]+(?:\.\d+)?)\s*RWF',
       caseSensitive: false,
     ).firstMatch(sms);
-    final ftMatch = RegExp(r'FT\s*Id\s*:\s*([A-Za-z0-9]+)', caseSensitive: false)
-        .firstMatch(sms);
+    final ftMatch = RegExp(
+          r'FT\s*Id\s*:\s*([A-Za-z0-9]+)',
+          caseSensitive: false,
+        ).firstMatch(sms) ??
+        RegExp(
+          r'Financial\s*Transaction\s*Id\s*:\s*([A-Za-z0-9]+)',
+          caseSensitive: false,
+        ).firstMatch(sms);
 
     return _bankPullResult(
       pulledAmountText: amountMatch?.group(1),
@@ -381,9 +395,10 @@ class SmsParserService {
     final m3 = p3.firstMatch(sms);
     if (m3 != null) return m3.group(1)!;
 
-    // Pattern 4: merchant / MoCode payment
+    // Pattern 4: merchant / MoCode payment. "with" terminates the new eKash
+    // format ("payment of X RWF to NAME with token and ET Id: ...").
     final p4 = RegExp(
-      r'payment of.*?to\s+([A-Z][A-Za-z\s&.]+?)(?:\s+\d{6}|\s+was)',
+      r'payment of.*?to\s+([A-Z][A-Za-z\s&.]+?)(?:\s+\d{6}|\s+was|\s+with\b)',
       caseSensitive: false,
     );
     final m4 = p4.firstMatch(sms);
@@ -398,7 +413,11 @@ class SmsParserService {
   static String? _extractConfirmationCode(String sms) {
     final patterns = [
       RegExp(r'TxId\s*:\s*(\d+)', caseSensitive: false),
-      RegExp(r'ET\s*Id\s*:\s*([A-Za-z0-9\-]+)', caseSensitive: false),
+      // ET Id value must contain a digit — the new eKash format can leave it
+      // empty ("ET Id:  SUCCESSFUL at ..."), which would otherwise capture
+      // the word "SUCCESSFUL" instead of falling through to TransactionId.
+      RegExp(r'ET\s*Id\s*:\s*((?=[A-Za-z\-]*\d)[A-Za-z0-9\-]+)',
+          caseSensitive: false),
       RegExp(r'Transaction\s*ID\s*:\s*(\d+)', caseSensitive: false),
       RegExp(r'Txn\s*ID\s*:\s*(\d+)', caseSensitive: false),
       RegExp(r'Ref(?:erence)?\s*(?:No\.?)?\s*:\s*([A-Z0-9]{6,})', caseSensitive: false),

@@ -26,14 +26,10 @@ class MomoTariff {
     TariffBracket(min: 5000001, max: 10000000, fee: 5000),
   ];
 
-  // MoMo eKash tariffs (*182*1*2*... or MoMo code *182*8*1*...)
+  // MoMo eKash tariffs (*182*1*2*... to 072/073 numbers) — flat 20 RWF
+  // per transaction regardless of amount (July 2026 pricing).
   static const List<TariffBracket> ekashTariffs = [
-    TariffBracket(min: 1, max: 1000, fee: 100),
-    TariffBracket(min: 1001, max: 10000, fee: 200),
-    TariffBracket(min: 10001, max: 150000, fee: 350),
-    TariffBracket(min: 150001, max: 2000000, fee: 1600),
-    TariffBracket(min: 2000001, max: 5000000, fee: 3000),
-    TariffBracket(min: 5000001, max: 10000000, fee: 5000),
+    TariffBracket(min: 1, max: 10000000, fee: 20),
   ];
 
   /// Calculate fee based on amount and tariff type
