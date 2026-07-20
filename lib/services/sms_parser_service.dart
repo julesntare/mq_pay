@@ -305,6 +305,34 @@ class SmsParserService {
         RegExp(r'Txn Charge:\s*RWF\s*([\d,]+(?:\.\d+)?)', caseSensitive: false).firstMatch(sms);
     final descMatch =
         RegExp(r'Txn Description:\s*([^.]+)\.', caseSensitive: false).firstMatch(sms);
+    final fee = chargeMatch != null
+        ? double.tryParse(chargeMatch.group(1)!.replaceAll(',', ''))
+        : null;
+
+    // BK also fires this generic "has been debited" alert (from sender
+    // "BK BANK") for its own EKASH self-transfer pull/push — e.g.
+    // "Txn Description: EKASH P2P-NEW APP" — alongside the dedicated
+    // bank-side pull SMS from a *different* sender ("BKeBANK"). Both share
+    // the same Ref/Event # value, so tryMatchServiceEnrichment's refId
+    // cross-match locks onto the *same* fee-only pull record either way.
+    // Without this branch, the fallthrough below would report the full
+    // debited amount, and since that record's amount is the "unknown, fill
+    // it in" sentinel (0 — used by manual no-code BK Bank triggers), the
+    // enrichment matcher would overwrite it with the pulled amount, turning
+    // what should stay a fee-only record into a fake spend. Route it
+    // through the pull result shape instead, with no amount to fill in.
+    if (descMatch != null && descMatch.group(1)!.toLowerCase().contains('ekash')) {
+      final pulledText = amountMatch.group(1);
+      return {
+        'serviceKey': 'bk-pull',
+        'extraDetails':
+            pulledText != null ? 'Pulled $pulledText RWF from bank' : null,
+        'amount': null,
+        'fee': fee ?? bkTransactionFee,
+        'refId': refMatch?.group(1),
+        'rawText': sms,
+      };
+    }
 
     final parts = <String>[];
     if (descMatch != null) parts.add(descMatch.group(1)!.trim());
@@ -314,9 +342,7 @@ class SmsParserService {
       'serviceKey': 'bk',
       'extraDetails': parts.isEmpty ? null : parts.join(' · '),
       'amount': double.tryParse(amountMatch.group(1)!.replaceAll(',', '')),
-      'fee': chargeMatch != null
-          ? double.tryParse(chargeMatch.group(1)!.replaceAll(',', ''))
-          : null,
+      'fee': fee,
       'refId': refMatch?.group(1),
       'rawText': sms,
     };
