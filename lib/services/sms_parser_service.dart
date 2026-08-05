@@ -1,4 +1,68 @@
+import 'dart:convert';
+
+import 'package:shared_preferences/shared_preferences.dart';
+
 class SmsParserService {
+  /// The user's own mobile numbers from settings, each reduced to its last 9
+  /// significant digits. Needed to tell a BK eKash *self*-transfer (moving
+  /// my own money into my own wallet — fee only) from a real eKash transfer
+  /// to somebody else (spending — record the full amount).
+  /// Empty until [loadOwnNumber] runs, or when settings hold no number.
+  static Set<String> _ownNumberKeys = {};
+
+  /// Re-reads the user's own numbers from settings: every `paymentMethods`
+  /// entry of type `mobile`, plus the legacy `mobileNumber` key for installs
+  /// that predate that migration.
+  ///
+  /// Must be awaited before parsing in every isolate that parses SMS —
+  /// WorkManager runs the background scan in its own isolate, where static
+  /// state doesn't carry over — and it also keeps the cache honest after the
+  /// user edits their numbers in settings.
+  static Future<void> loadOwnNumber() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final keys = <String>{};
+
+      final legacy = normalizePhone(prefs.getString('mobileNumber'));
+      if (legacy != null) keys.add(legacy);
+
+      final methodsJson = prefs.getString('paymentMethods');
+      if (methodsJson != null && methodsJson.isNotEmpty) {
+        for (final entry in jsonDecode(methodsJson) as List) {
+          if (entry is! Map) continue;
+          if (entry['type'] != 'mobile') continue;
+          final key = normalizePhone(entry['value'] as String?);
+          if (key != null) keys.add(key);
+        }
+      }
+
+      _ownNumberKeys = keys;
+    } catch (_) {}
+  }
+
+  /// Last 9 digits of [raw], so "250780674459", "+250 780 674 459",
+  /// "0780674459" and "780674459" all compare equal. Null when there aren't
+  /// 9 digits to compare on.
+  static String? normalizePhone(String? raw) {
+    if (raw == null) return null;
+    final digits = raw.replaceAll(RegExp(r'\D'), '');
+    if (digits.length < 9) return null;
+    return digits.substring(digits.length - 9);
+  }
+
+  /// Whether [candidate] is one of the user's own numbers, in any format.
+  static bool isOwnNumber(String? candidate) {
+    final key = normalizePhone(candidate);
+    return key != null && _ownNumberKeys.contains(key);
+  }
+
+  /// Local 07xx form of [raw] (e.g. "250780674459" → "0780674459"), so the
+  /// recipient reads like every other phone record and contact lookup works.
+  static String toLocalPhone(String raw) {
+    final key = normalizePhone(raw);
+    return key == null ? raw.trim() : '0$key';
+  }
+
   /// Whether [sender] looks like a mobile-money / telco sender ID.
   static bool isFromMobileMoney(String sender) {
     final s = sender.toLowerCase().trim();
@@ -248,6 +312,12 @@ class SmsParserService {
   /// "Credited account"/"Debited account" are required so a MoMo/eKash
   /// wallet SMS that merely mentions "transfer" and "ekash" won't match.
   /// Only COMPLETED transfers are recorded.
+  ///
+  /// The same SMS format covers two very different events, told apart by
+  /// whose wallet "Credited account" names:
+  ///  - my own number → self-pull, not spending: fee-only record.
+  ///  - somebody else's number → a real P2P send: record the full amount
+  ///    against that number, with BK's transaction charge as the fee.
   static Map<String, dynamic>? _parseBankSidePull(String sms) {
     final lower = sms.toLowerCase();
     if (!lower.contains('transfer') ||
@@ -264,12 +334,57 @@ class SmsParserService {
     ).firstMatch(sms);
     final eventMatch = RegExp(r'Event\s*#\s*:\s*([A-Za-z0-9]+)', caseSensitive: false)
         .firstMatch(sms);
+    final creditedMatch = RegExp(
+      r'Credited\s*account\s*:\s*\+?([\d\s-]{9,})',
+      caseSensitive: false,
+    ).firstMatch(sms);
 
-    return _bankPullResult(
-      pulledAmountText: amountMatch?.group(1),
-      confirmationCode: eventMatch?.group(1),
-      rawText: sms,
-    );
+    final credited = creditedMatch?.group(1)?.trim();
+    final amount = amountMatch != null
+        ? double.tryParse(amountMatch.group(1)!.replaceAll(',', ''))
+        : null;
+
+    // Fee-only when the money landed in my own wallet — and also whenever
+    // we can't prove otherwise (no beneficiary number, no amount, or no
+    // number configured in settings): mis-recording a self-pull as spending
+    // inflates the totals, which is the worse failure of the two.
+    if (credited == null ||
+        amount == null ||
+        _ownNumberKeys.isEmpty ||
+        isOwnNumber(credited)) {
+      return _bankPullResult(
+        pulledAmountText: amountMatch?.group(1),
+        confirmationCode: eventMatch?.group(1),
+        rawText: sms,
+      );
+    }
+
+    final beneficiaryMatch = RegExp(
+      r'Beneficiary\s*:\s*(.+?)\s*Credited\s*account',
+      caseSensitive: false,
+      dotAll: true,
+    ).firstMatch(sms);
+    final chargeMatch = RegExp(
+      r'Transaction\s*Charge\s*:\s*RWF\s*([\d,]+(?:\.\d+)?)',
+      caseSensitive: false,
+    ).firstMatch(sms);
+    final beneficiary = beneficiaryMatch?.group(1)?.trim();
+
+    return {
+      'amount': amount,
+      'recipient': toLocalPhone(credited),
+      'status': 'success',
+      'confirmationCode': eventMatch?.group(1),
+      'fee': chargeMatch != null
+          ? (double.tryParse(chargeMatch.group(1)!.replaceAll(',', '')) ??
+              bkTransactionFee)
+          : bkTransactionFee,
+      'serviceKey': 'bk-ekash-send',
+      'extraDetails': beneficiary != null && beneficiary.isNotEmpty
+          ? 'eKash transfer to $beneficiary'
+          : 'eKash transfer',
+      'rawText': sms,
+    };
   }
 
   static Map<String, dynamic> _bankPullResult({
@@ -321,12 +436,17 @@ class SmsParserService {
     // enrichment matcher would overwrite it with the pulled amount, turning
     // what should stay a fee-only record into a fake spend. Route it
     // through the pull result shape instead, with no amount to fill in.
+    //
+    // extraDetails is deliberately left null: this alert can't see the
+    // beneficiary, so it can't tell a self-pull from a send to someone else.
+    // The dedicated BKeBANK SMS owns the description either way ("Pulled X
+    // RWF from bank" or "eKash transfer to NAME") and this one must not
+    // overwrite it — nulling it also makes the enrichment a no-op for
+    // self-pulls, which already carry the same text.
     if (descMatch != null && descMatch.group(1)!.toLowerCase().contains('ekash')) {
-      final pulledText = amountMatch.group(1);
       return {
         'serviceKey': 'bk-pull',
-        'extraDetails':
-            pulledText != null ? 'Pulled $pulledText RWF from bank' : null,
+        'extraDetails': null,
         'amount': null,
         'fee': fee ?? bkTransactionFee,
         'refId': refMatch?.group(1),

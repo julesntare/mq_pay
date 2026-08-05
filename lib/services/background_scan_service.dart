@@ -122,6 +122,10 @@ class BackgroundScanService {
     DateTime checkFrom, {
     required int queryCount,
   }) async {
+    // WorkManager runs this in its own isolate, so the parser's cached own
+    // number has to be (re)loaded here before any BK eKash SMS is parsed.
+    await SmsParserService.loadOwnNumber();
+
     final messages = await _query.querySms(
       kinds: [SmsQueryKind.inbox],
       count: queryCount,
