@@ -1465,7 +1465,7 @@ class _HomeState extends State<Home> {
         const SizedBox(height: 16),
         if (amountController.text.isNotEmpty && !_isValidAmount())
           Text(
-            'Please enter a valid amount (minimum 1 RWF)',
+            _amountErrorText(),
             style: TextStyle(
               color: theme.colorScheme.error,
               fontSize: 14,
@@ -1729,7 +1729,7 @@ class _HomeState extends State<Home> {
         const SizedBox(height: 16),
         if (amountController.text.isNotEmpty && !_isValidAmount())
           Text(
-            'Please enter a valid amount (minimum 1 RWF)',
+            _amountErrorText(),
             style: TextStyle(
               color: theme.colorScheme.error,
               fontSize: 14,
@@ -2996,6 +2996,13 @@ class _HomeState extends State<Home> {
     final amount = int.tryParse(raw);
     return amount != null && amount >= 1;
   }
+
+  /// Why the current amount is rejected. Entries the shorthand parser can't
+  /// read at all (".6.50k", "5kk") get their own message — "minimum 1 RWF"
+  /// is misleading there, since nothing about the value was ever understood.
+  String _amountErrorText() => isWellFormedAmount(amountController.text)
+      ? 'Please enter a valid amount (minimum 1 RWF)'
+      : 'Invalid amount — use one decimal point, e.g. 6.5k for 6,500';
 
   // Helper to get provider from phone number
   String _getProviderFromPhone(String phone) {

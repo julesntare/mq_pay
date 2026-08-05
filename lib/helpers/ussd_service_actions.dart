@@ -50,9 +50,45 @@ void _liveFormatShorthand(TextEditingController controller, String value) {
   }
 }
 
+final RegExp _amountShape = RegExp(r'^\d*(?:\.\d*)?[kKmM]?$');
+final RegExp _amountSuffix = RegExp(r'[kKmM]$');
+final RegExp _amountDigit = RegExp(r'\d');
+
+/// Whether [text] is something [expandAmountShorthand] can actually read:
+/// digits with at most one decimal point and an optional single trailing
+/// k/m, plus the thousands commas the live formatter inserts.
+///
+/// Deliberately *not* enforced as an input formatter — swallowing the second
+/// "." in ".6.50k" would leave ".650k" and quietly dial 650 instead of the
+/// 6,500 the user meant. Better to let the text stand and call it invalid.
+///
+/// Half-typed states of a valid entry pass ("", ".", ".6", "1.", "1.5"), so
+/// this only reads as an error once the user stops mid-nonsense.
+bool isWellFormedAmount(String text) {
+  final s = text.replaceAll(',', '').trim();
+  if (!_amountShape.hasMatch(s)) return false;
+  // "k"/"m" only means something once there's a number to scale.
+  return !_amountSuffix.hasMatch(s) || _amountDigit.hasMatch(s);
+}
+
 final List<TextInputFormatter> _amountInputFormatters = [
   FilteringTextInputFormatter.allow(RegExp(r'[0-9kKmM.,]')),
 ];
+
+/// Validation message for a service dialog's amount/fee field, or null when
+/// [text] is acceptable. A blank field is only an error where the amount is
+/// [required].
+String? _amountFieldError(String text, {required bool required}) {
+  final trimmed = text.trim();
+  if (trimmed.isEmpty) return required ? 'Enter an amount' : null;
+  if (!isWellFormedAmount(trimmed)) {
+    return 'Invalid amount — use one decimal point, e.g. 6.5k for 6,500';
+  }
+  final value =
+      double.tryParse(expandAmountShorthand(trimmed.replaceAll(',', '')));
+  if (value == null || value <= 0) return 'Enter an amount of at least 1 RWF';
+  return null;
+}
 
 /// Prompts for an amount and returns the parsed double, or null if
 /// cancelled/invalid. Used for dial-based services, where the amount is
@@ -62,26 +98,40 @@ Future<double?> promptServiceAmount(
   final amountCtrl = TextEditingController();
   final confirmed = await showDialog<bool>(
     context: context,
-    builder: (ctx) => AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: Text(service.label),
-      content: TextField(
-        controller: amountCtrl,
-        autofocus: true,
-        decoration: const InputDecoration(
-            labelText: 'Amount', hintText: 'e.g. 5000 or 5k'),
-        keyboardType: TextInputType.text,
-        inputFormatters: _amountInputFormatters,
-        onChanged: (value) => _liveFormatShorthand(amountCtrl, value),
-      ),
-      actions: [
-        TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel')),
-        FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Continue')),
-      ],
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setState) {
+        // Without this the dialog just closed and nothing happened on an
+        // unreadable amount — say so in the field instead.
+        final error = _amountFieldError(amountCtrl.text, required: true);
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text(service.label),
+          content: TextField(
+            controller: amountCtrl,
+            autofocus: true,
+            decoration: InputDecoration(
+              labelText: 'Amount',
+              hintText: 'e.g. 5000 or 5k',
+              errorText: amountCtrl.text.isEmpty ? null : error,
+            ),
+            keyboardType: TextInputType.text,
+            inputFormatters: _amountInputFormatters,
+            onChanged: (value) {
+              _liveFormatShorthand(amountCtrl, value);
+              setState(() {});
+            },
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel')),
+            FilledButton(
+                onPressed:
+                    error == null ? () => Navigator.pop(ctx, true) : null,
+                child: const Text('Continue')),
+          ],
+        );
+      },
     ),
   );
 
@@ -108,42 +158,63 @@ Future<ManualTriggerInput?> promptManualTrigger(
 
   final confirmed = await showDialog<bool>(
     context: context,
-    builder: (ctx) => AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: Text(service.label),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextField(
-            controller: amountCtrl,
-            autofocus: true,
-            decoration: const InputDecoration(
-                labelText: 'Amount (optional)',
-                hintText: "Leave blank if unknown — we'll fill it in once confirmed"),
-            keyboardType: TextInputType.text,
-            inputFormatters: _amountInputFormatters,
-            onChanged: (value) => _liveFormatShorthand(amountCtrl, value),
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setState) {
+        // Both fields are optional, so blank is fine — but an unreadable
+        // entry used to be dropped on the floor without a word.
+        final amountError = _amountFieldError(amountCtrl.text, required: false);
+        final feeError = _amountFieldError(feeCtrl.text, required: false);
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text(service.label),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: amountCtrl,
+                autofocus: true,
+                decoration: InputDecoration(
+                  labelText: 'Amount (optional)',
+                  hintText:
+                      "Leave blank if unknown — we'll fill it in once confirmed",
+                  errorText: amountError,
+                ),
+                keyboardType: TextInputType.text,
+                inputFormatters: _amountInputFormatters,
+                onChanged: (value) {
+                  _liveFormatShorthand(amountCtrl, value);
+                  setState(() {});
+                },
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: feeCtrl,
+                decoration: InputDecoration(
+                  labelText: 'Fee (optional)',
+                  hintText: 'e.g. 200 — leave blank if none/unknown',
+                  errorText: feeError,
+                ),
+                keyboardType: TextInputType.text,
+                inputFormatters: _amountInputFormatters,
+                onChanged: (value) {
+                  _liveFormatShorthand(feeCtrl, value);
+                  setState(() {});
+                },
+              ),
+            ],
           ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: feeCtrl,
-            decoration: const InputDecoration(
-                labelText: 'Fee (optional)',
-                hintText: 'e.g. 200 — leave blank if none/unknown'),
-            keyboardType: TextInputType.text,
-            inputFormatters: _amountInputFormatters,
-            onChanged: (value) => _liveFormatShorthand(feeCtrl, value),
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel')),
-        FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Continue')),
-      ],
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel')),
+            FilledButton(
+                onPressed: (amountError == null && feeError == null)
+                    ? () => Navigator.pop(ctx, true)
+                    : null,
+                child: const Text('Continue')),
+          ],
+        );
+      },
     ),
   );
 
