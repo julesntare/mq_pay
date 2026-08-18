@@ -398,24 +398,6 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
     super.dispose();
   }
 
-  Future<void> _clearAllRecords() async {
-    final confirmed = await _showConfirmationDialog(
-      'Clear All Records',
-      'Are you sure you want to clear all USSD records? This action cannot be undone.',
-      confirmText: 'Clear All',
-    );
-
-    if (confirmed) {
-      await UssdRecordService.clearUssdRecords();
-      _loadRecords();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(S.of(context).allRecordsCleared)),
-        );
-      }
-    }
-  }
-
   Future<bool> _showConfirmationDialog(String title, String message,
       {String confirmText = 'Confirm'}) async {
     return await showDialog<bool>(
@@ -459,12 +441,6 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
                 color: showAnalytics ? theme.colorScheme.primary : null,
               ),
               tooltip: 'Analytics',
-            ),
-          if (records.isNotEmpty)
-            IconButton(
-              onPressed: _clearAllRecords,
-              icon: const Icon(Icons.clear_all_rounded),
-              tooltip: S.of(context).clearAllRecords,
             ),
           IconButton(
             onPressed: _loadRecords,
