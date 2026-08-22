@@ -8,6 +8,7 @@ import '../models/transaction_status.dart';
 import '../services/ussd_record_service.dart';
 import '../helpers/app_theme.dart';
 import '../helpers/launcher.dart';
+import '../helpers/recipient_helper.dart';
 import 'edit_ussd_record_dialog.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -2546,26 +2547,69 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
 
   Future<void> _redialRecord(UssdRecord record) async {
     try {
-      // Show dialog to confirm if the transaction failed
-      final shouldDeleteOriginal = await _showRedialConfirmationDialog(record);
+      // Confirm the redial, letting the user correct the recipient first
+      final choice = await _showRedialConfirmationDialog(record);
 
-      if (shouldDeleteOriginal == null) {
+      if (choice == null) {
         // User cancelled the dialog
         return;
       }
 
-      launchUSSD(record.ussdCode, context);
+      final recipientChanged = choice.recipient != record.recipient.trim() ||
+          choice.recipientType != record.recipientType;
+
+      String ussdCode = record.ussdCode;
+      if (recipientChanged) {
+        final rebuilt = RecipientHelper.buildUssdCode(
+          recipient: choice.recipient,
+          recipientType: choice.recipientType,
+          amount: RecipientHelper.amountSegmentOf(record.ussdCode) ??
+              record.amount.toStringAsFixed(0),
+        );
+        if (rebuilt == null) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(S.of(context).invalidPhoneOrMomo)),
+            );
+          }
+          return;
+        }
+        ussdCode = rebuilt;
+      }
+
+      if (!mounted) return;
+      launchUSSD(ussdCode, context);
 
       // If the transaction failed, delete the original record
-      if (shouldDeleteOriginal) {
+      if (choice.deleteOriginal) {
         await UssdRecordService.deleteUssdRecord(record.id);
       }
 
       // Save a new record for the redial
-      final newRecord = record.copyWith(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        timestamp: DateTime.now(),
-      );
+      final newId = DateTime.now().millisecondsSinceEpoch.toString();
+      final newRecord = recipientChanged
+          ? UssdRecord(
+              id: newId,
+              ussdCode: ussdCode,
+              recipient: choice.recipient,
+              recipientType: choice.recipientType,
+              amount: record.amount,
+              timestamp: DateTime.now(),
+              maskedRecipient: choice.recipientType == 'phone'
+                  ? RecipientHelper.maskPhoneNumber(choice.recipient)
+                  : null,
+              // The saved name belonged to the old number, and the fee depends
+              // on the network, so the name is dropped and the fee is
+              // recalculated from the new dial code.
+              contactName: null,
+              reason: record.reason,
+              fee: null,
+              applyFee: record.applyFee,
+              isLoan: record.isLoan,
+              loanRecovered: record.loanRecovered,
+              serviceKey: record.serviceKey,
+            )
+          : record.copyWith(id: newId, timestamp: DateTime.now());
       await UssdRecordService.saveUssdRecord(newRecord);
 
       _loadRecords(); // Refresh to show the new record
@@ -2573,7 +2617,7 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(shouldDeleteOriginal
+            content: Text(choice.deleteOriginal
                 ? 'Failed transaction deleted and redialing...'
                 : 'Redialing transaction...'),
           ),
@@ -2588,136 +2632,12 @@ class _UssdRecordsScreenState extends State<UssdRecordsScreen> {
     }
   }
 
-  Future<bool?> _showRedialConfirmationDialog(UssdRecord record) async {
-    bool transactionFailed = false;
-    final theme = Theme.of(context);
-
-    return await showDialog<bool>(
+  Future<_RedialChoice?> _showRedialConfirmationDialog(UssdRecord record) {
+    return showDialog<_RedialChoice>(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Row(
-            children: [
-              Icon(Icons.refresh_rounded, color: theme.colorScheme.primary),
-              const SizedBox(width: 12),
-              Text(S.of(context).redialTransaction),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                S.of(context).aboutToRedial,
-                style: theme.textTheme.bodyMedium,
-              ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: theme.colorScheme.primary.withValues(alpha: 0.3),
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Amount: ${_formatCurrency(record.amount)}',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'To: ${record.maskedRecipient ?? record.recipient}',
-                      style: theme.textTheme.bodySmall,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              InkWell(
-                onTap: () {
-                  setState(() {
-                    transactionFailed = !transactionFailed;
-                  });
-                },
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: theme.colorScheme.outline.withValues(alpha: 0.3),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Checkbox(
-                        value: transactionFailed,
-                        onChanged: (value) {
-                          setState(() {
-                            transactionFailed = value ?? false;
-                          });
-                        },
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'The original transaction failed',
-                          style: theme.textTheme.bodyMedium,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              if (transactionFailed) ...[
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.info_outline,
-                        size: 16,
-                        color: Colors.orange,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'The original transaction will be deleted',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: Colors.orange.shade700,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(null),
-              child: Text(S.of(context).cancel),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.of(context).pop(transactionFailed),
-              child: Text(S.of(context).redial),
-            ),
-          ],
-        ),
+      builder: (context) => _RedialDialog(
+        record: record,
+        amountLabel: _formatCurrency(record.amount),
       ),
     );
   }
@@ -3094,6 +3014,262 @@ class _LoanBadge extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// What the redial dialog resolved to: whether to drop the original record,
+/// and the recipient to dial (possibly corrected by the user).
+class _RedialChoice {
+  final bool deleteOriginal;
+  final String recipient;
+  final String recipientType;
+
+  const _RedialChoice({
+    required this.deleteOriginal,
+    required this.recipient,
+    required this.recipientType,
+  });
+}
+
+
+/// Redial confirmation dialog. Kept as a widget rather than an inline
+/// `StatefulBuilder` so the recipient controller lives exactly as long as the
+/// route does - disposing it when `showDialog` resolves tears it down while the
+/// dialog is still rebuilding through its exit animation.
+class _RedialDialog extends StatefulWidget {
+  final UssdRecord record;
+  final String amountLabel;
+
+  const _RedialDialog({
+    required this.record,
+    required this.amountLabel,
+  });
+
+  @override
+  State<_RedialDialog> createState() => _RedialDialogState();
+}
+
+class _RedialDialogState extends State<_RedialDialog> {
+  late final TextEditingController _recipientController;
+
+  /// Only phone/momo transactions can be re-targeted; bills and services
+  /// carry their own dial flow, so their recipient stays read-only.
+  late final bool _canEditRecipient;
+
+  bool _transactionFailed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _canEditRecipient = widget.record.recipientType == 'phone' ||
+        widget.record.recipientType == 'momo';
+    _recipientController =
+        TextEditingController(text: widget.record.recipient.trim());
+  }
+
+  @override
+  void dispose() {
+    _recipientController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final record = widget.record;
+    final input = _recipientController.text.trim();
+    final detectedType =
+        _canEditRecipient ? RecipientHelper.detectRecipientType(input) : null;
+    final recipientChanged =
+        _canEditRecipient && input != record.recipient.trim();
+    final canRedial = !_canEditRecipient || detectedType != null;
+
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: Row(
+        children: [
+          Icon(Icons.refresh_rounded, color: theme.colorScheme.primary),
+          const SizedBox(width: 12),
+          Expanded(child: Text(S.of(context).redialTransaction)),
+        ],
+      ),
+      content: SingleChildScrollView(
+        padding:
+            EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              S.of(context).aboutToRedial,
+              style: theme.textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Amount: ${widget.amountLabel}',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  if (!_canEditRecipient)
+                    Text(
+                      'To: ${record.maskedRecipient ?? record.recipient}',
+                      style: theme.textTheme.bodySmall,
+                    )
+                  else ...[
+                    TextField(
+                      controller: _recipientController,
+                      keyboardType: TextInputType.phone,
+                      onChanged: (_) => setState(() {}),
+                      decoration: InputDecoration(
+                        labelText: S.of(context).phoneOrMomo,
+                        helperText: detectedType == null
+                            ? S.of(context).phoneOrMomoExample
+                            : (detectedType == 'phone'
+                                ? S.of(context).phoneNumberLabel
+                                : S.of(context).momoCode),
+                        errorText: input.isEmpty || detectedType != null
+                            ? null
+                            : S.of(context).invalidPhoneOrMomo,
+                        prefixIcon: Icon(
+                          detectedType == 'momo'
+                              ? Icons.storefront_rounded
+                              : Icons.phone_rounded,
+                          size: 20,
+                        ),
+                        isDense: true,
+                        filled: true,
+                        fillColor: theme.colorScheme.surface,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                    if (!recipientChanged &&
+                        record.contactName != null &&
+                        record.contactName!.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        record.contactName!,
+                        style: theme.textTheme.bodySmall,
+                      ),
+                    ],
+                    if (recipientChanged) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        record.contactName != null &&
+                                record.contactName!.isNotEmpty
+                            ? 'Recipient changed - the saved name will not be kept'
+                            : 'Recipient changed for this redial',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.primary,
+                        ),
+                      ),
+                    ],
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            InkWell(
+              onTap: () {
+                setState(() {
+                  _transactionFailed = !_transactionFailed;
+                });
+              },
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: theme.colorScheme.outline.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Checkbox(
+                      value: _transactionFailed,
+                      onChanged: (value) {
+                        setState(() {
+                          _transactionFailed = value ?? false;
+                        });
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'The original transaction failed',
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (_transactionFailed) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      size: 16,
+                      color: Colors.orange,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'The original transaction will be deleted',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: Colors.orange.shade700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(null),
+          child: Text(S.of(context).cancel),
+        ),
+        ElevatedButton(
+          onPressed: canRedial
+              ? () => Navigator.of(context).pop(
+                    _RedialChoice(
+                      deleteOriginal: _transactionFailed,
+                      recipient: _canEditRecipient ? input : record.recipient,
+                      recipientType: detectedType ?? record.recipientType,
+                    ),
+                  )
+              : null,
+          child: Text(S.of(context).redial),
+        ),
+      ],
     );
   }
 }
