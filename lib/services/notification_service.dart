@@ -113,6 +113,23 @@ class NotificationService {
     );
   }
 
+  /// Notify that a not-yet-trusted rule found something worth approving.
+  /// Deliberately worded as a question, not an announcement: nothing has been
+  /// recorded, and the user still has to say yes.
+  static Future<void> showSuggestionNotification(int count) async {
+    await initialize();
+
+    await _notifications.show(
+      2,
+      count == 1 ? 'A transaction to review' : '$count transactions to review',
+      count == 1
+          ? 'A rule you taught found a transaction. Tap Review in settings to '
+              'record or discard it.'
+          : 'Rules you taught found $count transactions waiting for review.',
+      const NotificationDetails(android: _autoRecordedDetails),
+    );
+  }
+
   static String _formatAmount(double amount) {
     final s = amount.toStringAsFixed(0);
     final formatted = s.replaceAllMapped(

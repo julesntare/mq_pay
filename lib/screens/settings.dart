@@ -14,6 +14,8 @@ import '../helpers/safe_date_format.dart';
 import '../widgets/accessibility_permission_card.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../services/background_scan_service.dart';
+import '../services/suggestion_service.dart';
+import 'sms_rules_screen.dart';
 
 // Payment Method Model
 class PaymentMethod {
@@ -100,6 +102,25 @@ class _SettingsPageState extends State<SettingsPage> {
     _loadAutoBackupSettings();
     _loadAutoScanSettings();
     _loadSupabaseSettings();
+    _loadPendingSuggestions();
+  }
+
+  /// Transactions a not-yet-trusted rule found and is waiting on. Surfaced as
+  /// a badge here because settings is where the review lives, and an
+  /// unreviewed suggestion is a transaction missing from the totals.
+  int _pendingSuggestions = 0;
+
+  Future<void> _loadPendingSuggestions() async {
+    final count = await SuggestionService.count();
+    if (mounted) setState(() => _pendingSuggestions = count);
+  }
+
+  Future<void> _openSmsRules() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const SmsRulesScreen()),
+    );
+    await _loadPendingSuggestions();
   }
 
   Future<void> _loadAutoScanSettings() async {
@@ -1275,6 +1296,14 @@ class _SettingsPageState extends State<SettingsPage> {
                   icon: Icons.manage_search_rounded,
                   label: 'Scan missed transactions',
                   onTap: _scanMissedTransactions),
+              const Divider(height: 1, indent: 56),
+              _buildActionTile(context, theme,
+                  icon: Icons.rule_rounded,
+                  label: 'SMS detection rules',
+                  badge: _pendingSuggestions > 0
+                      ? '$_pendingSuggestions to review'
+                      : null,
+                  onTap: _openSmsRules),
             ],
           ),
         ),
@@ -1372,6 +1401,7 @@ class _SettingsPageState extends State<SettingsPage> {
       {required IconData icon,
       required String label,
       Color? iconColor,
+      String? badge,
       VoidCallback? onTap}) {
     final color = iconColor ?? theme.colorScheme.primary;
     return ListTile(
@@ -1385,8 +1415,26 @@ class _SettingsPageState extends State<SettingsPage> {
         child: Icon(icon, color: color, size: 20),
       ),
       title: Text(label),
-      trailing: Icon(Icons.chevron_right_rounded,
-          size: 18, color: theme.colorScheme.onSurface.withValues(alpha: 0.3)),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (badge != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(badge,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.primary,
+                      fontWeight: FontWeight.w600)),
+            ),
+          Icon(Icons.chevron_right_rounded,
+              size: 18,
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.3)),
+        ],
+      ),
       onTap: onTap,
     );
   }

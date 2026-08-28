@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../models/ussd_record.dart';
+import 'sms_rule_service.dart';
 import 'ussd_record_service.dart';
 
 class SupabaseBackupService {
@@ -130,6 +131,9 @@ class SupabaseBackupService {
       final ussdServicesJson = prefs.getString('ussd_services') ?? '[]';
       final List<dynamic> ussdServicesList = jsonDecode(ussdServicesJson);
 
+      // SMS detection rules, so a restored device detects the same messages.
+      final smsRules = await SmsRuleService.backupPayload();
+
       // Create backup object
       final backupData = {
         'version': _backupVersion,
@@ -141,6 +145,7 @@ class SupabaseBackupService {
           'favoriteContacts': favoriteContactsList,
           'billShortcuts': billShortcutsList,
           'ussdServices': ussdServicesList,
+          ...smsRules,
           'settings': {
             'mobileNumber': mobileNumber,
             'momoCode': momoCode,
@@ -385,6 +390,8 @@ class SupabaseBackupService {
         final allServices = [...existingServices, ...newServices];
         await prefs.setString('ussd_services', jsonEncode(allServices));
       }
+
+      await SmsRuleService.restoreFromBackup(data);
 
       // Restore settings (optional - don't overwrite if user doesn't want to)
       if (data.containsKey('settings')) {

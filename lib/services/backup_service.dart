@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:excel/excel.dart';
 import '../helpers/safe_date_format.dart';
 import '../models/ussd_record.dart';
+import 'sms_rule_service.dart';
 import 'ussd_record_service.dart';
 
 class BackupService {
@@ -44,6 +45,11 @@ class BackupService {
       final ussdServicesJson = prefs.getString('ussd_services') ?? '[]';
       final List<dynamic> ussdServicesList = jsonDecode(ussdServicesJson);
 
+      // SMS detection rules the user taught the app, plus which built-in
+      // rules they switched off — losing these on restore would silently
+      // change what gets detected.
+      final smsRules = await SmsRuleService.backupPayload();
+
       // Create backup object with timestamp
       final backupData = {
         'version': _backupVersion,
@@ -54,6 +60,7 @@ class BackupService {
           'favoriteContacts': favoriteContactsList,
           'billShortcuts': billShortcutsList,
           'ussdServices': ussdServicesList,
+          ...smsRules,
           'settings': {
             'mobileNumber': mobileNumber,
             'momoCode': momoCode,
@@ -227,6 +234,8 @@ class BackupService {
         final allServices = [...existingServices, ...newServices];
         await prefs.setString('ussd_services', jsonEncode(allServices));
       }
+
+      await SmsRuleService.restoreFromBackup(data);
 
       // Restore settings only if not already set
       if (data.containsKey('settings')) {
@@ -404,6 +413,8 @@ class BackupService {
         final allServices = [...existingServices, ...newServices];
         await prefs.setString('ussd_services', jsonEncode(allServices));
       }
+
+      await SmsRuleService.restoreFromBackup(data);
 
       // Restore settings (overwrite existing)
       if (data.containsKey('settings')) {

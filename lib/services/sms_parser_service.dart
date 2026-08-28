@@ -2,23 +2,29 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/sms_rule.dart';
+import 'sms_rule_engine.dart';
+import 'sms_rule_service.dart';
+
 class SmsParserService {
   /// The user's own mobile numbers from settings, each reduced to its last 9
   /// significant digits. Needed to tell a BK eKash *self*-transfer (moving
   /// my own money into my own wallet — fee only) from a real eKash transfer
   /// to somebody else (spending — record the full amount).
-  /// Empty until [loadOwnNumber] runs, or when settings hold no number.
+  /// Empty until [loadSettings] runs, or when settings hold no number.
   static Set<String> _ownNumberKeys = {};
 
-  /// Re-reads the user's own numbers from settings: every `paymentMethods`
-  /// entry of type `mobile`, plus the legacy `mobileNumber` key for installs
-  /// that predate that migration.
+  /// Re-reads everything parsing depends on that lives in settings: the
+  /// user's own numbers (every `paymentMethods` entry of type `mobile`, plus
+  /// the legacy `mobileNumber` key for installs that predate that migration)
+  /// and the detection rules.
   ///
   /// Must be awaited before parsing in every isolate that parses SMS —
   /// WorkManager runs the background scan in its own isolate, where static
-  /// state doesn't carry over — and it also keeps the cache honest after the
-  /// user edits their numbers in settings.
-  static Future<void> loadOwnNumber() async {
+  /// state doesn't carry over — and it also keeps the caches honest after the
+  /// user edits numbers or rules in settings.
+  static Future<void> loadSettings() async {
+    await SmsRuleService.load();
     try {
       final prefs = await SharedPreferences.getInstance();
       final keys = <String>{};
@@ -64,18 +70,32 @@ class SmsParserService {
   }
 
   /// Whether [sender] looks like a mobile-money / telco sender ID.
+  /// The list lives in the rule pack, not here, so another country's telco
+  /// is a settings change rather than a release.
   static bool isFromMobileMoney(String sender) {
     final s = sender.toLowerCase().trim();
-    return s.contains('m-money') ||
-        s.contains('mmoney') ||
-        s.contains('mtn') ||
-        s.contains('airtel') ||
-        s.contains('ekash');
+    if (s.isEmpty) return false;
+    return SmsRuleService.config.mobileMoneySenders.any(s.contains);
   }
 
-  /// Whether [sender] is Bank of Kigali's eBanking sender ID ("BKeBANK").
-  static bool isFromBank(String sender) =>
-      sender.toLowerCase().trim().contains('bkebank');
+  /// Whether [sender] is one of the configured bank sender IDs
+  /// (Bank of Kigali's "BKeBANK" ships as the built-in default).
+  static bool isFromBank(String sender) {
+    final s = sender.toLowerCase().trim();
+    if (s.isEmpty) return false;
+    return SmsRuleService.config.bankSenders.any(s.contains);
+  }
+
+  /// Whether any active rule claims this sender. Lets the scanner consider
+  /// messages from a bank the built-in pack has never heard of, as soon as
+  /// the user adds a rule for it.
+  static bool isKnownFinancialSender(String sender) {
+    if (isFromMobileMoney(sender) || isFromBank(sender)) return true;
+    final s = sender.toLowerCase().trim();
+    if (s.isEmpty) return false;
+    return SmsRuleService.config.rules
+        .any((rule) => rule.senderMatch.any(s.contains));
+  }
 
   static Map<String, dynamic>? parseSms(String smsBody) {
     final cleaned = smsBody.trim();
@@ -90,39 +110,25 @@ class SmsParserService {
     return isSuccess ? _parseSuccessMessage(cleaned) : _parseFailureMessage(cleaned);
   }
 
+  /// Success/failure keywords come from the rule pack's `keywords` section.
+  /// `successExclude` is what stops "unsuccessful" from reading as a success
+  /// on the strength of the substring "successful".
   static bool _isSuccessMessage(String sms) {
     final lower = sms.toLowerCase();
-    return lower.contains('*s*') ||
-        lower.contains('transferred to') ||
-        lower.contains('was completed') ||
-        lower.contains('you have transferred') ||
-        lower.contains('you have sent') ||
-        // "successful" alone (new eKash format: "... SUCCESSFUL at <date>"),
-        // guarded so "unsuccessful" never reads as success.
-        (lower.contains('successful') && !lower.contains('unsuccessful')) ||
-        lower.contains('congratulations') ||
-        lower.contains('transaction successful') ||
-        lower.contains('payment successful') ||
-        lower.contains('sent to') ||
-        lower.contains('confirmed.') ||
-        lower.contains('please keep') || // "Please keep this as proof of payment"
-        lower.contains('has been sent') ||
-        lower.contains('has been transferred') ||
-        lower.contains('avez transféré') || // French MTN
-        lower.contains('effectué'); // French: "opération effectuée"
+    final config = SmsRuleService.config;
+    if (config.successExclude.any(lower.contains)) {
+      // An excluded word only vetoes the keyword it is a superstring of;
+      // an explicit success phrase elsewhere in the message still counts.
+      return config.successKeywords
+          .where((k) => !config.successExclude.any((x) => x.contains(k)))
+          .any(lower.contains);
+    }
+    return config.successKeywords.any(lower.contains);
   }
 
   static bool _isFailureMessage(String sms) {
     final lower = sms.toLowerCase();
-    return lower.contains('*r*') ||
-        lower.contains('failed') ||
-        lower.contains('transaction declined') ||
-        lower.contains('not processed') ||
-        lower.contains('unsuccessful') ||
-        lower.contains('could not be completed') ||
-        lower.contains('declined') ||
-        lower.contains('your request was not') ||
-        lower.contains('refusé'); // French: refused
+    return SmsRuleService.config.failureKeywords.any(lower.contains);
   }
 
   static Map<String, dynamic>? _parseSuccessMessage(String sms) {
@@ -151,115 +157,70 @@ class SmsParserService {
     return null;
   }
 
-  /// Confirmed sender IDs for each service's delayed enrichment SMS.
-  static const Map<String, String> _enrichmentSenderIds = {
-    'efashe': 'efashe',
-    'canalbox': 'canalbox',
-    'umutekano': 'umutekano',
+  /// Detects a delayed, service-specific enrichment message (Cash Power
+  /// token, Canalbox renewal, Umutekano confirmation, BK debit alert) that
+  /// doesn't look like a standard MoMo debit receipt and would otherwise be
+  /// silently dropped.
+  ///
+  /// Which messages count, and what to pull out of them, is entirely rule
+  /// data now — see the built-in pack. Rules gate on content signature and,
+  /// where a sender ID is known, on the sender too, as defence in depth
+  /// against an unrelated SMS coincidentally matching the body pattern.
+  static Map<String, dynamic>? detectServiceEnrichment(String smsBody,
+      {String? sender}) {
+    final match = SmsRuleEngine.evaluate(
+      smsBody,
+      sender: sender,
+      builtinParsers: builtinRuleParsers,
+      where: (rule) => rule.direction == RuleDirection.enrichment,
+    );
+    if (match == null) return null;
+    // Enrichment attaches to a record via its service key; a rule without one
+    // has nothing to attach to.
+    if (match.data['serviceKey'] == null) return null;
+    return match.data;
+  }
+
+  /// Transaction detected by a declarative rule — the path a user-added bank
+  /// or fintech rule takes. Built-in delegating rules are deliberately
+  /// excluded: they belong to their own stages (bank pull, MoMo receipts)
+  /// and must not be reached from here.
+  static Map<String, dynamic>? detectRuleTransaction(String smsBody,
+      {String? sender}) {
+    final match = SmsRuleEngine.evaluate(
+      smsBody,
+      sender: sender,
+      where: (rule) =>
+          rule.builtinParser == null &&
+          (rule.direction == RuleDirection.spend ||
+              rule.direction == RuleDirection.feeOnly),
+    );
+    if (match == null) return null;
+    return match.data;
+  }
+
+  /// Whether an active rule says this message is explicitly not a
+  /// transaction — the user's way to silence a noisy sender.
+  static bool isIgnoredByRule(String smsBody, {String? sender}) {
+    final lower = smsBody.toLowerCase();
+    return SmsRuleService.config.rules.any((rule) =>
+        rule.direction == RuleDirection.ignore &&
+        rule.gatesPass(sender ?? '', lower));
+  }
+
+  /// Imperative parsers that rules delegate to by name, for the built-in
+  /// formats whose logic is too subtle to express as patterns.
+  static Map<String, BuiltinRuleParser> get builtinRuleParsers => {
+        'bankPullMoMo': _parseMoMoSidePull,
+        'bankPullBank': _parseBankSidePull,
+        'bankDebit': _parseBankDebit,
+      };
+
+  /// The subset of [builtinRuleParsers] that make up the bank-pull stage.
+  static const Set<String> _bankPullParserNames = {
+    'bankPullMoMo',
+    'bankPullBank',
   };
-
-  /// Detects a delayed, service-specific enrichment message (Cash Power token,
-  /// Canalbox renewal, Umutekano confirmation) that doesn't look like a
-  /// standard MoMo debit receipt and would otherwise be silently dropped.
-  /// Primarily content-signature based; when [sender] is available it must
-  /// also match the confirmed sender ID for that service, as a defense-in-depth
-  /// check against an unrelated SMS coincidentally matching the body pattern.
-  static Map<String, dynamic>? detectServiceEnrichment(String smsBody, {String? sender}) {
-    final sms = smsBody.trim();
-    final lower = sms.toLowerCase();
-
-    String? serviceKey;
-    if (lower.contains('meter#') && lower.contains('token')) {
-      serviceKey = 'efashe';
-    } else if (lower.contains('canalbox')) {
-      serviceKey = 'canalbox';
-    } else if (lower.contains('umutekano')) {
-      serviceKey = 'umutekano';
-    } else if (lower.contains('has been debited')) {
-      serviceKey = 'bk';
-    }
-    if (serviceKey == null) return null;
-
-    // Sender confirmation is only enforced when we actually know the
-    // expected sender ID for this service (e.g. BK's sender wasn't
-    // confirmed) — otherwise fall back to content-signature only.
-    final expectedSender = _enrichmentSenderIds[serviceKey];
-    if (expectedSender != null && sender != null && sender.trim().isNotEmpty) {
-      if (!sender.toLowerCase().contains(expectedSender)) return null;
-    }
-
-    switch (serviceKey) {
-      case 'efashe':
-        return _parseEfasheEnrichment(sms);
-      case 'canalbox':
-        return _parseCanalboxEnrichment(sms);
-      case 'umutekano':
-        return _parseUmutekanoEnrichment(sms);
-      case 'bk':
-        return _parseBankDebit(sms);
-    }
-    return null;
-  }
-
-  static Map<String, dynamic>? _parseEfasheEnrichment(String sms) {
-    final meterMatch = RegExp(r'Meter#\s*:\s*(\S+)', caseSensitive: false).firstMatch(sms);
-    final tokenMatch = RegExp(r'Token\s*:\s*(\S+)', caseSensitive: false).firstMatch(sms);
-    final unitsMatch = RegExp(r'Units\s*:\s*([\d.]+)\s*KW', caseSensitive: false).firstMatch(sms);
-    final amountMatch = RegExp(r'Amount\s*:\s*([\d.]+)', caseSensitive: false).firstMatch(sms);
-
-    if (tokenMatch == null) return null;
-
-    final parts = <String>['Token: ${tokenMatch.group(1)}'];
-    if (unitsMatch != null) {
-      final units = double.tryParse(unitsMatch.group(1)!);
-      parts.add('Units: ${units != null ? units.toStringAsFixed(2) : unitsMatch.group(1)} KWh');
-    }
-    if (meterMatch != null) parts.add('Meter: ${meterMatch.group(1)}');
-
-    return {
-      'serviceKey': 'efashe',
-      'extraDetails': parts.join(' · '),
-      'amount': amountMatch != null ? double.tryParse(amountMatch.group(1)!) : null,
-      'refId': null,
-      'rawText': sms,
-    };
-  }
-
-  static Map<String, dynamic>? _parseCanalboxEnrichment(String sms) {
-    final validMatch =
-        RegExp(r'valid until\s*([\d\-\/]+)', caseSensitive: false).firstMatch(sms);
-    final amountMatch =
-        RegExp(r'Amount paid\s*:?\s*([\d,]+)\s*RWF', caseSensitive: false).firstMatch(sms);
-
-    final parts = <String>['Subscription renewed'];
-    if (validMatch != null) parts.add('Valid until ${validMatch.group(1)}');
-
-    return {
-      'serviceKey': 'canalbox',
-      'extraDetails': parts.join(' · '),
-      'amount': amountMatch != null
-          ? double.tryParse(amountMatch.group(1)!.replaceAll(',', ''))
-          : null,
-      'refId': null,
-      'rawText': sms,
-    };
-  }
-
-  static Map<String, dynamic>? _parseUmutekanoEnrichment(String sms) {
-    final amountMatch = RegExp(r'Umutekano\s*([\d,]+)F', caseSensitive: false).firstMatch(sms);
-    final tridMatch = RegExp(r'TRID\s+([A-Za-z0-9]+)', caseSensitive: false).firstMatch(sms);
-
-    return {
-      'serviceKey': 'umutekano',
-      'extraDetails': 'Confirmed via Umutekano'
-          '${tridMatch != null ? ' · TRID ${tridMatch.group(1)}' : ''}',
-      'amount': amountMatch != null
-          ? double.tryParse(amountMatch.group(1)!.replaceAll(',', ''))
-          : null,
-      'refId': tridMatch?.group(1),
-      'rawText': sms,
-    };
-  }
 
   /// Flat fee BK charges on every bank↔MoMo transaction (introduced July 2026).
   static const double bkTransactionFee = 20.0;
@@ -274,8 +235,12 @@ class SmsParserService {
   ///    Credited account: 2507XXXXXXXX Debited account: N Amount:RWF X
   ///    Event #:FTCM... Status: COMPLETED Date: ... Channel:MOBILE"
   static Map<String, dynamic>? parseBankPull(String smsBody) {
-    final sms = smsBody.trim();
-    return _parseMoMoSidePull(sms) ?? _parseBankSidePull(sms);
+    final match = SmsRuleEngine.evaluate(
+      smsBody,
+      builtinParsers: builtinRuleParsers,
+      where: (rule) => _bankPullParserNames.contains(rule.builtinParser),
+    );
+    return match?.data;
   }
 
   /// "FT Id" (bank funds-transfer reference) is required so a regular P2P

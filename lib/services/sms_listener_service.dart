@@ -18,7 +18,7 @@ class SmsListenerService {
   static Future<bool> initialize() async {
     final status = await Permission.sms.request();
     if (!status.isGranted) return false;
-    await SmsParserService.loadOwnNumber();
+    await SmsParserService.loadSettings();
     _startPolling();
     return true;
   }
@@ -104,7 +104,7 @@ class SmsListenerService {
     try {
       // Also a WorkManager entry point (pollServiceTransactions), and the
       // app-resume hook — either way, refresh the parser's own number first.
-      await SmsParserService.loadOwnNumber();
+      await SmsParserService.loadSettings();
       final records = await UssdRecordService.getUssdRecords();
       final now = DateTime.now();
       final cutoff = now.subtract(const Duration(hours: 24));

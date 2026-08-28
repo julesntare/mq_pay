@@ -2,9 +2,11 @@ import 'package:flutter_sms_inbox/flutter_sms_inbox.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
-import '../models/transaction_status.dart';
+import '../models/transaction_suggestion.dart';
 import '../models/ussd_record.dart';
 import 'notification_service.dart';
+import 'sms_rule_service.dart';
+import 'suggestion_service.dart';
 import 'sms_parser_service.dart';
 import 'transaction_matcher_service.dart';
 import 'ussd_record_service.dart';
@@ -84,9 +86,15 @@ class BackgroundScanService {
       var checkFrom = DateTime.fromMillisecondsSinceEpoch(markMs);
       if (checkFrom.isBefore(floor)) checkFrom = floor;
 
+      final suggestionsBefore = await SuggestionService.count();
       final created = await _scanSince(checkFrom, queryCount: 200);
+      final newSuggestions = await SuggestionService.count() - suggestionsBefore;
 
       await prefs.setInt(highWaterMarkKey, now.millisecondsSinceEpoch);
+
+      if (newSuggestions > 0) {
+        await NotificationService.showSuggestionNotification(newSuggestions);
+      }
 
       if (created.length == 1) {
         await NotificationService.showAutoRecordedNotification(created.first);
@@ -123,8 +131,9 @@ class BackgroundScanService {
     required int queryCount,
   }) async {
     // WorkManager runs this in its own isolate, so the parser's cached own
-    // number has to be (re)loaded here before any BK eKash SMS is parsed.
-    await SmsParserService.loadOwnNumber();
+    // number and the detection rules have to be (re)loaded here before any
+    // SMS is parsed.
+    await SmsParserService.loadSettings();
 
     final messages = await _query.querySms(
       kinds: [SmsQueryKind.inbox],
@@ -135,8 +144,7 @@ class BackgroundScanService {
         .where((msg) =>
             msg.date != null &&
             msg.date!.isAfter(checkFrom) &&
-            (SmsParserService.isFromMobileMoney(msg.sender ?? '') ||
-                SmsParserService.isFromBank(msg.sender ?? '')))
+            SmsParserService.isKnownFinancialSender(msg.sender ?? ''))
         .toList()
       ..sort((a, b) => a.date!.compareTo(b.date!)); // oldest first
 
@@ -145,6 +153,11 @@ class BackgroundScanService {
 
     for (final msg in candidates) {
       final body = msg.body ?? '';
+      final sender = msg.sender ?? '';
+
+      // An explicit ignore rule is the user telling us this sender's
+      // messages are never transactions.
+      if (SmsParserService.isIgnoredByRule(body, sender: sender)) continue;
 
       // Bank→MoMo pull: not spending, but BK charges a flat fee per
       // transaction — record a fee-only entry (amount 0, fee 20 RWF).
@@ -160,9 +173,35 @@ class BackgroundScanService {
         continue;
       }
 
+      // A user-taught rule (their own bank, a fintech the built-in pack has
+      // never heard of) owns the message outright. A rule still awaiting
+      // confirmation doesn't write to the ledger: its match is queued for
+      // the user to approve instead.
+      final byRule =
+          SmsParserService.detectRuleTransaction(body, sender: sender);
+      if (byRule != null) {
+        if (_alreadyRecorded(allRecords, created, byRule, msg.date!)) continue;
+        if (byRule['needsConfirmation'] == true) {
+          await SuggestionService.add(TransactionSuggestion(
+            id: '${msg.date!.millisecondsSinceEpoch}-${byRule['ruleId']}',
+            ruleId: byRule['ruleId'] as String? ?? '',
+            ruleLabel: _ruleLabel(byRule['ruleId'] as String?),
+            sender: sender,
+            smsBody: body,
+            smsDate: msg.date!,
+            parsed: byRule,
+          ));
+          continue;
+        }
+        final record = _buildRecord(byRule, msg.date!);
+        await UssdRecordService.saveUssdRecord(record);
+        created.add(record);
+        continue;
+      }
+
       // Bank-sender SMS (BKeBANK) are only ever pull confirmations here;
       // never feed them into the MoMo debit-receipt pipeline below.
-      if (SmsParserService.isFromBank(msg.sender ?? '')) continue;
+      if (SmsParserService.isFromBank(sender)) continue;
 
       if (_looksLikeIncomingMoney(body)) continue;
 
@@ -226,31 +265,16 @@ class BackgroundScanService {
     return existing.any(matches) || created.any(matches);
   }
 
+  /// Record shape lives in SuggestionService so an approved suggestion and an
+  /// auto-recorded scan produce byte-identical records.
   static UssdRecord _buildRecord(
-      Map<String, dynamic> parsed, DateTime smsDate) {
-    final recipient = (parsed['recipient'] as String?) ??
-        (parsed['merchantName'] as String?) ??
-        'Unknown';
-    final isPhone =
-        RegExp(r'^(\+?250)?0?7[2389]\d{7}$').hasMatch(recipient.trim());
-    final fee = parsed['fee'] as double?;
+          Map<String, dynamic> parsed, DateTime smsDate) =>
+      SuggestionService.buildRecord(parsed, smsDate);
 
-    return UssdRecord(
-      id: '${smsDate.millisecondsSinceEpoch}-auto',
-      ussdCode: 'AUTO-DETECTED-${smsDate.millisecondsSinceEpoch}',
-      recipient: recipient,
-      recipientType: isPhone ? 'phone' : 'misc',
-      amount: parsed['amount'] as double,
-      timestamp: smsDate,
-      fee: fee,
-      applyFee: fee != null,
-      status: TransactionStatus.success,
-      confirmationCode: parsed['confirmationCode'] as String?,
-      smsRawText: parsed['rawText'] as String?,
-      statusUpdatedAt: DateTime.now(),
-      serviceKey: parsed['serviceKey'] as String?,
-      extraDetails: parsed['extraDetails'] as String?,
-      autoDetected: true,
-    );
+  static String _ruleLabel(String? ruleId) {
+    if (ruleId == null) return '';
+    final match =
+        SmsRuleService.allRules().where((r) => r.id == ruleId).toList();
+    return match.isEmpty ? ruleId : match.first.label;
   }
 }
